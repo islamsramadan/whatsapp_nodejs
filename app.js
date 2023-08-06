@@ -80,7 +80,6 @@ app.post('/webhook', (req, res) => {
       axios
         .request({
           method: 'post',
-          maxBodyLength: Infinity,
           url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
           headers: {
             'Content-Type': 'application/json',
@@ -93,12 +92,12 @@ app.post('/webhook', (req, res) => {
             type: 'text',
             text: {
               preview_url: false,
-              body: "hello it's me",
+              body: "hello it's me and this is your message" + msgBody,
             },
           }),
         })
         .then((response) => {
-          console.log(JSON.stringify(response.data));
+          console.log('Response ==============', JSON.stringify(response.data));
         })
         .catch((error) => {
           console.log(error);
