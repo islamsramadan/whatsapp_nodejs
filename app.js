@@ -91,9 +91,9 @@ app.post('/webhook', (req, res) => {
             },
           },
           {
-            Headers: {
+            headers: {
+              Authorization: `Bearer ${whatsappToken}`,
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
             },
           }
         )
