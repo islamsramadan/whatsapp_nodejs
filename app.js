@@ -82,7 +82,9 @@ app.post('/webhook', (req, res) => {
         {
           messaging_product: 'whatsapp',
           to: from,
+          type: 'text',
           text: {
+            preview_url: false,
             body: "hello it's me",
           },
         },
