@@ -1,10 +1,11 @@
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
-const axios = require('axios');
 
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
+
+const webhookRouter = require('./routes/webhookRoutes');
 const userRouter = require('./routes/userRoutes');
 const answerRouter = require('./routes/answerRoutes');
 const answersSetRouter = require('./routes/answersSetRoutes');
@@ -36,79 +37,7 @@ app.use((req, res, next) => {
 
 // *********************** 2) Routes ***************************
 
-//to verify the callback url from the dashboard side - cloud api side
-app.get('/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const challenge = req.query['hub.challenge'];
-  const token = req.query['hub.verify_token'];
-
-  const myToken = 'islamlaam';
-
-  console.log('mode', mode);
-  console.log('token', token);
-
-  if (mode && token) {
-    if (mode === 'subscribe' && token === myToken) {
-      res.status(200).send(challenge);
-    } else {
-      res.status(403);
-    }
-  }
-});
-
-app.post('/webhook', (req, res) => {
-  console.log(JSON.stringify(req.body, null, 2));
-
-  if (req.body.object) {
-    console.log('inside body param');
-
-    if (
-      req.body.entry &&
-      req.body.entry[0].changes &&
-      req.body.entry[0].changes[0].value.messages &&
-      req.body.entry[0].changes[0].value.messages[0]
-    ) {
-      const phoneNumberID =
-        req.body.entry[0].changes[0].value.metadata.phone_number_id;
-      const from = req.body.entry[0].changes[0].value.messages[0].from;
-      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
-
-      console.log('phoneNumberID', phoneNumberID);
-      console.log('from', from);
-      console.log('msgBody', msgBody);
-
-      axios({
-        method: 'post',
-        url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        },
-        data: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: from,
-          type: 'text',
-          text: {
-            preview_url: false,
-            body: "hello it's me and this is your message: " + msgBody,
-          },
-        }),
-      })
-        .then((response) => {
-          console.log('Response ==============', JSON.stringify(response.data));
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-
-      res.sendStatus(200);
-    } else {
-      res.sendStatus(404);
-    }
-  }
-});
-
+app.use('/webhook', webhookRouter);
 app.use('/api/users', userRouter);
 app.use('/api/answers', answerRouter);
 app.use('/api/answers-sets', answersSetRouter);
