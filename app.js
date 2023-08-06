@@ -57,19 +57,25 @@ app.get('/webhook', (req, res) => {
 });
 
 app.post('/webhook', (req, res) => {
-  console.log(JSON.stringify(req.body));
+  console.log(JSON.stringify(req.body, null, 2));
 
   if (req.body.object) {
+    console.log('inside body param');
+
     if (
-      req.body.entery &&
-      req.body.entery[0].changes &&
-      req.body.entery[0].changes[0].value.messages &&
-      req.body.entery[0].changes[0].value.messages[0]
+      req.body.entry &&
+      req.body.entry[0].changes &&
+      req.body.entry[0].changes[0].value.messages &&
+      req.body.entry[0].changes[0].value.messages[0]
     ) {
       const phoneNumberID =
-        req.body.entery[0].changes[0].value.metadata.phone_number_id;
-      const from = req.body.entery[0].changes[0].value.messages[0].from;
-      const msgBody = req.body.entery[0].changes[0].value.messages[0].text.body;
+        req.body.entry[0].changes[0].value.metadata.phone_number_id;
+      const from = req.body.entry[0].changes[0].value.messages[0].from;
+      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
+
+      console.log('phoneNumberID', phoneNumberID);
+      console.log('from', from);
+      console.log('msgBody', msgBody);
 
       axios.post(
         `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
