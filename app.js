@@ -77,31 +77,30 @@ app.post('/webhook', (req, res) => {
       console.log('from', from);
       console.log('msgBody', msgBody);
 
-      axios
-        .request({
-          method: 'post',
-          url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          },
-          data: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: from,
-            type: 'text',
-            text: {
-              preview_url: false,
-              body: "hello it's me and this is your message" + msgBody,
-            },
-          }),
-        })
-        .then((response) => {
-          console.log('Response ==============', JSON.stringify(response.data));
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+      // axios({
+      //   method: 'post',
+      //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      //   },
+      //   data: JSON.stringify({
+      //     messaging_product: 'whatsapp',
+      //     recipient_type: 'individual',
+      //     to: from,
+      //     type: 'text',
+      //     text: {
+      //       preview_url: false,
+      //       body: "hello it's me and this is your message: " + msgBody,
+      //     },
+      //   }),
+      // })
+      //   .then((response) => {
+      //     console.log('Response ==============', JSON.stringify(response.data));
+      //   })
+      //   .catch((error) => {
+      //     console.log(error);
+      //   });
 
       res.status(200);
     } else {
