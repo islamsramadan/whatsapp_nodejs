@@ -78,9 +78,15 @@ app.post('/webhook', (req, res) => {
       console.log('msgBody', msgBody);
 
       axios
-        .post(
-          `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-          {
+        .request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify({
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             to: from,
@@ -89,16 +95,14 @@ app.post('/webhook', (req, res) => {
               preview_url: false,
               body: "hello it's me",
             },
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${whatsappToken}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-        .then((response) => console.log('response', response))
-        .catch((error) => console.log('error', error));
+          }),
+        })
+        .then((response) => {
+          console.log(JSON.stringify(response.data));
+        })
+        .catch((error) => {
+          console.log(error);
+        });
 
       res.status(200);
     } else {
