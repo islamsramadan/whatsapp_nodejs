@@ -102,9 +102,9 @@ app.post('/webhook', (req, res) => {
       //     console.log(error);
       //   });
 
-      res.status(200);
+      res.status(200).end;
     } else {
-      res.status(404);
+      res.status(404).end;
     }
   }
 });
