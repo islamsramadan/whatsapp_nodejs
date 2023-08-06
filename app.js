@@ -44,6 +44,9 @@ app.get('/webhook', (req, res) => {
 
   const myToken = 'islamlaam';
 
+  console.log('mode', mode);
+  console.log('token', token);
+
   if (mode && token) {
     if (mode === 'subscribe' && token === myToken) {
       res.status(200).send(challenge);
