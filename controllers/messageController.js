@@ -1,4 +1,4 @@
-const { default: axios } = require('axios');
+const axios = require('axios');
 const multer = require('multer');
 
 const Message = require('../models/messageModel');
@@ -20,11 +20,12 @@ const multerStorage = multer.diskStorage({
 });
 
 const multerFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image')) {
-    cb(null, true);
-  } else {
-    cb(new AppError('Not an image! Please upload only images.', 400), false);
-  }
+  // if (file.mimetype.startsWith('image')) {
+  //   cb(null, true);
+  // } else {
+  //   cb(new AppError('Not an image! Please upload only images.', 400), false);
+  // }
+  cb(null, true);
 };
 
 const upload = multer({
@@ -46,10 +47,11 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.createMessage = catchAsync(async (req, res, next) => {
+exports.sendMessage = catchAsync(async (req, res, next) => {
   console.log('req.body', req.body);
   console.log('req.file', req.file);
 
+  // selecting chat that the message belongs to
   const chat = await Chat.findById(req.params.chatID);
   let newChat;
   if (!chat) {
@@ -66,6 +68,8 @@ exports.createMessage = catchAsync(async (req, res, next) => {
   const newMessageObj = {
     user: req.user.id,
     chat: selectedChat.id,
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    to: selectedChat.client,
     type: req.body.type,
   };
 
@@ -104,7 +108,7 @@ exports.createMessage = catchAsync(async (req, res, next) => {
       },
     };
 
-    newMessageObj.body = 'hello_world';
+    newMessageObj.text = 'hello_world';
   }
 
   // Text Message
@@ -115,34 +119,47 @@ exports.createMessage = catchAsync(async (req, res, next) => {
       body: req.body.text,
     };
 
-    newMessageObj.body = req.body.text;
+    newMessageObj.text = req.body.text;
   }
 
   // Image Message
   if (req.body.type === 'image') {
-    const ext = req.file.mimetype.split('/')[1];
-    const imageURL = `user-${req.user.id}-${Date.now()}.${ext}`;
-
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `http://127.0.0.1:8080/img/messages/${imageURL}`,
+      link: `https://aad7-41-235-173-102.ngrok-free.app/img/messages/${req.file.filename}`,
     };
 
-    newMessageObj.body = imageURL;
+    newMessageObj.image = req.file.filename;
   }
 
-  const newMessage = await Message.create(newMessageObj);
+  // Document Message
+  if (req.body.type === 'document') {
+    whatsappPayload.recipient_type = 'individual';
+    whatsappPayload.document = {
+      link: `https://aad7-41-235-173-102.ngrok-free.app/img/messages/${req.file.filename}`,
+    };
 
-  const response = await axios.post(
-    `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-    whatsappPayload,
-    {
-      headers: {
-        Authorization: `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+    newMessageObj.document = req.file.filename;
+  }
+
+  // console.log('whatsappPayload', whatsappPayload);
+
+  const response = await axios.request({
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    },
+    data: JSON.stringify(whatsappPayload),
+  });
+
+  // console.log('response.data----------------', JSON.stringify(response.data));
+  const newMessage = await Message.create({
+    ...newMessageObj,
+    whatsappID: response.data.messages[0].id,
+  });
 
   res.status(201).json({
     status: 'success',

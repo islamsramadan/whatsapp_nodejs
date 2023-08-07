@@ -4,17 +4,8 @@ const chatSchema = new mongoose.Schema({
   client: {
     type: String,
     required: [true, 'Chat must have a client!'],
-    // minLength: [10, 'Client Id should have minimum 10 digits'],
-    // maxLength: [10, 'Client Id should have maximum 10 digits'],
-    // match: [/\d{10}/, 'Client Id should only have digits'],
+    match: [/\d{10,}/, 'Invalid client whatsapp number!'],
   },
-
-  //   messages: [
-  //     {
-  //       type: mongoose.Schema.ObjectId,
-  //       ref: 'Message',
-  //     },
-  //   ],
 
   users: [
     {

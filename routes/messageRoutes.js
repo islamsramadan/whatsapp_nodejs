@@ -11,7 +11,7 @@ router
   .post(
     authController.protect,
     messageController.uploadMessageImage,
-    messageController.createMessage
+    messageController.sendMessage
   );
 
 module.exports = router;
