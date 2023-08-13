@@ -126,7 +126,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'image') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `https://aad7-41-235-173-102.ngrok-free.app/img/messages/${req.file.filename}`,
+      link: `https://774e-41-235-159-16.ngrok-free.app/img/messages/${req.file.filename}`,
     };
 
     newMessageObj.image = req.file.filename;
@@ -136,7 +136,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `https://aad7-41-235-173-102.ngrok-free.app/img/messages/${req.file.filename}`,
+      link: `https://774e-41-235-159-16.ngrok-free.app/img/messages/${req.file.filename}`,
     };
 
     newMessageObj.document = req.file.filename;

@@ -1,6 +1,9 @@
+const download = require('image-downloader');
+const fs = require('fs');
+const axios = require('axios');
+
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
-const axios = require('axios');
 const catchAsync = require('../utils/catchAsync');
 
 //to verify the callback url from the dashboard side - cloud api side
@@ -19,7 +22,7 @@ exports.verifyWebhook = (req, res) => {
 };
 
 exports.listenToWebhook = catchAsync(async (req, res) => {
-  console.log(JSON.stringify(req.body, null, 2));
+  // console.log(JSON.stringify(req.body, null, 2));
 
   if (req.body.object) {
     console.log('inside body param');
@@ -35,14 +38,14 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       const from = req.body.entry[0].changes[0].value.messages[0].from;
       const msgType = req.body.entry[0].changes[0].value.messages[0].type;
       const msgID = req.body.entry[0].changes[0].value.messages[0].id;
-      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
 
       // console.log('phoneNumberID', phoneNumberID);
       // console.log('from', from);
       // console.log('msgType', msgType);
-      // console.log('msgBody', msgBody);
+      // console.log('msgID', msgID);
 
       const chat = await Chat.findOne({ client: from });
+      console.log('chat', chat);
       // if (!chat) {
       //   const newChat = await Chat.create({
       //     client: req.body.client,
@@ -61,10 +64,72 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       };
 
       if (msgType === 'text') {
+        const msgBody =
+          req.body.entry[0].changes[0].value.messages[0].text.body;
         newMessageData.text = msgBody;
       }
 
-      // const newMessage = await Message.create(newMessageData);
+      if (msgType === 'image') {
+        const msgMediaID =
+          req.body.entry[0].changes[0].value.messages[0].image.id;
+        const msgMediaExt =
+          req.body.entry[0].changes[0].value.messages[0].image.mime_type?.split(
+            '/'
+          )[1];
+
+        axios
+          .request({
+            method: 'get',
+            url: `https://graph.facebook.com/v17.0/${msgMediaID}`,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            },
+          })
+          .then((response) => {
+            console.log(
+              'Response ==============',
+              JSON.stringify(response.data),
+              response.data.url
+            );
+            imageURL = response.data.url;
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+
+        const fileName = `client-${from}-${Date.now()}.${msgMediaExt}`;
+        newMessageData.image = fileName;
+
+        if (imageURL) {
+          axios
+            .request({
+              method: 'get',
+              url: imageURL,
+              responseType: 'arraybuffer',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+              },
+            })
+            .then((imageResponse) => {
+              fs.writeFile(
+                `${__dirname}/../public/img/messages/${fileName}`,
+                imageResponse.data,
+                (err) => {
+                  if (err) throw err;
+                  console.log('Image downloaded successfully!');
+                }
+              );
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        }
+      }
+
+      console.log('newMessageData', newMessageData);
+      const newMessage = await Message.create(newMessageData);
 
       // axios({
       //   method: 'post',
@@ -91,9 +156,7 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       //     console.log(error);
       //   });
 
-      console.log('req.body', JSON.stringify(req.body, null, 2));
-      // console.log('newMessage', newMessage);
-      res.sendStatus(200);
+      res.status(200).json({ newMessage });
     } else {
       res.sendStatus(404);
     }
