@@ -74,6 +74,16 @@ const messageSchema = new mongoose.Schema({
       }
     },
   },
+  // document: {
+  //   type: String,
+  //   required: function () {
+  //     if (this.type === 'document') {
+  //       return [true, 'Document message must have a document!'];
+  //     } else {
+  //       return false;
+  //     }
+  //   },
+  // },
 
   sent: {
     type: Date,

@@ -11,10 +11,16 @@ const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/img/messages');
+    cb(
+      null,
+      file.mimetype.split('/')[0] === 'image' ? 'public/img' : 'public/docs'
+    );
   },
   filename: (req, file, cb) => {
-    const ext = file.mimetype.split('/')[1];
+    const ext =
+      file.mimetype.split('/')[0] === 'image'
+        ? file.mimetype.split('/')[1]
+        : file.originalname.split('.')[1];
     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
   },
 });
@@ -126,7 +132,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'image') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `https://774e-41-235-159-16.ngrok-free.app/img/messages/${req.file.filename}`,
+      link: `https://774e-41-235-159-16.ngrok-free.app/img/${req.file.filename}`,
     };
 
     newMessageObj.image = req.file.filename;
@@ -136,7 +142,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `https://774e-41-235-159-16.ngrok-free.app/img/messages/${req.file.filename}`,
+      link: `https://774e-41-235-159-16.ngrok-free.app/docs/${req.file.filename}`,
     };
 
     newMessageObj.document = req.file.filename;

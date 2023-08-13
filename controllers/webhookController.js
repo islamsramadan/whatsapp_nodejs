@@ -70,65 +70,13 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       }
 
       if (msgType === 'image') {
-        const msgMediaID =
-          req.body.entry[0].changes[0].value.messages[0].image.id;
-        const msgMediaExt =
-          req.body.entry[0].changes[0].value.messages[0].image.mime_type?.split(
-            '/'
-          )[1];
-
-        axios
-          .request({
-            method: 'get',
-            url: `https://graph.facebook.com/v17.0/${msgMediaID}`,
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            },
-          })
-          .then((response) => {
-            console.log(
-              'Response ==============',
-              JSON.stringify(response.data),
-              response.data.url
-            );
-            imageURL = response.data.url;
-          })
-          .catch((error) => {
-            console.log(error);
-          });
-
-        const fileName = `client-${from}-${Date.now()}.${msgMediaExt}`;
-        newMessageData.image = fileName;
-
-        if (imageURL) {
-          axios
-            .request({
-              method: 'get',
-              url: imageURL,
-              responseType: 'arraybuffer',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-              },
-            })
-            .then((imageResponse) => {
-              fs.writeFile(
-                `${__dirname}/../public/img/messages/${fileName}`,
-                imageResponse.data,
-                (err) => {
-                  if (err) throw err;
-                  console.log('Image downloaded successfully!');
-                }
-              );
-            })
-            .catch((error) => {
-              console.log(error);
-            });
-        }
+        mediaHandler(req, newMessageData);
       }
 
-      console.log('newMessageData', newMessageData);
+      if (msgType === 'document') {
+        mediaHandler(req, newMessageData);
+      }
+
       const newMessage = await Message.create(newMessageData);
 
       // axios({
@@ -162,3 +110,69 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
     }
   }
 });
+
+const mediaHandler = (req, newMessageData) => {
+  const from = req.body.entry[0].changes[0].value.messages[0].from;
+  const msgType = req.body.entry[0].changes[0].value.messages[0].type;
+  const msgMediaID =
+    msgType === 'image'
+      ? req.body.entry[0].changes[0].value.messages[0].image.id
+      : req.body.entry[0].changes[0].value.messages[0].document.id;
+
+  const msgMediaExt =
+    msgType === 'image'
+      ? req.body.entry[0].changes[0].value.messages[0].image.mime_type?.split(
+          '/'
+        )[1]
+      : req.body.entry[0].changes[0].value.messages[0].document.filename?.split(
+          '.'
+        )[1];
+
+  const fileName = `client-${from}-${Date.now()}.${msgMediaExt}`;
+  if (msgType === 'image') {
+    newMessageData.image = fileName;
+  } else {
+    newMessageData.document = fileName;
+  }
+
+  axios
+    .request({
+      method: 'get',
+      url: `https://graph.facebook.com/v17.0/${msgMediaID}`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+    })
+    .then((response) => {
+      axios
+        .request({
+          method: 'get',
+          url: response.data.url,
+          responseType: 'arraybuffer',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+        })
+        .then((imageResponse) => {
+          fs.writeFile(
+            `${__dirname}/../public/${
+              msgType === 'image' ? 'img' : 'docs'
+            }/${fileName}`,
+            imageResponse.data,
+            (err) => {
+              if (err) throw err;
+              console.log(
+                `${
+                  msgType === 'image' ? 'Image' : 'Document'
+                } downloaded successfully!`
+              );
+            }
+          );
+        });
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+};
