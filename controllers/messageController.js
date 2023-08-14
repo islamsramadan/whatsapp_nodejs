@@ -8,6 +8,7 @@ const catchAsync = require('../utils/catchAsync');
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
 const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
+const ngrokLink = process.env.NGROK_LINK;
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -39,7 +40,7 @@ const upload = multer({
   fileFilter: multerFilter,
 });
 
-exports.uploadMessageImage = upload.single('image');
+exports.uploadMessageImage = upload.single('file');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const messages = await Message.find();
@@ -85,26 +86,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     type: req.body.type,
   };
 
-  // const formData = new FormData();
-  // formData.append('messaging_product', 'whatsapp');
-  // formData.append('file', JSON.stringify(req.file));
-  // const formData = {
-  //   messaging_product: 'whatsapp',
-  //   file: req.file,
-  // };
-  // console.log('formData', formData);
-  // const imageRes = await axios.post(
-  //   `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-  //   formData,
-  //   {
-  //     headers: {
-  //       Authorization: `Bearer ${whatsappToken}`,
-  //       'Content-Type': 'application/json',
-  //     },
-  //   }
-  // );
-  // console.log('imageRes', imageRes);
-
   // Template Message
   if (req.body.type === 'template') {
     whatsappPayload.template = {
@@ -132,20 +113,30 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'image') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `https://774e-41-235-159-16.ngrok-free.app/img/${req.file.filename}`,
+      link: `${ngrokLink}/img/${req.file.filename}`,
+      caption: req.body.caption,
     };
 
-    newMessageObj.image = req.file.filename;
+    newMessageObj.image = {
+      file: req.file.filename,
+      caption: req.body.caption,
+    };
   }
 
   // Document Message
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `https://774e-41-235-159-16.ngrok-free.app/docs/${req.file.filename}`,
+      link: `${ngrokLink}/docs/${req.file.filename}`,
+      filename: req.file.originalname,
+      caption: req.body.caption,
     };
 
-    newMessageObj.document = req.file.filename;
+    newMessageObj.document = {
+      file: req.file.filename,
+      filename: req.file.originalname,
+      caption: req.body.caption,
+    };
   }
 
   // console.log('whatsappPayload', whatsappPayload);

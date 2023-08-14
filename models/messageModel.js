@@ -54,24 +54,44 @@ const messageSchema = new mongoose.Schema({
   },
 
   image: {
-    type: String,
-    required: function () {
-      if (this.type === 'image') {
-        return [true, 'Image message must have an image!'];
-      } else {
-        return false;
-      }
+    file: {
+      type: String,
+      required: function () {
+        if (this.type === 'image') {
+          return [true, 'Image message must have an image!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    caption: {
+      type: String,
     },
   },
 
   document: {
-    type: String,
-    required: function () {
-      if (this.type === 'document') {
-        return [true, 'Document message must have a document!'];
-      } else {
-        return false;
-      }
+    file: {
+      type: String,
+      required: function () {
+        if (this.type === 'document') {
+          return [true, 'Document message must have a document!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    filename: {
+      type: String,
+      required: function () {
+        if (this.type === 'document') {
+          return [true, 'Document message must have a name!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    caption: {
+      type: String,
     },
   },
   // document: {

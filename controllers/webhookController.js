@@ -112,27 +112,43 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
 });
 
 const mediaHandler = (req, newMessageData) => {
-  const from = req.body.entry[0].changes[0].value.messages[0].from;
-  const msgType = req.body.entry[0].changes[0].value.messages[0].type;
+  const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
+
+  const msgType = selectedMessage.type;
+  const from = selectedMessage.from;
+
   const msgMediaID =
     msgType === 'image'
-      ? req.body.entry[0].changes[0].value.messages[0].image.id
-      : req.body.entry[0].changes[0].value.messages[0].document.id;
+      ? selectedMessage.image.id
+      : selectedMessage.document.id;
 
   const msgMediaExt =
     msgType === 'image'
-      ? req.body.entry[0].changes[0].value.messages[0].image.mime_type?.split(
-          '/'
-        )[1]
-      : req.body.entry[0].changes[0].value.messages[0].document.filename?.split(
-          '.'
-        )[1];
+      ? selectedMessage.image.mime_type?.split('/')[1]
+      : selectedMessage.document.filename?.split('.')[1];
+
+  const mediaFileName =
+    msgType === 'image' ? '' : selectedMessage.document.filename;
+
+  const mediaCaption =
+    msgType === 'image'
+      ? selectedMessage.image.caption
+      : selectedMessage.document.caption;
 
   const fileName = `client-${from}-${Date.now()}.${msgMediaExt}`;
+
   if (msgType === 'image') {
-    newMessageData.image = fileName;
+    // newMessageData.image = fileName;
+    newMessageData.image = {
+      file: fileName,
+      caption: mediaCaption,
+    };
   } else {
-    newMessageData.document = fileName;
+    newMessageData.document = {
+      file: fileName,
+      filename: mediaFileName,
+      caption: mediaCaption,
+    };
   }
 
   axios
