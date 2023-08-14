@@ -14,12 +14,17 @@ const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(
       null,
-      file.mimetype.split('/')[0] === 'image' ? 'public/img' : 'public/docs'
+      file.mimetype.split('/')[0] === 'image'
+        ? 'public/img'
+        : file.mimetype.split('/')[0] === 'video'
+        ? 'public/videos'
+        : 'public/docs'
     );
   },
   filename: (req, file, cb) => {
     const ext =
-      file.mimetype.split('/')[0] === 'image'
+      file.mimetype.split('/')[0] === 'image' ||
+      file.mimetype.split('/')[0] === 'video'
         ? file.mimetype.split('/')[1]
         : file.originalname.split('.')[1];
     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
@@ -86,6 +91,19 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     type: req.body.type,
   };
 
+  if (req.body.replyMessage) {
+    const replyMessage = await Message.findById(req.body.replyMessage);
+    if (!replyMessage) {
+      return next(new AppError('There is no message to reply!.', 404));
+    }
+
+    whatsappPayload.context = {
+      message_id: replyMessage.whatsappID,
+    };
+
+    newMessageObj.reply = req.body.replyMessage;
+  }
+
   // Template Message
   if (req.body.type === 'template') {
     whatsappPayload.template = {
@@ -118,6 +136,20 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     };
 
     newMessageObj.image = {
+      file: req.file.filename,
+      caption: req.body.caption,
+    };
+  }
+
+  // Video Message
+  if (req.body.type === 'video') {
+    whatsappPayload.recipient_type = 'individual';
+    whatsappPayload.video = {
+      link: `${ngrokLink}/videos/${req.file.filename}`,
+      caption: req.body.caption,
+    };
+
+    newMessageObj.video = {
       file: req.file.filename,
       caption: req.body.caption,
     };

@@ -32,15 +32,18 @@ const messageSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ['template', 'text', 'image', 'document'],
+    enum: [
+      'template',
+      'text',
+      'image',
+      'video',
+      'audio',
+      'document',
+      'location',
+      'sticker',
+    ],
     required: [true, 'Message must have a type!'],
   },
-
-  // template: [
-  //   {
-
-  //   }
-  // ],
 
   text: {
     type: String,
@@ -69,6 +72,45 @@ const messageSchema = new mongoose.Schema({
     },
   },
 
+  video: {
+    file: {
+      type: String,
+      required: function () {
+        if (this.type === 'video') {
+          return [true, 'Video message must have a video!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    caption: {
+      type: String,
+    },
+  },
+
+  audio: {
+    file: {
+      type: String,
+      required: function () {
+        if (this.type === 'audio') {
+          return [true, 'Audio message must have an audio!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    voice: {
+      type: Boolean,
+      required: function () {
+        if (this.type === 'audio') {
+          return [true, 'Audio message must have a boolean value for voice!'];
+        } else {
+          return false;
+        }
+      },
+    },
+  },
+
   document: {
     file: {
       type: String,
@@ -94,16 +136,98 @@ const messageSchema = new mongoose.Schema({
       type: String,
     },
   },
-  // document: {
-  //   type: String,
-  //   required: function () {
-  //     if (this.type === 'document') {
-  //       return [true, 'Document message must have a document!'];
-  //     } else {
-  //       return false;
-  //     }
-  //   },
-  // },
+
+  location: {
+    address: {
+      type: String,
+      required: function () {
+        if (this.type === 'location') {
+          return [true, 'Location message must have an address!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    latitude: {
+      type: Number,
+      required: function () {
+        if (this.type === 'location') {
+          return [true, 'Location message must have a latitude!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    longitude: {
+      type: Number,
+      required: function () {
+        if (this.type === 'location') {
+          return [true, 'Location message must have a longitude!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    name: {
+      type: String,
+      required: function () {
+        if (this.type === 'location') {
+          return [true, 'Location message must have a name!'];
+        } else {
+          return false;
+        }
+      },
+    },
+  },
+
+  sticker: {
+    file: {
+      type: String,
+      required: function () {
+        if (this.type === 'sticker') {
+          return [true, 'Sticker message must have a sticker!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    animated: {
+      type: Boolean,
+      required: function () {
+        if (this.type === 'sticker') {
+          return [
+            true,
+            'Sticker message must have a boolean value for animation!',
+          ];
+        } else {
+          return false;
+        }
+      },
+    },
+  },
+
+  contacts: [
+    {
+      phones: [
+        {
+          phone: String,
+          type: String,
+        },
+      ],
+      emails: [
+        {
+          type: String,
+          email: String,
+        },
+      ],
+      name: String,
+    },
+  ],
+
+  reply: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Message',
+  },
 
   sent: {
     type: Date,

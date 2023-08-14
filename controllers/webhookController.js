@@ -32,6 +32,8 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       req.body.entry[0].changes[0].value.messages &&
       req.body.entry[0].changes[0].value.messages[0]
     ) {
+      const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
+
       const phoneNumberID =
         req.body.entry[0].changes[0].value.metadata.phone_number_id;
       const from = req.body.entry[0].changes[0].value.messages[0].from;
@@ -62,20 +64,47 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
         whatsappID: msgID,
       };
 
+      if (selectedMessage.context) {
+        const replyMessage = await Message.findOne({
+          whatsappID: selectedMessage.context.id,
+        });
+
+        newMessageData.reply = replyMessage.id;
+      }
+
+      // console.log('newMessageData', newMessageData);
+
       if (msgType === 'text') {
         const msgBody =
           req.body.entry[0].changes[0].value.messages[0].text.body;
         newMessageData.text = msgBody;
       }
 
-      if (msgType === 'image' || msgType === 'document') {
-        mediaHandler(req, newMessageData);
+      if (msgType === 'location') {
+        const address = selectedMessage.location.address;
+        const latitude = selectedMessage.location.latitude;
+        const longitude = selectedMessage.location.longitude;
+        const name = selectedMessage.location.name;
+
+        newMessageData.location = {
+          address,
+          latitude,
+          longitude,
+          name,
+        };
       }
 
-      // if (msgType === 'document') {
-      //   mediaHandler(req, newMessageData);
-      // }
+      if (
+        msgType === 'image' ||
+        msgType === 'video' ||
+        msgType === 'audio' ||
+        msgType === 'sticker' ||
+        msgType === 'document'
+      ) {
+        await mediaHandler(req, newMessageData);
+      }
 
+      // console.log('newMessageData', newMessageData);
       const newMessage = await Message.create(newMessageData);
 
       // axios({
@@ -110,7 +139,7 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
   }
 });
 
-const mediaHandler = (req, newMessageData) => {
+const mediaHandler = async (req, newMessageData) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
 
   const msgType = selectedMessage.type;
@@ -119,28 +148,60 @@ const mediaHandler = (req, newMessageData) => {
   const msgMediaID =
     msgType === 'image'
       ? selectedMessage.image.id
+      : msgType === 'video'
+      ? selectedMessage.video.id
+      : msgType === 'audio'
+      ? selectedMessage.audio.id
+      : msgType === 'sticker'
+      ? selectedMessage.sticker.id
       : selectedMessage.document.id;
 
   const msgMediaExt =
     msgType === 'image'
       ? selectedMessage.image.mime_type?.split('/')[1]
+      : msgType === 'video'
+      ? selectedMessage.video.mime_type?.split('/')[1]
+      : msgType === 'audio'
+      ? selectedMessage.audio.mime_type?.split(';')[0].split('/')[1]
+      : msgType === 'sticker'
+      ? selectedMessage.sticker.mime_type?.split('/')[1]
       : selectedMessage.document.filename?.split('.')[1];
 
   const mediaFileName =
-    msgType === 'image' ? '' : selectedMessage.document.filename;
+    msgType === 'document' ? selectedMessage.document.filename : '';
 
   const mediaCaption =
     msgType === 'image'
       ? selectedMessage.image.caption
+      : msgType === 'video'
+      ? selectedMessage.video.caption
+      : msgType === 'audio'
+      ? selectedMessage.audio.caption
+      : msgType === 'sticker'
+      ? selectedMessage.sticker.caption
       : selectedMessage.document.caption;
 
   const fileName = `client-${from}-${Date.now()}.${msgMediaExt}`;
 
   if (msgType === 'image') {
-    // newMessageData.image = fileName;
     newMessageData.image = {
       file: fileName,
       caption: mediaCaption,
+    };
+  } else if (msgType === 'video') {
+    newMessageData.video = {
+      file: fileName,
+      caption: mediaCaption,
+    };
+  } else if (msgType === 'audio') {
+    newMessageData.audio = {
+      file: fileName,
+      voice: selectedMessage.audio.voice,
+    };
+  } else if (msgType === 'sticker') {
+    newMessageData.sticker = {
+      file: fileName,
+      animated: selectedMessage.sticker.animated,
     };
   } else {
     newMessageData.document = {
@@ -173,16 +234,20 @@ const mediaHandler = (req, newMessageData) => {
         .then((imageResponse) => {
           fs.writeFile(
             `${__dirname}/../public/${
-              msgType === 'image' ? 'img' : 'docs'
+              msgType === 'image'
+                ? 'img'
+                : msgType === 'video'
+                ? 'videos'
+                : msgType === 'audio'
+                ? 'audios'
+                : msgType === 'sticker'
+                ? 'stickers'
+                : 'docs'
             }/${fileName}`,
             imageResponse.data,
             (err) => {
               if (err) throw err;
-              console.log(
-                `${
-                  msgType === 'image' ? 'Image' : 'Document'
-                } downloaded successfully!`
-              );
+              console.log(`${msgType} downloaded successfully!`);
             }
           );
         });
