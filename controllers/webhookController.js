@@ -1,4 +1,3 @@
-const download = require('image-downloader');
 const fs = require('fs');
 const axios = require('axios');
 
@@ -69,13 +68,13 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
         newMessageData.text = msgBody;
       }
 
-      if (msgType === 'image') {
+      if (msgType === 'image' || msgType === 'document') {
         mediaHandler(req, newMessageData);
       }
 
-      if (msgType === 'document') {
-        mediaHandler(req, newMessageData);
-      }
+      // if (msgType === 'document') {
+      //   mediaHandler(req, newMessageData);
+      // }
 
       const newMessage = await Message.create(newMessageData);
 
