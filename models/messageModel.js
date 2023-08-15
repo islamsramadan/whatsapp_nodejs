@@ -35,6 +35,7 @@ const messageSchema = new mongoose.Schema({
     enum: [
       'template',
       'text',
+      'reaction',
       'image',
       'video',
       'audio',
@@ -53,6 +54,30 @@ const messageSchema = new mongoose.Schema({
       } else {
         return false;
       }
+    },
+  },
+
+  reaction: {
+    emoji: {
+      type: String,
+      required: function () {
+        if (this.type === 'reaction') {
+          return [true, 'Reaction message must have a reaction!'];
+        } else {
+          return false;
+        }
+      },
+    },
+    reactedMessage: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Message',
+      required: function () {
+        if (this.type === 'reaction') {
+          return [true, 'Reaction message must have a reacted message!'];
+        } else {
+          return false;
+        }
+      },
     },
   },
 
@@ -229,17 +254,22 @@ const messageSchema = new mongoose.Schema({
     ref: 'Message',
   },
 
+  status: {
+    type: String,
+    enum: ['pending', 'sent', 'delivered', 'seen', 'failed'],
+    default: 'pending',
+  },
+
   sent: {
-    type: Date,
-    default: Date.now(),
+    type: String,
   },
 
   delivered: {
-    type: Date,
+    type: String,
   },
 
   seen: {
-    type: Date,
+    type: String,
   },
 });
 

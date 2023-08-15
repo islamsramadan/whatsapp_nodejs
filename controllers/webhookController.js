@@ -5,6 +5,19 @@ const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 
+const convertDate = (timestamp) => {
+  const date = new Date(timestamp * 1000);
+  const dateFormat =
+    date.getHours() +
+    ':' +
+    date.getMinutes() +
+    ':' +
+    date.getSeconds() +
+    ', ' +
+    date.toDateString();
+  return dateFormat;
+};
+
 //to verify the callback url from the dashboard side - cloud api side
 exports.verifyWebhook = (req, res) => {
   const mode = req.query['hub.mode'];
@@ -32,107 +45,14 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       req.body.entry[0].changes[0].value.messages &&
       req.body.entry[0].changes[0].value.messages[0]
     ) {
-      const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
-
-      const phoneNumberID =
-        req.body.entry[0].changes[0].value.metadata.phone_number_id;
-      const from = req.body.entry[0].changes[0].value.messages[0].from;
-      const msgType = req.body.entry[0].changes[0].value.messages[0].type;
-      const msgID = req.body.entry[0].changes[0].value.messages[0].id;
-
-      // console.log('phoneNumberID', phoneNumberID);
-      // console.log('from', from);
-      // console.log('msgType', msgType);
-      // console.log('msgID', msgID);
-
-      const chat = await Chat.findOne({ client: from });
-      console.log('chat', chat);
-      // if (!chat) {
-      //   const newChat = await Chat.create({
-      //     client: req.body.client,
-      //     activeUser: req.user.id,
-      //     users: [req.user.id],
-      //   });
-      // }
-
-      const newMessageData = {
-        user: chat.activeUser,
-        chat: chat.id,
-        to: process.env.WHATSAPP_PHONE_NUMBER,
-        from: chat.client,
-        type: msgType,
-        whatsappID: msgID,
-      };
-
-      if (selectedMessage.context) {
-        const replyMessage = await Message.findOne({
-          whatsappID: selectedMessage.context.id,
-        });
-
-        newMessageData.reply = replyMessage.id;
-      }
-
-      // console.log('newMessageData', newMessageData);
-
-      if (msgType === 'text') {
-        const msgBody =
-          req.body.entry[0].changes[0].value.messages[0].text.body;
-        newMessageData.text = msgBody;
-      }
-
-      if (msgType === 'location') {
-        const address = selectedMessage.location.address;
-        const latitude = selectedMessage.location.latitude;
-        const longitude = selectedMessage.location.longitude;
-        const name = selectedMessage.location.name;
-
-        newMessageData.location = {
-          address,
-          latitude,
-          longitude,
-          name,
-        };
-      }
-
-      if (
-        msgType === 'image' ||
-        msgType === 'video' ||
-        msgType === 'audio' ||
-        msgType === 'sticker' ||
-        msgType === 'document'
-      ) {
-        await mediaHandler(req, newMessageData);
-      }
-
-      // console.log('newMessageData', newMessageData);
-      const newMessage = await Message.create(newMessageData);
-
-      // axios({
-      //   method: 'post',
-      //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      //   },
-      //   data: JSON.stringify({
-      //     messaging_product: 'whatsapp',
-      //     recipient_type: 'individual',
-      //     to: from,
-      //     type: 'text',
-      //     text: {
-      //       preview_url: false,
-      //       body: "hello it's me and this is your message: " + msgBody,
-      //     },
-      //   }),
-      // })
-      //   .then((response) => {
-      //     console.log('Response ==============', JSON.stringify(response.data));
-      //   })
-      //   .catch((error) => {
-      //     console.log(error);
-      //   });
-
-      res.status(200).json({ newMessage });
+      await receiveMessageHandler(req, res);
+    } else if (
+      req.body.entry &&
+      req.body.entry[0].changes &&
+      req.body.entry[0].changes[0].value.statuses &&
+      req.body.entry[0].changes[0].value.statuses[0]
+    ) {
+      await updateMessageStatusHandler(req, res);
     } else {
       res.sendStatus(404);
     }
@@ -255,4 +175,132 @@ const mediaHandler = async (req, newMessageData) => {
     .catch((error) => {
       console.log(error);
     });
+};
+
+const receiveMessageHandler = async (req, res) => {
+  const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
+
+  const phoneNumberID =
+    req.body.entry[0].changes[0].value.metadata.phone_number_id;
+  const from = req.body.entry[0].changes[0].value.messages[0].from;
+  const msgType = req.body.entry[0].changes[0].value.messages[0].type;
+  const msgID = req.body.entry[0].changes[0].value.messages[0].id;
+
+  const chat = await Chat.findOne({ client: from });
+  // console.log('chat', chat);
+  // if (!chat) {
+  //   const newChat = await Chat.create({
+  //     client: req.body.client,
+  //     activeUser: req.user.id,
+  //     users: [req.user.id],
+  //   });
+  // }
+
+  const newMessageData = {
+    user: chat.activeUser,
+    chat: chat.id,
+    to: process.env.WHATSAPP_PHONE_NUMBER,
+    from: chat.client,
+    type: msgType,
+    whatsappID: msgID,
+    status: 'sent',
+    sent: convertDate(selectedMessage.timestamp),
+  };
+
+  if (selectedMessage.context) {
+    const replyMessage = await Message.findOne({
+      whatsappID: selectedMessage.context.id,
+    });
+
+    newMessageData.reply = replyMessage.id;
+  }
+
+  // console.log('newMessageData', newMessageData);
+
+  if (msgType === 'text') {
+    const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
+    newMessageData.text = msgBody;
+  }
+
+  if (msgType === 'reaction') {
+    const reactionEmoji =
+      req.body.entry[0].changes[0].value.messages[0].reaction.emoji;
+    const reactedMessage = await Message.findOne({
+      whatsappID: selectedMessage.reaction.message_id,
+    });
+
+    newMessageData.reaction = {
+      emoji: reactionEmoji,
+      reactedMessage: reactedMessage.id,
+    };
+  }
+
+  if (msgType === 'location') {
+    const address = selectedMessage.location.address;
+    const latitude = selectedMessage.location.latitude;
+    const longitude = selectedMessage.location.longitude;
+    const name = selectedMessage.location.name;
+
+    newMessageData.location = {
+      address,
+      latitude,
+      longitude,
+      name,
+    };
+  }
+
+  if (
+    msgType === 'image' ||
+    msgType === 'video' ||
+    msgType === 'audio' ||
+    msgType === 'sticker' ||
+    msgType === 'document'
+  ) {
+    await mediaHandler(req, newMessageData);
+  }
+
+  // console.log('newMessageData', newMessageData);
+  const newMessage = await Message.create(newMessageData);
+
+  // axios({
+  //   method: 'post',
+  //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
+  //   headers: {
+  //     'Content-Type': 'application/json',
+  //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+  //   },
+  //   data: JSON.stringify({
+  //     messaging_product: 'whatsapp',
+  //     recipient_type: 'individual',
+  //     to: from,
+  //     type: 'text',
+  //     text: {
+  //       preview_url: false,
+  //       body: "hello it's me and this is your message: " + msgBody,
+  //     },
+  //   }),
+  // })
+  //   .then((response) => {
+  //     console.log('Response ==============', JSON.stringify(response.data));
+  //   })
+  //   .catch((error) => {
+  //     console.log(error);
+  //   });
+
+  res.status(200).json({ newMessage });
+};
+
+const updateMessageStatusHandler = async (req, res) => {
+  const msgStatus = req.body.entry[0].changes[0].value.statuses[0];
+  const msgWhatsappID = req.body.entry[0].changes[0].value.statuses[0].id;
+  const msgToUpdate = await Message.findOne({
+    whatsappID: msgWhatsappID,
+  });
+
+  msgToUpdate.status = msgStatus.status;
+  msgToUpdate[msgStatus.status] = convertDate(msgStatus.timestamp);
+
+  await msgToUpdate.save();
+
+  res.status(200).json({ msgToUpdate });
 };

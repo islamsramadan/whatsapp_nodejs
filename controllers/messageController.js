@@ -18,13 +18,16 @@ const multerStorage = multer.diskStorage({
         ? 'public/img'
         : file.mimetype.split('/')[0] === 'video'
         ? 'public/videos'
+        : file.mimetype.split('/')[0] === 'audio'
+        ? 'public/audios'
         : 'public/docs'
     );
   },
   filename: (req, file, cb) => {
     const ext =
       file.mimetype.split('/')[0] === 'image' ||
-      file.mimetype.split('/')[0] === 'video'
+      file.mimetype.split('/')[0] === 'video' ||
+      file.mimetype.split('/')[0] === 'audio'
         ? file.mimetype.split('/')[1]
         : file.originalname.split('.')[1];
     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
@@ -91,6 +94,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     type: req.body.type,
   };
 
+  // Message Reply
   if (req.body.replyMessage) {
     const replyMessage = await Message.findById(req.body.replyMessage);
     if (!replyMessage) {
@@ -152,6 +156,19 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     newMessageObj.video = {
       file: req.file.filename,
       caption: req.body.caption,
+    };
+  }
+
+  // Audio Message
+  if (req.body.type === 'audio') {
+    whatsappPayload.recipient_type = 'individual';
+    whatsappPayload.audio = {
+      link: `${ngrokLink}/audios/${req.file.filename}`,
+    };
+
+    newMessageObj.audio = {
+      file: req.file.filename,
+      voice: false,
     };
   }
 
