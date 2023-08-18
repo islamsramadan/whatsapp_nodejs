@@ -14,4 +14,8 @@ router
     messageController.sendMessage
   );
 
+router
+  .route('/:messageID')
+  .patch(authController.protect, messageController.sendFailedMessage);
+
 module.exports = router;

@@ -4,17 +4,28 @@ const axios = require('axios');
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
-  const dateFormat =
-    date.getHours() +
-    ':' +
-    date.getMinutes() +
-    ':' +
-    date.getSeconds() +
-    ', ' +
-    date.toDateString();
+
+  const hours =
+    (date.getHours() + '').length > 1 ? date.getHours() : `0${date.getHours()}`;
+
+  const minutes =
+    (date.getMinutes() + '').length > 1
+      ? date.getMinutes()
+      : `0${date.getMinutes()}`;
+
+  const seconds =
+    (date.getSeconds() + '').length > 1
+      ? date.getSeconds()
+      : `0${date.getSeconds()}`;
+
+  const dateString = date.toDateString();
+
+  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+
   return dateFormat;
 };
 
@@ -33,7 +44,7 @@ exports.verifyWebhook = (req, res) => {
   }
 };
 
-exports.listenToWebhook = catchAsync(async (req, res) => {
+exports.listenToWebhook = catchAsync(async (req, res, next) => {
   // console.log(JSON.stringify(req.body, null, 2));
 
   if (req.body.object) {
@@ -45,14 +56,14 @@ exports.listenToWebhook = catchAsync(async (req, res) => {
       req.body.entry[0].changes[0].value.messages &&
       req.body.entry[0].changes[0].value.messages[0]
     ) {
-      await receiveMessageHandler(req, res);
+      await receiveMessageHandler(req, res, next);
     } else if (
       req.body.entry &&
       req.body.entry[0].changes &&
       req.body.entry[0].changes[0].value.statuses &&
       req.body.entry[0].changes[0].value.statuses[0]
     ) {
-      await updateMessageStatusHandler(req, res);
+      await updateMessageStatusHandler(req, res, next);
     } else {
       res.sendStatus(404);
     }
@@ -85,7 +96,9 @@ const mediaHandler = async (req, newMessageData) => {
       ? selectedMessage.audio.mime_type?.split(';')[0].split('/')[1]
       : msgType === 'sticker'
       ? selectedMessage.sticker.mime_type?.split('/')[1]
-      : selectedMessage.document.filename?.split('.')[1];
+      : selectedMessage.document.filename?.split('.')[
+          selectedMessage.document.filename?.split('.').length - 1
+        ];
 
   const mediaFileName =
     msgType === 'document' ? selectedMessage.document.filename : '';
@@ -177,7 +190,7 @@ const mediaHandler = async (req, newMessageData) => {
     });
 };
 
-const receiveMessageHandler = async (req, res) => {
+const receiveMessageHandler = async (req, res, next) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
 
   const phoneNumberID =
@@ -207,7 +220,8 @@ const receiveMessageHandler = async (req, res) => {
     sent: convertDate(selectedMessage.timestamp),
   };
 
-  if (selectedMessage.context) {
+  // Message Reply
+  if (selectedMessage.context && selectedMessage.context.id) {
     const replyMessage = await Message.findOne({
       whatsappID: selectedMessage.context.id,
     });
@@ -215,7 +229,10 @@ const receiveMessageHandler = async (req, res) => {
     newMessageData.reply = replyMessage.id;
   }
 
-  // console.log('newMessageData', newMessageData);
+  // Message Forward
+  if (selectedMessage.context && selectedMessage.context.forwarded) {
+    newMessageData.forwarded = selectedMessage.context.forwarded;
+  }
 
   if (msgType === 'text') {
     const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
@@ -259,8 +276,10 @@ const receiveMessageHandler = async (req, res) => {
     await mediaHandler(req, newMessageData);
   }
 
-  // console.log('newMessageData', newMessageData);
+  console.log('newMessageData', newMessageData);
   const newMessage = await Message.create(newMessageData);
+  console.log('newMessageData', newMessageData);
+  console.log('newMessage', newMessage);
 
   // axios({
   //   method: 'post',
@@ -290,12 +309,16 @@ const receiveMessageHandler = async (req, res) => {
   res.status(200).json({ newMessage });
 };
 
-const updateMessageStatusHandler = async (req, res) => {
+const updateMessageStatusHandler = async (req, res, next) => {
   const msgStatus = req.body.entry[0].changes[0].value.statuses[0];
   const msgWhatsappID = req.body.entry[0].changes[0].value.statuses[0].id;
   const msgToUpdate = await Message.findOne({
     whatsappID: msgWhatsappID,
   });
+
+  if (!msgToUpdate) {
+    return next(new AppError('Message Not found!', 404));
+  }
 
   msgToUpdate.status = msgStatus.status;
   msgToUpdate[msgStatus.status] = convertDate(msgStatus.timestamp);

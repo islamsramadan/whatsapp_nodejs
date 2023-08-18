@@ -42,6 +42,7 @@ const messageSchema = new mongoose.Schema({
       'document',
       'location',
       'sticker',
+      'unsupported',
     ],
     required: [true, 'Message must have a type!'],
   },
@@ -254,6 +255,10 @@ const messageSchema = new mongoose.Schema({
     ref: 'Message',
   },
 
+  forwarded: {
+    type: Boolean,
+  },
+
   status: {
     type: String,
     enum: ['pending', 'sent', 'delivered', 'seen', 'failed'],
@@ -271,6 +276,17 @@ const messageSchema = new mongoose.Schema({
   seen: {
     type: String,
   },
+
+  createdAt: {
+    type: Date,
+  },
+});
+
+// createdAt field to the model
+messageSchema.pre('save', function (next) {
+  this.createdAt = Date.now();
+
+  return next();
 });
 
 const Message = mongoose.model('Message', messageSchema);

@@ -29,7 +29,8 @@ const multerStorage = multer.diskStorage({
       file.mimetype.split('/')[0] === 'video' ||
       file.mimetype.split('/')[0] === 'audio'
         ? file.mimetype.split('/')[1]
-        : file.originalname.split('.')[1];
+        : file.originalname.split('.')[file.originalname.split('.').length - 1];
+
     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
   },
 });
@@ -51,7 +52,7 @@ const upload = multer({
 exports.uploadMessageImage = upload.single('file');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-  const messages = await Message.find();
+  const messages = await Message.find().sort('createdAt');
 
   res.status(200).json({
     status: 'success',
@@ -213,6 +214,106 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     // message: 'Message sent successfully!',
     data: {
       message: newMessage,
+    },
+  });
+});
+
+exports.sendFailedMessage = catchAsync(async (req, res, next) => {
+  const failedMessage = await Message.findById(req.params.messageID);
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: failedMessage.to,
+    type: failedMessage.type,
+    recipient_type: 'individual',
+  };
+
+  if (failedMessage.reply) {
+    const replyMessage = await Message.findById(failedMessage.reply);
+
+    whatsappPayload.context = {
+      message_id: replyMessage.whatsappID,
+    };
+  }
+
+  // Template Message
+  if (req.body.type === 'template') {
+    whatsappPayload.template = {
+      name: 'hello_world',
+      language: {
+        code: 'en_US',
+      },
+    };
+  }
+
+  // Text Message
+  if (failedMessage.type === 'text') {
+    whatsappPayload.text = {
+      preview_url: false,
+      body: failedMessage.text,
+    };
+  }
+
+  // Image Message
+  if (failedMessage.type === 'image') {
+    whatsappPayload.image = {
+      link: `${ngrokLink}/img/${failedMessage.image.file}`,
+      caption: failedMessage.image.caption,
+    };
+  }
+
+  // Video Message
+  if (failedMessage.type === 'video') {
+    whatsappPayload.video = {
+      link: `${ngrokLink}/videos/${failedMessage.video.file}`,
+      caption: failedMessage.video.caption,
+    };
+  }
+
+  // Audio Message
+  if (failedMessage.type === 'audio') {
+    whatsappPayload.audio = {
+      link: `${ngrokLink}/audios/${failedMessage.audio.file}`,
+    };
+  }
+
+  // Document Message
+  if (failedMessage.type === 'document') {
+    whatsappPayload.document = {
+      link: `${ngrokLink}/docs/${failedMessage.document.file}`,
+      filename: failedMessage.document.filename,
+      caption: failedMessage.document.caption,
+    };
+  }
+
+  // console.log('whatsappPayload', whatsappPayload);
+
+  const response = await axios.request({
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    },
+    data: JSON.stringify(whatsappPayload),
+  });
+
+  // updating failed message status in database
+  failedMessage.status = 'pending';
+  failedMessage.whatsappID = response.data.messages[0].id;
+  failedMessage.save();
+
+  // const newMessage = await Message.create({
+  //   ...newMessageObj,
+  //   whatsappID: response.data.messages[0].id,
+  // });
+
+  res.status(200).json({
+    status: 'success',
+    wahtsappResponse: response.data,
+    data: {
+      message: failedMessage,
     },
   });
 });
