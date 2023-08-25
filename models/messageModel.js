@@ -58,30 +58,6 @@ const messageSchema = new mongoose.Schema({
     },
   },
 
-  reaction: {
-    emoji: {
-      type: String,
-      required: function () {
-        if (this.type === 'reaction') {
-          return [true, 'Reaction message must have a reaction!'];
-        } else {
-          return false;
-        }
-      },
-    },
-    reactedMessage: {
-      type: mongoose.Schema.ObjectId,
-      ref: 'Message',
-      required: function () {
-        if (this.type === 'reaction') {
-          return [true, 'Reaction message must have a reacted message!'];
-        } else {
-          return false;
-        }
-      },
-    },
-  },
-
   image: {
     file: {
       type: String,
@@ -232,27 +208,49 @@ const messageSchema = new mongoose.Schema({
     },
   },
 
-  contacts: [
-    {
-      phones: [
-        {
-          phone: String,
-          type: String,
-        },
-      ],
-      emails: [
-        {
-          type: String,
-          email: String,
-        },
-      ],
-      name: String,
-    },
-  ],
+  // contacts: [
+  //   {
+  //     phones: [
+  //       {
+  //         phone: String,
+  //         type: String,
+  //       },
+  //     ],
+  //     emails: [
+  //       {
+  //         type: String,
+  //         email: String,
+  //       },
+  //     ],
+  //     name: String,
+  //   },
+  // ],
 
   reply: {
     type: mongoose.Schema.ObjectId,
     ref: 'Message',
+  },
+
+  clientReaction: {
+    emoji: {
+      type: String,
+    },
+    time: {
+      type: String,
+    },
+  },
+
+  userReaction: {
+    emoji: {
+      type: String,
+    },
+    time: {
+      type: String,
+    },
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+    },
   },
 
   forwarded: {
@@ -261,8 +259,12 @@ const messageSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['pending', 'sent', 'delivered', 'seen', 'failed'],
+    enum: ['received', 'pending', 'sent', 'delivered', 'seen', 'failed'],
     default: 'pending',
+  },
+
+  received: {
+    type: String,
   },
 
   sent: {

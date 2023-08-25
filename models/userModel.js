@@ -49,6 +49,11 @@ const userSchema = new mongoose.Schema({
   },
 
   passwordChangedAt: Date,
+
+  // deleted: {
+  //   type: Boolean,
+  //   default: false,
+  // },
 });
 
 // Hashing password

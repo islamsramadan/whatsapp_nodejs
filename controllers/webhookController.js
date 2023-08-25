@@ -203,110 +203,119 @@ const receiveMessageHandler = async (req, res, next) => {
   // console.log('chat', chat);
   // if (!chat) {
   //   const newChat = await Chat.create({
-  //     client: req.body.client,
-  //     activeUser: req.user.id,
+  //     client: from,
+  //     currentUser: req.user.id,
   //     users: [req.user.id],
   //   });
   // }
 
-  const newMessageData = {
-    user: chat.activeUser,
-    chat: chat.id,
-    to: process.env.WHATSAPP_PHONE_NUMBER,
-    from: chat.client,
-    type: msgType,
-    whatsappID: msgID,
-    status: 'sent',
-    sent: convertDate(selectedMessage.timestamp),
-  };
-
-  // Message Reply
-  if (selectedMessage.context && selectedMessage.context.id) {
-    const replyMessage = await Message.findOne({
-      whatsappID: selectedMessage.context.id,
-    });
-
-    newMessageData.reply = replyMessage.id;
-  }
-
-  // Message Forward
-  if (selectedMessage.context && selectedMessage.context.forwarded) {
-    newMessageData.forwarded = selectedMessage.context.forwarded;
-  }
-
-  if (msgType === 'text') {
-    const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
-    newMessageData.text = msgBody;
-  }
-
   if (msgType === 'reaction') {
     const reactionEmoji =
-      req.body.entry[0].changes[0].value.messages[0].reaction.emoji;
+      req.body.entry[0].changes[0].value.messages[0].reaction?.emoji;
+    const reactionTime =
+      req.body.entry[0].changes[0].value.messages[0].timestamp;
+
     const reactedMessage = await Message.findOne({
       whatsappID: selectedMessage.reaction.message_id,
     });
 
-    newMessageData.reaction = {
-      emoji: reactionEmoji,
-      reactedMessage: reactedMessage.id,
+    if (reactionEmoji) {
+      reactedMessage.clientReaction = {
+        emoji: reactionEmoji,
+        time: convertDate(reactionTime),
+      };
+    } else {
+      reactedMessage.clientReaction = undefined;
+    }
+    await reactedMessage.save();
+
+    res.status(200).json({ reactedMessage });
+  } else {
+    const newMessageData = {
+      user: chat.currentUser,
+      chat: chat.id,
+      to: process.env.WHATSAPP_PHONE_NUMBER,
+      from: chat.client,
+      type: msgType,
+      whatsappID: msgID,
+      status: 'received',
+      received: convertDate(selectedMessage.timestamp),
     };
+
+    // Message Reply
+    if (selectedMessage.context && selectedMessage.context.id) {
+      const replyMessage = await Message.findOne({
+        whatsappID: selectedMessage.context.id,
+      });
+
+      newMessageData.reply = replyMessage.id;
+    }
+
+    // Message Forward
+    if (selectedMessage.context && selectedMessage.context.forwarded) {
+      newMessageData.forwarded = selectedMessage.context.forwarded;
+    }
+
+    if (msgType === 'text') {
+      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
+      newMessageData.text = msgBody;
+    }
+
+    if (msgType === 'location') {
+      const address = selectedMessage.location.address;
+      const latitude = selectedMessage.location.latitude;
+      const longitude = selectedMessage.location.longitude;
+      const name = selectedMessage.location.name;
+
+      newMessageData.location = {
+        address,
+        latitude,
+        longitude,
+        name,
+      };
+    }
+
+    if (
+      msgType === 'image' ||
+      msgType === 'video' ||
+      msgType === 'audio' ||
+      msgType === 'sticker' ||
+      msgType === 'document'
+    ) {
+      await mediaHandler(req, newMessageData);
+    }
+
+    const newMessage = await Message.create(newMessageData);
+    // console.log('newMessageData', newMessageData);
+    // console.log('newMessage', newMessage);
+
+    // axios({
+    //   method: 'post',
+    //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    //   },
+    //   data: JSON.stringify({
+    //     messaging_product: 'whatsapp',
+    //     recipient_type: 'individual',
+    //     to: from,
+    //     type: 'text',
+    //     text: {
+    //       preview_url: false,
+    //       body: "hello it's me and this is your message: " + msgBody,
+    //     },
+    //   }),
+    // })
+    //   .then((response) => {
+    //     console.log('Response ==============', JSON.stringify(response.data));
+    //   })
+    //   .catch((error) => {
+    //     console.log(error);
+    //   });
+
+    res.status(200).json({ newMessage });
   }
-
-  if (msgType === 'location') {
-    const address = selectedMessage.location.address;
-    const latitude = selectedMessage.location.latitude;
-    const longitude = selectedMessage.location.longitude;
-    const name = selectedMessage.location.name;
-
-    newMessageData.location = {
-      address,
-      latitude,
-      longitude,
-      name,
-    };
-  }
-
-  if (
-    msgType === 'image' ||
-    msgType === 'video' ||
-    msgType === 'audio' ||
-    msgType === 'sticker' ||
-    msgType === 'document'
-  ) {
-    await mediaHandler(req, newMessageData);
-  }
-
-  console.log('newMessageData', newMessageData);
-  const newMessage = await Message.create(newMessageData);
-  console.log('newMessageData', newMessageData);
-  console.log('newMessage', newMessage);
-
-  // axios({
-  //   method: 'post',
-  //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-  //   },
-  //   data: JSON.stringify({
-  //     messaging_product: 'whatsapp',
-  //     recipient_type: 'individual',
-  //     to: from,
-  //     type: 'text',
-  //     text: {
-  //       preview_url: false,
-  //       body: "hello it's me and this is your message: " + msgBody,
-  //     },
-  //   }),
-  // })
-  //   .then((response) => {
-  //     console.log('Response ==============', JSON.stringify(response.data));
-  //   })
-  //   .catch((error) => {
-  //     console.log(error);
-  //   });
-
-  res.status(200).json({ newMessage });
 };
 
 const updateMessageStatusHandler = async (req, res, next) => {

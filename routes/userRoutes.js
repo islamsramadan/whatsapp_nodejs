@@ -22,7 +22,7 @@ router
   .post(userController.createUser);
 
 router
-  .route('/:id')
+  .route('/:userID')
   .get(userController.getUser)
   .patch(userController.updateUser)
   .delete(userController.deleteUser);

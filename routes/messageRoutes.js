@@ -15,7 +15,11 @@ router
   );
 
 router
-  .route('/:messageID')
+  .route('/:messageID/failedMessage')
   .patch(authController.protect, messageController.sendFailedMessage);
+
+router
+  .route('/:messageID/reaction')
+  .patch(authController.protect, messageController.reactMessage);
 
 module.exports = router;

@@ -4,14 +4,40 @@ const multer = require('multer');
 const Message = require('../models/messageModel');
 const Chat = require('../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
 const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
+const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const ngrokLink = process.env.NGROK_LINK;
+
+const convertDate = (timestamp) => {
+  const date = new Date(timestamp * 1);
+
+  const hours =
+    (date.getHours() + '').length > 1 ? date.getHours() : `0${date.getHours()}`;
+
+  const minutes =
+    (date.getMinutes() + '').length > 1
+      ? date.getMinutes()
+      : `0${date.getMinutes()}`;
+
+  const seconds =
+    (date.getSeconds() + '').length > 1
+      ? date.getSeconds()
+      : `0${date.getSeconds()}`;
+
+  const dateString = date.toDateString();
+
+  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+
+  return dateFormat;
+};
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
+    console.log('file==============', file);
     cb(
       null,
       file.mimetype.split('/')[0] === 'image'
@@ -68,12 +94,13 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   console.log('req.file', req.file);
 
   // selecting chat that the message belongs to
-  const chat = await Chat.findById(req.params.chatID);
+  const chat = await Chat.findOne({ client: req.params.chatNumber });
+
   let newChat;
   if (!chat) {
     newChat = await Chat.create({
-      client: req.body.client,
-      activeUser: req.user.id,
+      client: req.params.chatNumber,
+      currentUser: req.user.id,
       users: [req.user.id],
     });
   }
@@ -134,6 +161,9 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   // Image Message
   if (req.body.type === 'image') {
+    if (!req.file) {
+      return next(new AppError('No image found!', 404));
+    }
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
       link: `${ngrokLink}/img/${req.file.filename}`,
@@ -237,7 +267,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   }
 
   // Template Message
-  if (req.body.type === 'template') {
+  if (failedMessage.type === 'template') {
     whatsappPayload.template = {
       name: 'hello_world',
       language: {
@@ -314,6 +344,58 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
     wahtsappResponse: response.data,
     data: {
       message: failedMessage,
+    },
+  });
+});
+
+exports.reactMessage = catchAsync(async (req, res, next) => {
+  const reactedMessage = await Message.findById(req.params.messageID);
+
+  if (!reactedMessage) {
+    return next(new AppError('Message not found!', 404));
+  }
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to:
+      reactedMessage.from !== whatsappPhoneNumber
+        ? reactedMessage.from
+        : reactedMessage.to,
+    type: 'reaction',
+    reaction: {
+      message_id: reactedMessage.whatsappID,
+      emoji: req.body.emoji,
+    },
+  };
+
+  const response = await axios.request({
+    method: 'post',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    },
+    data: JSON.stringify(whatsappPayload),
+  });
+
+  console.log('response ======>', response.data);
+  if (req.body.emoji) {
+    reactedMessage.userReaction = {
+      emoji: req.body.emoji,
+      time: convertDate(Date.now()),
+      user: req.user.id,
+    };
+  } else {
+    reactedMessage.userReaction = undefined;
+  }
+
+  const updatedMessage = await reactedMessage.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      message: updatedMessage,
     },
   });
 });

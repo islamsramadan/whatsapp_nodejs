@@ -6,7 +6,7 @@ const messageRouter = require('./messageRoutes');
 
 const router = express.Router();
 
-router.use('/:chatID/messages', messageRouter);
+router.use('/:chatNumber/messages', messageRouter);
 
 router
   .route('/')
