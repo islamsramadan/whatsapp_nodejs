@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const dotenv = require('dotenv');
 const http = require('http');
 const socketio = require('socket.io');
@@ -13,9 +14,18 @@ dotenv.config({ path: './config.env' });
 
 const app = require('./app');
 const appSocket = http.createServer(app);
-const io = socketio(appSocket);
-io.on('connection', () => {
+const io = socketio(appSocket, {
+  cors: { origin: '*' },
+});
+
+io.on('connection', (socket) => {
+  // console.log('socket', socket);
   console.log('Socket server is connected successfully!');
+
+  socket.on('chat', (payload) => {
+    console.log('payload ============', payload);
+    io.emit('chat', payload);
+  });
 });
 
 const DB = process.env.DATABASE.replace(

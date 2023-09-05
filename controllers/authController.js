@@ -14,8 +14,10 @@ const sendToken = (id) => {
 const createSendToken = (user, statusCode, res) => {
   const token = sendToken(user._id);
 
-  // Remove password from output
+  // Remove password ,role and deleted from output
   user.password = undefined;
+  // user.role = undefined;
+  user.deleted = undefined;
 
   res.status(statusCode).json({
     status: 'success',
@@ -26,20 +28,25 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
-exports.signup = catchAsync(async (req, res) => {
-  // const newUser = await User.create(req.body);
+exports.signup = catchAsync(async (req, res, next) => {
+  const validateUser = await User.findOne({ email: req.body.email });
+  if (validateUser) {
+    return next(new AppError('This email belongs to another user!', 400));
+  }
+
   const newUser = await User.create({
     firstName: req.body.firstName,
     lastName: req.body.lastName,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
+    role: req.body.role,
   });
 
   createSendToken(newUser, 201, res);
 });
 
-exports.login = catchAsync(async (req, res) => {
+exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
   // 1) check if email and password are exist
@@ -48,10 +55,14 @@ exports.login = catchAsync(async (req, res) => {
   }
 
   // 2) check if user exists && password is correct
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email }).select('+password +deleted');
 
   // 3) check if everything Ok ,send token to client
-  if (!user || !(await user.correctPassword(password, user.password))) {
+  if (
+    !user ||
+    user.deleted ||
+    !(await user.correctPassword(password, user.password))
+  ) {
     return next(new AppError('Incorrect Email or Password!', 400));
   }
 

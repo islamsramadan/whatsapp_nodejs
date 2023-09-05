@@ -21,7 +21,10 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, 'Invalid email!'],
   },
 
-  photo: String,
+  photo: {
+    type: String,
+    default: 'default.jpg',
+  },
 
   role: {
     type: String,
@@ -48,12 +51,16 @@ const userSchema = new mongoose.Schema({
     },
   },
 
-  passwordChangedAt: Date,
+  passwordChangedAt: {
+    type: Date,
+    select: false,
+  },
 
-  // deleted: {
-  //   type: Boolean,
-  //   default: false,
-  // },
+  deleted: {
+    type: Boolean,
+    default: false,
+    select: false,
+  },
 });
 
 // Hashing password
