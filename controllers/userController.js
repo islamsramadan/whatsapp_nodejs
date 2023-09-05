@@ -60,7 +60,6 @@ exports.getUser = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       user,
-      environment: process.env.NODE_ENV,
     },
   });
 });
