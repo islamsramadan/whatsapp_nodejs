@@ -106,7 +106,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
-    req.user.userID,
+    req.params.userID,
     filteredBody,
     {
       new: true,
