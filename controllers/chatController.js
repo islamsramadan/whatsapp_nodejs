@@ -2,7 +2,7 @@ const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
-  const chats = await Chat.find();
+  const chats = await Chat.find().populate('lastMessage');
 
   res.status(200).json({
     status: 'success',

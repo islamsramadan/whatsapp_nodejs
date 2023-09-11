@@ -289,6 +289,10 @@ const receiveMessageHandler = async (req, res, next) => {
     // console.log('newMessageData', newMessageData);
     // console.log('newMessage', newMessage);
 
+    // Adding the received message as last message in the chat
+    chat.lastMessage = newMessage._id;
+    await chat.save();
+
     // axios({
     //   method: 'post',
     //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,

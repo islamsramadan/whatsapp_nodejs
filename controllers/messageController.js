@@ -78,7 +78,12 @@ const upload = multer({
 exports.uploadMessageImage = upload.single('file');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-  const messages = await Message.find().sort('createdAt');
+  const messages = await Message.find()
+    .sort('createdAt')
+    .populate({
+      path: 'user',
+      select: { firstName: 1, lastName: 1, photo: 1 },
+    });
 
   res.status(200).json({
     status: 'success',
@@ -237,6 +242,10 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     ...newMessageObj,
     whatsappID: response.data.messages[0].id,
   });
+
+  // Adding the sent message as last message in the chat
+  selectedChat.lastMessage = newMessage._id;
+  await selectedChat.save();
 
   res.status(201).json({
     status: 'success',

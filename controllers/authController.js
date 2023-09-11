@@ -145,6 +145,12 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (currentPassword === newPassword) {
+    return next(
+      new AppError('New password must be different from current password!', 400)
+    );
+  }
+
   // 2) Check if current password is correct
   const correctPassword = await currentUser.correctPassword(
     req.body.currentPassword,

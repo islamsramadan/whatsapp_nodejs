@@ -20,6 +20,11 @@ const chatSchema = new mongoose.Schema({
     required: [true, 'Chat must have an active user!'],
   },
 
+  lastMessage: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Message',
+  },
+
   createdAt: {
     type: Date,
     default: Date.now(),
