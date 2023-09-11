@@ -6,15 +6,7 @@ const cors = require('cors');
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
 
-const webhookRouter = require('./routes/webhookRoutes');
-const userRouter = require('./routes/userRoutes');
-const answerRouter = require('./routes/answerRoutes');
-const answersSetRouter = require('./routes/answersSetRoutes');
-const conversationRouter = require('./routes/conversationRoutes');
-const serviceRouter = require('./routes/serviceRoutes');
-const departmentRouter = require('./routes/departmentRoutes');
-const chatRouter = require('./routes/chatRoutes');
-const messageRouter = require('./routes/messageRoutes');
+const routes = require('./routes/index');
 
 const app = express();
 
@@ -39,16 +31,7 @@ app.use((req, res, next) => {
 });
 
 // *********************** 2) Routes ***************************
-
-app.use('/webhook', webhookRouter);
-app.use('/api/users', userRouter);
-app.use('/api/answers', answerRouter);
-app.use('/api/answers-sets', answersSetRouter);
-app.use('/api/conversations', conversationRouter);
-app.use('/api/services', serviceRouter);
-app.use('/api/departments', departmentRouter);
-app.use('/api/chats', chatRouter);
-app.use('/api/messages', messageRouter);
+app.use('/api/v1', routes);
 
 // Not found route
 app.all('*', (req, res, next) => {
