@@ -12,7 +12,7 @@ const handleDuplicateFieldsDB = (err) => {
   // console.log(value);
   // console.log(err);
 
-  const message = `Duplicate field value: ${value}. Please use another value!`;
+  const message = `Duplicate field value: ${value}. Kindly use another value!`;
   return new AppError(message, 400);
 };
 

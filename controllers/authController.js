@@ -18,6 +18,7 @@ const createSendToken = (user, statusCode, res) => {
   user.password = undefined;
   // user.role = undefined;
   user.deleted = undefined;
+  user.passwordChangedAt = undefined;
 
   res.status(statusCode).json({
     status: 'success',
