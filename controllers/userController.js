@@ -39,7 +39,9 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find({ deleted: false });
+  const users = await User.find({ deleted: false }).select(
+    '-passwordChangedAt'
+  );
 
   res.status(200).json({
     status: 'success',
@@ -51,7 +53,9 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 exports.getUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.userID);
+  const user = await User.findById(req.params.userID).select(
+    '-passwordChangedAt'
+  );
   if (!user) {
     return next(new AppError('There is no user with that ID!', 404));
   }
@@ -112,7 +116,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
       new: true,
       runValidators: true,
     }
-  );
+  ).select('-passwordChangedAt');
 
   if (!updatedUser) {
     return next(new AppError('No user found with that ID', 404));
@@ -149,7 +153,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
     new: true,
     runValidators: true,
-  });
+  }).select('-passwordChangedAt');
 
   res.status(200).json({
     status: 'success',
