@@ -133,8 +133,13 @@ exports.restrictTo = (...roles) => {
 };
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
+  // For me
+  if (req.user.id === '64b01ddcb71752fc73c85619') {
+    return next(new AppError('خليك ف حالك ي معلم!', 400));
+  }
+
   // 1) Getting user from collection
-  const currentUser = await User.findById(req.user._id).select('+password');
+  const currentUser = await User.findById(req.user.id).select('+password');
 
   const { currentPassword, newPassword, passwordConfirm } = req.body;
   if (!currentPassword || !newPassword || !passwordConfirm) {
