@@ -3,7 +3,10 @@ const catchAsync = require('../utils/catchAsync');
 const Conversation = require('./../models/conversationModel');
 
 exports.getAllConversations = catchAsync(async (req, res, next) => {
-  const conversations = await Conversation.find();
+  const conversations = await Conversation.find().populate(
+    'user',
+    'firstName lastName'
+  );
 
   res.status(200).json({
     status: 'success',
@@ -29,7 +32,10 @@ exports.createConversation = catchAsync(async (req, res, next) => {
 });
 
 exports.getConversation = catchAsync(async (req, res, next) => {
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await Conversation.findById(req.params.id).populate(
+    'user',
+    'firstName lastName'
+  );
 
   if (!conversation) {
     return next(new AppError('No conversation found with that ID!', 404));

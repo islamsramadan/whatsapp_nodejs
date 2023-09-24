@@ -3,7 +3,9 @@ const AnswersSet = require('../models/answersSetModel');
 const AppError = require('../utils/appError');
 
 exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
-  const answersSets = await AnswersSet.find();
+  const answersSets = await AnswersSet.find()
+    .populate('answers', 'name')
+    .populate('creator', 'firstName lastName');
 
   res.status(200).json({
     status: 'success',
@@ -17,7 +19,7 @@ exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
 exports.createAnswersSet = catchAsync(async (req, res, next) => {
   const newAnswersSet = await AnswersSet.create({
     ...req.body,
-    user: req.user._id,
+    creator: req.user._id,
   });
 
   res.status(201).json({
@@ -30,8 +32,8 @@ exports.createAnswersSet = catchAsync(async (req, res, next) => {
 
 exports.getAnswersSet = catchAsync(async (req, res, next) => {
   const answersSet = await AnswersSet.findById(req.params.id)
-    .populate('answers')
-    .populate('user');
+    .populate('answers', 'name')
+    .populate('creator', 'firstName lastName');
 
   if (!answersSet) {
     return next(new AppError('No answers set found with that ID!', 404));
@@ -48,7 +50,7 @@ exports.getAnswersSet = catchAsync(async (req, res, next) => {
 exports.updateAnswersSet = catchAsync(async (req, res, next) => {
   const answersSet = await AnswersSet.findByIdAndUpdate(
     req.params.id,
-    { ...req.body, user: req.user._id },
+    { ...req.body, creator: req.user._id },
     {
       runValidators: true,
     }

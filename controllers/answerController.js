@@ -4,7 +4,9 @@ const catchAsync = require('./../utils/catchAsync');
 const AnswersSet = require('../models/answersSetModel');
 
 exports.getAllAnswers = catchAsync(async (req, res, next) => {
-  const answers = await Answer.find();
+  const answers = await Answer.find()
+    .populate('answersSet', 'name')
+    .populate('creator', 'firstName lastName');
 
   res.status(200).json({
     status: 'success',
@@ -21,7 +23,7 @@ exports.createAnswer = catchAsync(async (req, res, next) => {
     return next(new AppError("Couldn't found answers set with that ID!", 404));
   }
 
-  const newAnswer = await Answer.create({ ...req.body, user: req.user._id });
+  const newAnswer = await Answer.create({ ...req.body, creator: req.user._id });
 
   await AnswersSet.findByIdAndUpdate(answersSet._id, {
     answers: [...answersSet.answers, newAnswer._id],
@@ -38,7 +40,7 @@ exports.createAnswer = catchAsync(async (req, res, next) => {
 exports.getAnswer = catchAsync(async (req, res, next) => {
   const answer = await Answer.findById(req.params.id)
     .populate('answersSet', 'name')
-    .populate('user', 'firstName lastName');
+    .populate('creator', 'firstName lastName');
 
   if (!answer) {
     return next(new AppError('No answer found with that ID!', 404));

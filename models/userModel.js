@@ -2,72 +2,75 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  firstName: {
-    type: String,
-    required: [true, 'First name is required!'],
-  },
+const userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: [true, 'First name is required!'],
+    },
 
-  lastName: {
-    type: String,
-    required: [true, 'Last name is required!'],
-  },
+    lastName: {
+      type: String,
+      required: [true, 'Last name is required!'],
+    },
 
-  email: {
-    type: String,
-    required: [true, 'Email is required!'],
-    unique: [true, 'This email address already exist!'],
-    lowerCase: true,
-    validate: [validator.isEmail, 'Invalid email!'],
-  },
+    email: {
+      type: String,
+      required: [true, 'Email is required!'],
+      unique: [true, 'This email address already exist!'],
+      lowerCase: true,
+      validate: [validator.isEmail, 'Invalid email!'],
+    },
 
-  photo: {
-    type: String,
-    default: 'default.jpg',
-  },
+    photo: {
+      type: String,
+      default: 'default.jpg',
+    },
 
-  role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user',
-  },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
 
-  password: {
-    type: String,
-    required: [true, 'Password is required!'],
-    minLength: [
-      8,
-      'Kindly make sure your password is atleast 8 characters long',
-    ],
-    maxLength: [
-      128,
-      'Kindly make sure your password is less than 128 characters long',
-    ],
-    select: false,
-  },
+    password: {
+      type: String,
+      required: [true, 'Password is required!'],
+      minLength: [
+        8,
+        'Kindly make sure your password is atleast 8 characters long',
+      ],
+      maxLength: [
+        128,
+        'Kindly make sure your password is less than 128 characters long',
+      ],
+      select: false,
+    },
 
-  passwordConfirm: {
-    type: String,
-    required: [true, 'Confirm your password!'],
-    validate: {
-      // This only works on CREATE and SAVE!!!
-      validator: function (el) {
-        return el === this.password;
+    passwordConfirm: {
+      type: String,
+      required: [true, 'Confirm your password!'],
+      validate: {
+        // This only works on CREATE and SAVE!!!
+        validator: function (el) {
+          return el === this.password;
+        },
+        message: 'Passwords are not the same!',
       },
-      message: 'Passwords are not the same!',
+    },
+
+    passwordChangedAt: {
+      type: Date,
+    },
+
+    deleted: {
+      type: Boolean,
+      default: false,
+      select: false,
     },
   },
-
-  passwordChangedAt: {
-    type: Date,
-  },
-
-  deleted: {
-    type: Boolean,
-    default: false,
-    select: false,
-  },
-});
+  { timestamps: true }
+);
 
 // Hashing password
 userSchema.pre('save', async function (next) {
