@@ -21,15 +21,23 @@ const teamSchema = new mongoose.Schema(
       required: [true, 'Team supervisor is required!'],
     },
 
+    creator: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: [true, 'Team creator is required!'],
+    },
+
     serviceHours: {
       type: mongoose.Schema.ObjectId,
       ref: 'Sevices',
+      // required: [true, 'Team service hours are required!'],
     },
 
     answersSets: [
       {
         type: mongoose.Schema.ObjectId,
         ref: 'AnswersSet',
+        // required: [true, 'Team answers sets are required!'],
       },
     ],
   },

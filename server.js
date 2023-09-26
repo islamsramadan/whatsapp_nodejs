@@ -13,19 +13,15 @@ process.on('uncaughtException', (err) => {
 dotenv.config({ path: './config.env' });
 
 const app = require('./app');
+const Message = require('./models/messageModel');
 const appSocket = http.createServer(app);
 const io = socketio(appSocket, {
   cors: { origin: '*' },
 });
 
-io.on('connection', (socket) => {
-  // console.log('socket', socket);
-  console.log('Socket server is connected successfully!');
-
-  socket.on('chat', (payload) => {
-    console.log('payload ============', payload);
-    io.emit('chat', payload);
-  });
+io.on('connection', async (socket) => {
+  const messages = await Message.find();
+  socket.emit('chat message', messages);
 });
 
 const DB = process.env.DATABASE.replace(
