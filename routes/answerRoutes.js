@@ -7,7 +7,8 @@ const router = express.Router();
 router
   .route('/')
   .get(authController.protect, answerController.getAllAnswers)
-  .post(authController.protect, answerController.createAnswer);
+  .post(authController.protect, answerController.createAnswer)
+  .delete(authController.protect, answerController.deleteMultiAnswers);
 
 router
   .route('/:id')

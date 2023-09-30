@@ -318,6 +318,15 @@ const receiveMessageHandler = async (req, res, next) => {
     //     console.log(error);
     //   });
 
+    // const messages = await Message.find()
+    //   .sort('createdAt')
+    //   .populate({
+    //     path: 'user',
+    //     select: { firstName: 1, lastName: 1, photo: 1 },
+    //   })
+    //   .populate('reply');
+    // req.app.io.emit({ messages });
+
     res.status(200).json({ newMessage });
   }
 };

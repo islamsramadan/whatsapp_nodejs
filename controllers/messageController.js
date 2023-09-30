@@ -78,7 +78,22 @@ const upload = multer({
 exports.uploadMessageImage = upload.single('file');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-  const messages = await Message.find()
+  if (!req.params.chatNumber) {
+    return next(new AppError('Kindly provide chat number!', 400));
+  }
+
+  let chat = await Chat.findOne({ client: req.params.chatNumber });
+  if (!chat) {
+    chat = await Chat.create({
+      client: req.params.chatNumber,
+      users: [req.user._id],
+      currentUser: req.user._id,
+    });
+  }
+
+  // console.log('chat', chat);
+
+  const messages = await Message.find({ chat: chat._id })
     .sort('createdAt')
     .populate({
       path: 'user',
@@ -247,6 +262,16 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // Adding the sent message as last message in the chat
   selectedChat.lastMessage = newMessage._id;
   await selectedChat.save();
+
+  //Testing socket io
+  // const messages = await Message.find()
+  //   .sort('createdAt')
+  //   .populate({
+  //     path: 'user',
+  //     select: { firstName: 1, lastName: 1, photo: 1 },
+  //   })
+  //   .populate('reply');
+  req.app.io.emit('updating');
 
   res.status(201).json({
     status: 'success',

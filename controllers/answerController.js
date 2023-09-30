@@ -1,3 +1,6 @@
+const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Schema.Types;
+
 const AppError = require('./../utils/appError');
 const Answer = require('./../models/answerModel');
 const catchAsync = require('./../utils/catchAsync');
@@ -93,5 +96,32 @@ exports.deleteAnswer = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'Answer deleted successfully!',
+  });
+});
+
+exports.deleteMultiAnswers = catchAsync(async (req, res, next) => {
+  const answersIDs = req.body.answersIDs;
+  if (!answersIDs || answersIDs.length === 0) {
+    return next(new AppError('answersIDs are required!', 400));
+  }
+
+  const answersToBeDeleted = await Answer.find({ _id: { $in: answersIDs } });
+
+  if (answersToBeDeleted.length !== answersIDs.length) {
+    return next(
+      new AppError(
+        'There are no answers found for one or more of provided IDs!',
+        404
+      )
+    );
+  }
+
+  const deletedAnswers = await Answer.deleteMany({ _id: { $in: answersIDs } });
+
+  res.status(200).json({
+    status: 'success',
+    message: `${deletedAnswers.deletedCount} Answers deleted successfully!`,
+    // answersToBeDeleted,
+    // deletedAnswers,
   });
 });

@@ -14,14 +14,31 @@ dotenv.config({ path: './config.env' });
 
 const app = require('./app');
 const Message = require('./models/messageModel');
+const Chat = require('./models/chatModel');
 const appSocket = http.createServer(app);
 const io = socketio(appSocket, {
   cors: { origin: '*' },
 });
 
+app.io = io;
+
 io.on('connection', async (socket) => {
-  const messages = await Message.find();
-  socket.emit('chat message', messages);
+  socket.on('client_to_server', async (data) => {
+    const chats = await Chat.find().sort('-updatedAt').populate('lastMessage');
+    let messages = [];
+    if (data.chatID) {
+      messages = await Message.find({ chat: data.chatID })
+        .sort('createdAt')
+        .populate({
+          path: 'user',
+          select: { firstName: 1, lastName: 1, photo: 1 },
+        })
+        .populate('reply');
+    }
+
+    // Emit a response event back to the client
+    socket.emit('server_to_client', { chats, messages });
+  });
 });
 
 const DB = process.env.DATABASE.replace(
