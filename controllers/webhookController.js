@@ -229,6 +229,9 @@ const receiveMessageHandler = async (req, res, next) => {
     }
     await reactedMessage.save();
 
+    //updating event in socket io
+    req.app.io.emit('updating');
+
     res.status(200).json({ reactedMessage });
   } else {
     const newMessageData = {
@@ -293,6 +296,9 @@ const receiveMessageHandler = async (req, res, next) => {
     chat.lastMessage = newMessage._id;
     await chat.save();
 
+    //updating event in socket io
+    req.app.io.emit('updating');
+
     // axios({
     //   method: 'post',
     //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
@@ -318,15 +324,6 @@ const receiveMessageHandler = async (req, res, next) => {
     //     console.log(error);
     //   });
 
-    // const messages = await Message.find()
-    //   .sort('createdAt')
-    //   .populate({
-    //     path: 'user',
-    //     select: { firstName: 1, lastName: 1, photo: 1 },
-    //   })
-    //   .populate('reply');
-    // req.app.io.emit({ messages });
-
     res.status(200).json({ newMessage });
   }
 };
@@ -346,6 +343,9 @@ const updateMessageStatusHandler = async (req, res, next) => {
   msgToUpdate[msgStatus.status] = convertDate(msgStatus.timestamp);
 
   await msgToUpdate.save();
+
+  //updating event in socket io
+  req.app.io.emit('updating');
 
   res.status(200).json({ msgToUpdate });
 };
