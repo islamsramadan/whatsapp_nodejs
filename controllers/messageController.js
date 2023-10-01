@@ -114,6 +114,10 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   console.log('req.body', req.body);
   console.log('req.file', req.file);
 
+  if (!req.body.type) {
+    return next(new AppError('Message type is required!', 400));
+  }
+
   // selecting chat that the message belongs to
   const chat = await Chat.findOne({ client: req.params.chatNumber });
 
@@ -263,14 +267,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   selectedChat.lastMessage = newMessage._id;
   await selectedChat.save();
 
-  //Testing socket io
-  // const messages = await Message.find()
-  //   .sort('createdAt')
-  //   .populate({
-  //     path: 'user',
-  //     select: { firstName: 1, lastName: 1, photo: 1 },
-  //   })
-  //   .populate('reply');
+  //updating event in socket io
   req.app.io.emit('updating');
 
   res.status(201).json({
@@ -374,6 +371,9 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   //   whatsappID: response.data.messages[0].id,
   // });
 
+  //updating event in socket io
+  req.app.io.emit('updating');
+
   res.status(200).json({
     status: 'success',
     wahtsappResponse: response.data,
@@ -426,6 +426,9 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   }
 
   const updatedMessage = await reactedMessage.save();
+
+  //updating event in socket io
+  req.app.io.emit('updating');
 
   res.status(200).json({
     status: 'success',

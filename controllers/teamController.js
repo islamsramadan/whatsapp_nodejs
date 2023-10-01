@@ -7,7 +7,8 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     .sort('-createdAt')
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
-    .populate('creator', 'firstName lastName photo');
+    .populate('creator', 'firstName lastName photo')
+    .populate('answersSets', 'name');
 
   res.status(200).json({
     status: 'success',

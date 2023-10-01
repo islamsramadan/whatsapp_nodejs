@@ -48,7 +48,7 @@ exports.listenToWebhook = catchAsync(async (req, res, next) => {
   // console.log(JSON.stringify(req.body, null, 2));
 
   if (req.body.object) {
-    console.log('inside body param');
+    // console.log('inside body param');
 
     if (
       req.body.entry &&
