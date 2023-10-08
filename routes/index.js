@@ -9,6 +9,7 @@ const serviceRouter = require('./serviceRoutes');
 const departmentRouter = require('./departmentRoutes');
 const chatRouter = require('./chatRoutes');
 const messageRouter = require('./messageRoutes');
+const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use('/services', serviceRouter);
 router.use('/departments', departmentRouter);
 router.use('/chats', chatRouter);
 router.use('/messages', messageRouter);
+router.use('/whatsapp-templates', whatsappTemplateRouter);
 
 module.exports = router;

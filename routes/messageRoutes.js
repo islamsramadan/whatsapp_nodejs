@@ -14,6 +14,12 @@ router
     messageController.sendMessage
   );
 
+router.route('/templates').post(
+  authController.protect,
+  // messageController.uploadMessageImage,
+  messageController.sendTemplateMessage
+);
+
 router
   .route('/:messageID/failedMessage')
   .patch(authController.protect, messageController.sendFailedMessage);

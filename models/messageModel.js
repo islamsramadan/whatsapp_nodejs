@@ -48,6 +48,102 @@ const messageSchema = new mongoose.Schema(
       required: [true, 'Message must have a type!'],
     },
 
+    template: {
+      name: {
+        type: String,
+        required: function () {
+          if (this.type === 'template') {
+            return [true, 'Template message must have a template name!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      language: {
+        type: String,
+        enum: ['ar', 'en', 'en_US'],
+        required: function () {
+          if (this.type === 'template') {
+            return [true, 'Template message must have a template language!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      category: {
+        type: String,
+        enum: ['MARKETING', 'UTILITY', 'AUTHENTICATION'],
+        required: function () {
+          if (this.type === 'template') {
+            return [true, 'Template message must have a template category!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      // header: {
+      //   format: {
+      //     type: String,
+      //     enum: ['TEXT'],
+      //     // required: [true, 'Header format is required!'],
+      //   },
+      //   text: {
+      //     type: String,
+      //   },
+      // },
+      // body: {
+      //   text: {
+      //     type: String,
+      //   },
+      // },
+      // footer: {
+      //   text: {
+      //     type: String,
+      //   },
+      // },
+      // buttons: {
+      //   buttons: [
+      //     {
+      //       type: {
+      //         type: String,
+      //         enum: ['QUICK_REPLY'],
+      //       },
+      //       text: {
+      //         type: String,
+      //       },
+      //     },
+      //   ],
+      // },
+      components: [
+        {
+          type: {
+            type: String,
+            enum: ['HEADER', 'BODY', 'FOOTER', 'BUTTONS'],
+            required: [true, 'Template component type is required!'],
+          },
+          format: {
+            type: String,
+            enum: ['TEXT'],
+            // required: [true, 'Header format is required!'],
+          },
+          text: {
+            type: String,
+          },
+          buttons: [
+            {
+              type: {
+                type: String,
+                enum: ['QUICK_REPLY'],
+              },
+              text: {
+                type: String,
+              },
+            },
+          ],
+        },
+      ],
+    },
+
     text: {
       type: String,
       required: function () {
@@ -282,13 +378,6 @@ const messageSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// createdAt field to the model
-messageSchema.pre('save', function (next) {
-  this.createdAt = Date.now();
-
-  return next();
-});
 
 const Message = mongoose.model('Message', messageSchema);
 module.exports = Message;

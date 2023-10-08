@@ -294,6 +294,7 @@ const receiveMessageHandler = async (req, res, next) => {
 
     // Adding the received message as last message in the chat
     chat.lastMessage = newMessage._id;
+    chat.session = Date.now();
     await chat.save();
 
     //updating event in socket io

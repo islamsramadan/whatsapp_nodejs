@@ -25,6 +25,10 @@ const chatSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'Message',
     },
+
+    session: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
