@@ -138,6 +138,30 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   const selectedChat = chat || newChat;
 
+  // Handling whatsapp session (24hours from the last message the client send)
+  if (!selectedChat.session) {
+    return next(
+      new AppError(
+        'You can only send template message until the end user reply!',
+        400
+      )
+    );
+  }
+
+  const availableSession = Math.ceil(
+    (new Date() - selectedChat.session) / (1000 * 60)
+  );
+
+  if (availableSession >= 24 * 60) {
+    return next(
+      new AppError(
+        'Your session is expired, You can only send template message!',
+        400
+      )
+    );
+  }
+  // console.log('availableSession', availableSession);
+
   const newMessageObj = {
     user: req.user.id,
     chat: selectedChat.id,
@@ -292,6 +316,33 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
 exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   const failedMessage = await Message.findById(req.params.messageID);
+  if (!failedMessage) {
+    return next(new AppError('No message found with that ID!', 400));
+  }
+
+  const chat = await Chat.findById(failedMessage.chat);
+
+  // Handling whatsapp session (24hours from the last message the client send)
+  if (!chat.session) {
+    return next(
+      new AppError(
+        'You can only send template message until the end user reply!',
+        400
+      )
+    );
+  }
+
+  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
+
+  if (availableSession >= 24 * 60) {
+    return next(
+      new AppError(
+        'Your session is expired, You can only send template message!',
+        400
+      )
+    );
+  }
+  // console.log('availableSession', availableSession);
 
   const whatsappPayload = {
     messaging_product: 'whatsapp',
@@ -400,6 +451,29 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
     return next(new AppError('Message not found!', 404));
   }
 
+  const chat = await Chat.findById(reactedMessage.chat);
+  // Handling whatsapp session (24hours from the last message the client send)
+  if (!chat.session) {
+    return next(
+      new AppError(
+        'You can only send template message until the end user reply!',
+        400
+      )
+    );
+  }
+
+  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
+
+  if (availableSession >= 24 * 60) {
+    return next(
+      new AppError(
+        'Your session is expired, You can only send template message!',
+        400
+      )
+    );
+  }
+  // console.log('availableSession', availableSession);
+
   const whatsappPayload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -490,20 +564,8 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   const selectedChat = chat || newChat;
 
-  const newMessageObj = {
-    user: req.user.id,
-    chat: selectedChat.id,
-    from: process.env.WHATSAPP_PHONE_NUMBER,
-    to: selectedChat.client,
-    type: 'template',
-    template: {
-      name: templateName,
-      language: template.language,
-      category: template.category,
-      components: [],
-    },
-  };
-
+  //********************************************************************************* */
+  // Preparing template for whatsapp payload
   const whatsappPayload = {
     messaging_product: 'whatsapp',
     to: selectedChat.client,
@@ -517,7 +579,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   };
 
-  // Preparing template for whatsapp payload
   template.components.map((component) => {
     if (component.example) {
       let paramaters =
@@ -539,7 +600,22 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     }
   });
 
+  //********************************************************************************* */
   // Preparing template for data base
+  const newMessageObj = {
+    user: req.user.id,
+    chat: selectedChat.id,
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    to: selectedChat.client,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: template.language,
+      category: template.category,
+      components: [],
+    },
+  };
+
   template.components.map((component) => {
     const templateComponent = { type: component.type };
 
@@ -583,6 +659,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     newMessageObj.template.components.push(templateComponent);
   });
 
+  // Sending the template message to the client via whatsapp api
   let sendTemplateResponse;
   try {
     sendTemplateResponse = await axios.request({
@@ -599,11 +676,22 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     console.log('err', err);
   }
 
+  if (!sendTemplateResponse) {
+    return next(
+      new AppError(
+        "Template couldn't be sent, Try again with all the variables required!",
+        400
+      )
+    );
+  }
+
+  // Adding the template message to database
   const newMessage = await Message.create({
     ...newMessageObj,
     whatsappID: sendTemplateResponse.data.messages[0].id,
   });
 
+  //********************************************************************************* */
   // Adding the sent message as last message in the chat
   selectedChat.lastMessage = newMessage._id;
   await selectedChat.save();
@@ -613,8 +701,8 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     status: 'success',
-    template,
-    whatsappPayload,
+    // template,
+    // whatsappPayload,
     // wahtsappResponse: sendTemplateResponse?.data,
     newMessage,
   });
