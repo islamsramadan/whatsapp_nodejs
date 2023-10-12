@@ -33,6 +33,16 @@ const userSchema = new mongoose.Schema(
       default: 'user',
     },
 
+    team: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Team',
+    },
+
+    supervisor: {
+      type: Boolean,
+      default: false,
+    },
+
     password: {
       type: String,
       required: [true, 'Password is required!'],

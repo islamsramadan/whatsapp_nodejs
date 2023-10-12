@@ -2,6 +2,7 @@ const multer = require('multer');
 const AppError = require('../utils/appError');
 const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
+const Team = require('../models/teamModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -39,9 +40,9 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find({ deleted: false }).select(
-    '-passwordChangedAt'
-  );
+  const users = await User.find({ deleted: false })
+    .select('-passwordChangedAt')
+    .populate('team', 'name');
 
   res.status(200).json({
     status: 'success',
@@ -53,9 +54,10 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 exports.getUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.userID).select(
-    '-passwordChangedAt'
-  );
+  const user = await User.findById(req.params.userID)
+    .select('-passwordChangedAt')
+    .populate('team', 'name');
+
   if (!user) {
     return next(new AppError('There is no user with that ID!', 404));
   }
@@ -75,12 +77,23 @@ exports.createUser = catchAsync(async (req, res, next) => {
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
+    role: req.body.role,
   };
-  if (req.body.role) {
-    newUserData.role = req.body.role;
+
+  // Checking if there is a valid team with that teamID
+  const team = await Team.findById(req.body.team);
+  if (team) {
+    newUserData.team = req.body.team;
   }
 
+  // Creating the new user
   const newUser = await User.create(newUserData);
+
+  // Adding the user to the team
+  if (team) {
+    team.users = [...team.users, newUser._id];
+    await team.save();
+  }
 
   // Remove password from output
   newUser.password = undefined;
@@ -94,9 +107,15 @@ exports.createUser = catchAsync(async (req, res, next) => {
 });
 
 exports.updateUser = catchAsync(async (req, res, next) => {
+  /////////////////////////////////////////////////
   // For me
   if (req.params.userID === '64b01ddcb71752fc73c85619') {
     return next(new AppError('خليك ف حالك ي معلم!', 400));
+  }
+
+  const user = await User.findById(req.params.userID);
+  if (!user) {
+    return next(new AppError('No user found with that ID!', 404));
   }
 
   // 1) Create error if user post password data
@@ -110,8 +129,30 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     'firstName',
     'lastName',
     'email',
-    'role'
+    'role',
+    'team'
   );
+
+  const team = await Team.findById(req.body.team);
+
+  // Checking if there is new team provided and the user is already a supervisor
+  if (
+    req.body.team &&
+    req.body.team !== user.team &&
+    user.supervisor === true
+  ) {
+    return next(
+      new AppError(
+        `Couldn\'t update team supervisor, Kindly update team with ID (${user.team}) first!`,
+        400
+      )
+    );
+  }
+
+  // Checking if the provided team is existed
+  if (req.body.team && !team) {
+    return next(new AppError('No team found with that ID!', 404));
+  }
 
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
@@ -125,6 +166,19 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
   if (!updatedUser) {
     return next(new AppError('No user found with that ID', 404));
+  }
+
+  // 4) Updating team users
+  if (req.body.team && req.body.team !== user.team) {
+    // Removing user from the array of users of the previous team
+    await Team.findByIdAndUpdate(user.team, {
+      $pull: { users: user._id },
+    });
+
+    // Adding user to the array of users of the new team
+    await Team.findByIdAndUpdate(req.body.team, {
+      $push: { users: user._id },
+    });
   }
 
   res.status(200).json({
@@ -184,9 +238,25 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No user found with that ID', 404));
   }
 
+  if (user.team && user.supervisor === true) {
+    return next(
+      new AppError(
+        `Couldn't delete team supervisor, Kindly update team with that id (${user.team}) first`,
+        400
+      )
+    );
+  }
+
+  // Updating team doc by removing userID from array of users
+  await Team.findByIdAndUpdate(user.team, {
+    $pull: { users: user._id },
+  });
+
+  // Deleting user doc
   await user.deleteOne();
 
-  res
-    .status(200)
-    .json({ status: 'success', message: 'User deleted successfully!!' });
+  res.status(200).json({
+    status: 'success',
+    message: 'User deleted successfully!!',
+  });
 });

@@ -192,15 +192,9 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   // Template Message
   if (req.body.type === 'template') {
-    whatsappPayload.template = {
-      name: req.body.name,
-      language: {
-        code: req.body.language,
-      },
-      components: req.body.components,
-    };
-
-    newMessageObj.text = `${req.body.name} Template`;
+    return next(
+      new AppError('this end point not for sending template message!', 400)
+    );
   }
 
   // Text Message

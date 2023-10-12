@@ -1,6 +1,15 @@
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Team = require('../models/teamModel');
+const User = require('../models/userModel');
+
+const filterObj = (obj, ...allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((el) => {
+    if (allowedFields.includes(el)) newObj[el] = obj[el];
+  });
+  return newObj;
+};
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
   const teams = await Team.find()
@@ -20,21 +29,71 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
 });
 
 exports.createTeam = catchAsync(async (req, res, next) => {
-  if (!req.body.users || req.body.users.length === 0) {
-    return next(new AppError('Team users are required!', 400));
+  const { name, supervisor, serviceHours, answersSets } = req.body;
+
+  // Adding supervisor to the users array
+  let users = req.body.users || [];
+  if (!users.includes(supervisor)) {
+    users = [supervisor, ...users];
   }
 
-  const newTeam = await Team.create({ ...req.body, creator: req.user._id });
+  // Checking if any users or the supervisor is a supervisor in another team
+  const teamWithTheSameSupervisor = await Team.find({
+    supervisor: { $in: users },
+  });
 
-  const populatedTeam = await Team.findById(newTeam._id)
-    .populate('supervisor', 'firstName lastName photo')
-    .populate('users', 'firstName lastName photo')
-    .populate('creator', 'firstName lastName photo');
+  if (teamWithTheSameSupervisor.length > 0) {
+    return next(
+      new AppError(
+        "Team supervisor or any user couldn't be a supervisor of another team!",
+        400
+      )
+    );
+  }
+
+  const newTeamData = {
+    name,
+    users,
+    supervisor,
+    serviceHours,
+    answersSets,
+    creator: req.user._id,
+  };
+
+  const newTeam = await Team.create(newTeamData);
+
+  // Updating users and teams
+  for (let i = 0; i < users.length; i++) {
+    let user = await User.findById(users[i]);
+    let userTeam = await Team.findById(user?.team);
+    // console.log('user', user, userTeam);
+
+    if (user) {
+      // user.team = newTeam._id;
+      // await user.save();
+      await User.findByIdAndUpdate(
+        users[i],
+        { team: newTeam._id },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+    }
+    if (userTeam) {
+      await Team.findByIdAndUpdate(user.team, {
+        $pull: { users: users[i] },
+      });
+    }
+  }
+
+  // Adding supervisor:true to the user supervisor
+  await User.findByIdAndUpdate(supervisor, { supervisor: true });
 
   res.status(201).json({
     status: 'success',
     data: {
-      team: populatedTeam,
+      team: newTeam,
     },
   });
 });
@@ -43,7 +102,8 @@ exports.getTeam = catchAsync(async (req, res, next) => {
   const team = await Team.findById(req.params.id)
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
-    .populate('creator', 'firstName lastName photo');
+    .populate('creator', 'firstName lastName photo')
+    .populate('answersSets');
 
   if (!team) {
     return next(new AppError('No team found with that ID!'));
@@ -58,16 +118,64 @@ exports.getTeam = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTeam = catchAsync(async (req, res, next) => {
-  if (req.body.users && req.body.users.length === 0) {
-    return next(new AppError('Team users are required!', 400));
+  const { name, supervisor, users, serviceHours, answersSets } = req.body;
+
+  const team = await Team.findById(req.params.id);
+  if (!team) {
+    return next(new AppError('No team found with that ID!', 404));
   }
 
-  const updatedTeam = await Team.findByIdAndUpdate(req.params.id, req.body, {
-    runValidators: true,
-  });
+  const filteredBody = filterObj(
+    req.body,
+    'name',
+    'supervisor',
+    'users',
+    'serviceHours',
+    'answersSets'
+  );
+
+  // const updatedData = {};
+
+  // if (supervisor && supervisor !== team.supervisor) {
+  //   const teamWithTheSameSupervisor = await Team.find({ supervisor });
+  //   if (teamWithTheSameSupervisor.length > 0) {
+  //     return next(
+  //       new AppError(
+  //         "Team supervisor couldn't be a supervisor of another team!",
+  //         400
+  //       )
+  //     );
+  //   }
+  //   updatedData.supervisor = supervisor;
+  // }
+
+  // if (users) {
+  //   const previousUsers = team.users;
+  //   if (!users.includes(supervisor)) {
+  //     users = [...users, supervisor];
+  //   }
+
+  //   // Checking if any users or the supervisor is a supervisor in another team
+  //   const teamWithTheSameSupervisor = await Team.find({
+  //     supervisor: { $in: users },
+  //   });
+  // }
+
+  // if (req.body.users) {
+  //   // Adding supervisor to the users array
+  //   let users = req.body.users || [];
+  // }
+
+  const updatedTeam = await Team.findByIdAndUpdate(
+    req.params.id,
+    filteredBody,
+    {
+      runValidators: true,
+    }
+  );
 
   if (!updatedTeam) {
-    return next(new AppError('No team found with that ID!'));
+    return next(new AppError('No team found with that ID!', 404));
   }
 
   const populatedTeam = await Team.findById(updatedTeam._id)
@@ -84,11 +192,27 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteTeam = catchAsync(async (req, res, next) => {
-  const team = await Team.findByIdAndDelete(req.params.id);
+  // const team = await Team.findByIdAndDelete(req.params.id);
+  const team = await Team.findById(req.params.id);
 
   if (!team) {
     return next(new AppError('No team found with that ID!'));
   }
+
+  const users = team.users;
+  const supervisorUser = team.supervisor;
+
+  //deleting team
+  await Team.findByIdAndDelete(req.params.id);
+
+  //removing user.team
+  for (let i = 0; i < users.length; i++) {
+    console.log('users[i]', users[i]);
+    await User.findByIdAndUpdate(users[i], { $unset: { team: 1 } });
+  }
+
+  //make supervisor:false for the supervisor user
+  await User.findByIdAndUpdate(supervisorUser, { supervisor: false });
 
   res.status(200).json({
     status: 'success',

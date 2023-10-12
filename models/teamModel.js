@@ -8,12 +8,22 @@ const teamSchema = new mongoose.Schema(
       unique: true,
     },
 
-    users: [
-      {
-        type: mongoose.Schema.ObjectId,
-        ref: 'User',
+    users: {
+      type: [
+        {
+          type: mongoose.Schema.ObjectId,
+          ref: 'User',
+        },
+      ],
+      validate: {
+        validator: function (array) {
+          // Use a Set to remove duplicate ObjectId elements and compare its size to the original array
+          const uniqueValues = new Set(array.map((objId) => objId.toString())); // Convert ObjectId to strings for comparison
+          return uniqueValues.size === array.length;
+        },
+        message: "Team users couldn't have duplicate users IDs!",
       },
-    ],
+    },
 
     supervisor: {
       type: mongoose.Schema.ObjectId,
@@ -30,7 +40,7 @@ const teamSchema = new mongoose.Schema(
     serviceHours: {
       type: mongoose.Schema.ObjectId,
       ref: 'Sevices',
-      // required: [true, 'Team service hours are required!'],
+      required: [true, 'Team service hours are required!'],
     },
 
     answersSets: [
