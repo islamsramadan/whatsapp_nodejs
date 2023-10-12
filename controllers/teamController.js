@@ -123,7 +123,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  if (!req.body.supervisor || !(await User.findById(supervisor))) {
+  if (!req.body.supervisor || !(await User.findById(req.body.supervisor))) {
     return next(new AppError('Team supervisor is required!', 400));
   }
 
@@ -138,7 +138,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 
   // Adding supervisor to the users array
   let users = req.body.users || [];
-  if (!users.includes(supervisor)) {
+  if (!users.includes(req.body.supervisor)) {
     users = [supervisor, ...users];
   }
 
