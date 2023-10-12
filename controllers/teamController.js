@@ -118,11 +118,13 @@ exports.getTeam = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTeam = catchAsync(async (req, res, next) => {
-  const { name, supervisor, users, serviceHours, answersSets } = req.body;
-
   const team = await Team.findById(req.params.id);
   if (!team) {
     return next(new AppError('No team found with that ID!', 404));
+  }
+
+  if (!req.body.supervisor || !(await User.findById(supervisor))) {
+    return next(new AppError('Team supervisor is required!', 400));
   }
 
   const filteredBody = filterObj(
@@ -134,42 +136,46 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     'answersSets'
   );
 
-  // const updatedData = {};
+  // Adding supervisor to the users array
+  let users = req.body.users || [];
+  if (!users.includes(supervisor)) {
+    users = [supervisor, ...users];
+  }
 
-  // if (supervisor && supervisor !== team.supervisor) {
-  //   const teamWithTheSameSupervisor = await Team.find({ supervisor });
-  //   if (teamWithTheSameSupervisor.length > 0) {
-  //     return next(
-  //       new AppError(
-  //         "Team supervisor couldn't be a supervisor of another team!",
-  //         400
-  //       )
-  //     );
-  //   }
-  //   updatedData.supervisor = supervisor;
-  // }
+  // Checking if any users or the supervisor is a supervisor in another team
+  const teamWithTheSameSupervisor = await Team.find({
+    supervisor: { $in: users },
+    _id: { $ne: req.params.id },
+  });
 
-  // if (users) {
-  //   const previousUsers = team.users;
-  //   if (!users.includes(supervisor)) {
-  //     users = [...users, supervisor];
-  //   }
+  if (teamWithTheSameSupervisor.length > 0) {
+    return next(
+      new AppError(
+        "Team supervisor or any user couldn't be a supervisor of another team!",
+        400
+      )
+    );
+  }
 
-  //   // Checking if any users or the supervisor is a supervisor in another team
-  //   const teamWithTheSameSupervisor = await Team.find({
-  //     supervisor: { $in: users },
-  //   });
-  // }
-
-  // if (req.body.users) {
-  //   // Adding supervisor to the users array
-  //   let users = req.body.users || [];
-  // }
+  // Removing team from the removed users only
+  for (let i = 0; i < team.users.length; i++) {
+    if (!users.includes(team.users[i])) {
+      await User.findByIdAndUpdate(
+        team.users[i],
+        {
+          $unset: { team: 1 },
+          supervisor: false,
+        },
+        { new: true, runValidators: true }
+      );
+    }
+  }
 
   const updatedTeam = await Team.findByIdAndUpdate(
     req.params.id,
     filteredBody,
     {
+      new: true,
       runValidators: true,
     }
   );
@@ -177,6 +183,22 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
   if (!updatedTeam) {
     return next(new AppError('No team found with that ID!', 404));
   }
+
+  // Adding user.team to all new users
+  for (let i = 0; i < users.length; i++) {
+    await User.findByIdAndUpdate(
+      users[i],
+      { team: req.params.id },
+      { new: true, runValidators: true }
+    );
+  }
+
+  // Adding supervisor:true to the supervisor user
+  await User.findByIdAndUpdate(
+    updatedTeam.supervisor,
+    { supervisor: true },
+    { new: true, runValidators: true }
+  );
 
   const populatedTeam = await Team.findById(updatedTeam._id)
     .populate('supervisor', 'firstName lastName photo')
