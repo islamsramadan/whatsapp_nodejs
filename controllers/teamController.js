@@ -139,7 +139,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
   // Adding supervisor to the users array
   let users = req.body.users || [];
   if (!users.includes(req.body.supervisor)) {
-    users = [supervisor, ...users];
+    users = [req.body.supervisor, ...users];
   }
 
   // Checking if any users or the supervisor is a supervisor in another team
