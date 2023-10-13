@@ -40,9 +40,21 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find({ deleted: false })
-    .select('-passwordChangedAt')
-    .populate('team', 'name');
+  let users;
+
+  // for team users
+  if (req.body.type && req.body.type === 'team') {
+    users = await User.find({
+      $or: [{ supervisor: { $ne: true } }, { team: req.body.teamID }],
+    })
+      .select('firstName lastName photo team')
+      .populate('team', 'name');
+  } else {
+    // for normal users
+    users = await User.find({ deleted: false })
+      .select('-passwordChangedAt')
+      .populate('team', 'name');
+  }
 
   res.status(200).json({
     status: 'success',
