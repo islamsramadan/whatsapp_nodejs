@@ -1,3 +1,4 @@
+const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 
@@ -25,5 +26,22 @@ exports.createChat = catchAsync(async (req, res, next) => {
     data: {
       chat: newChat,
     },
+  });
+});
+
+exports.updateChatNotification = catchAsync(async (req, res, next) => {
+  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  if (!chat) {
+    return next(new AppError('No chat found with that number', 404));
+  }
+
+  if (req.body?.notification === false) {
+    chat.notification = false;
+    await chat.save();
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Chat notification updated successfully!',
   });
 });

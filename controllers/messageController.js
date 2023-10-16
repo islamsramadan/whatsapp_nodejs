@@ -138,6 +138,10 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   const selectedChat = chat || newChat;
 
+  // updating chat notification to false
+  selectedChat.notification = false;
+  await selectedChat.save();
+
   // Handling whatsapp session (24hours from the last message the client send)
   if (!selectedChat.session) {
     return next(
@@ -316,6 +320,10 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
 
   const chat = await Chat.findById(failedMessage.chat);
 
+  // updating chat notification to false
+  chat.notification = false;
+  await chat.save();
+
   // Handling whatsapp session (24hours from the last message the client send)
   if (!chat.session) {
     return next(
@@ -446,6 +454,11 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   }
 
   const chat = await Chat.findById(reactedMessage.chat);
+
+  // updating chat notification to false
+  chat.notification = false;
+  await chat.save();
+
   // Handling whatsapp session (24hours from the last message the client send)
   if (!chat.session) {
     return next(
@@ -557,6 +570,10 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   // console.log('chat', chat);
 
   const selectedChat = chat || newChat;
+
+  // updating chat notification to false
+  selectedChat.notification = false;
+  await selectedChat.save();
 
   //********************************************************************************* */
   // Preparing template for whatsapp payload

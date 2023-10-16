@@ -13,4 +13,8 @@ router
   .get(authController.protect, chatController.getAllChats)
   .post(authController.protect, chatController.createChat);
 
+router
+  .route('/:chatNumber')
+  .patch(authController.protect, chatController.updateChatNotification);
+
 module.exports = router;

@@ -26,6 +26,11 @@ const chatSchema = new mongoose.Schema(
       ref: 'Message',
     },
 
+    notification: {
+      type: Boolean,
+      default: false,
+    },
+
     session: {
       type: Date,
     },
