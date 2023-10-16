@@ -5,6 +5,7 @@ const messageSchema = new mongoose.Schema(
     whatsappID: {
       type: String,
       required: [true, 'Message must have a whatsapp message id!'],
+      unique: true,
     },
 
     user: {
@@ -81,39 +82,6 @@ const messageSchema = new mongoose.Schema(
           }
         },
       },
-      // header: {
-      //   format: {
-      //     type: String,
-      //     enum: ['TEXT'],
-      //     // required: [true, 'Header format is required!'],
-      //   },
-      //   text: {
-      //     type: String,
-      //   },
-      // },
-      // body: {
-      //   text: {
-      //     type: String,
-      //   },
-      // },
-      // footer: {
-      //   text: {
-      //     type: String,
-      //   },
-      // },
-      // buttons: {
-      //   buttons: [
-      //     {
-      //       type: {
-      //         type: String,
-      //         enum: ['QUICK_REPLY'],
-      //       },
-      //       text: {
-      //         type: String,
-      //       },
-      //     },
-      //   ],
-      // },
       components: [
         {
           type: {
@@ -124,8 +92,24 @@ const messageSchema = new mongoose.Schema(
           format: {
             type: String,
             enum: ['TEXT'],
-            // required: [true, 'Header format is required!'],
+            required: function () {
+              if (this.type === 'template') {
+                this.template.components.map((comp) => {
+                  if (comp.type === 'HEADER') {
+                    return [
+                      true,
+                      'Template message must have a template category!',
+                    ];
+                  } else {
+                    return false;
+                  }
+                });
+              } else {
+                return false;
+              }
+            },
           },
+
           text: {
             type: String,
           },
