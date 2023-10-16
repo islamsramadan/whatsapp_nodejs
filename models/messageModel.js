@@ -98,7 +98,7 @@ const messageSchema = new mongoose.Schema(
                   if (comp.type === 'HEADER') {
                     return [
                       true,
-                      'Template message must have a template category!',
+                      'Template header component must have a format type!',
                     ];
                   } else {
                     return false;
@@ -109,7 +109,6 @@ const messageSchema = new mongoose.Schema(
               }
             },
           },
-
           text: {
             type: String,
           },
