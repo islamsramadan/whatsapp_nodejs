@@ -31,6 +31,12 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
 exports.createTeam = catchAsync(async (req, res, next) => {
   const { name, supervisor, serviceHours, answersSets } = req.body;
 
+  if (!name || !supervisor || !serviceHours) {
+    return next(
+      new AppError('Team name, supervisor and service hours are required!', 404)
+    );
+  }
+
   // Adding supervisor to the users array
   let users = req.body.users || [];
   if (!users.includes(supervisor)) {
@@ -218,7 +224,7 @@ exports.deleteTeam = catchAsync(async (req, res, next) => {
   const team = await Team.findById(req.params.id);
 
   if (!team) {
-    return next(new AppError('No team found with that ID!'));
+    return next(new AppError('No team found with that ID!', 404));
   }
 
   const users = team.users;
@@ -229,12 +235,14 @@ exports.deleteTeam = catchAsync(async (req, res, next) => {
 
   //removing user.team
   for (let i = 0; i < users.length; i++) {
-    console.log('users[i]', users[i]);
     await User.findByIdAndUpdate(users[i], { $unset: { team: 1 } });
   }
 
   //make supervisor:false for the supervisor user
-  await User.findByIdAndUpdate(supervisorUser, { supervisor: false });
+  await User.findByIdAndUpdate(supervisorUser, {
+    supervisor: false,
+    $unset: { team: 1 },
+  });
 
   res.status(200).json({
     status: 'success',

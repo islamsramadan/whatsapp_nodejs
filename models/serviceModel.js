@@ -59,7 +59,7 @@ const serviceSchema = new mongoose.Schema(
       },
     },
 
-    user: {
+    creator: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: [true, 'Service creator is required!'],

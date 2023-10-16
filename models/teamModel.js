@@ -47,7 +47,6 @@ const teamSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: 'AnswersSet',
-        // required: [true, 'Team answers sets are required!'],
       },
     ],
   },

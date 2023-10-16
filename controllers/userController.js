@@ -52,7 +52,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   } else {
     // for normal users
     users = await User.find({ deleted: false })
-      .select('-passwordChangedAt')
+      .select('-passwordChangedAt -createdAt -updatedAt')
       .populate('team', 'name');
   }
 

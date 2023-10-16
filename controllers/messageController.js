@@ -155,7 +155,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (availableSession >= 24 * 60) {
     return next(
       new AppError(
-        'Your session is expired, You can only send template message!',
+        'Your session is expired, You can only send template message until the end user reply!',
         400
       )
     );
@@ -531,7 +531,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
   const template = response.data.data[0];
-  // console.log('template', template);
+  console.log('template', template);
 
   if (!template) {
     return next(new AppError('There is no template with that name!', 404));
@@ -636,7 +636,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         const bodyParameters = whatsappPayload.template.components.filter(
           (comp) => comp.type === 'BODY'
         )[0].parameters;
-        console.log('bodyParameters', bodyParameters);
+        // console.log('bodyParameters', bodyParameters);
         for (let i = 0; i < bodyParameters.length; i++) {
           templateComponent.text = templateComponent.text.replace(
             `{{${i + 1}}}`,
