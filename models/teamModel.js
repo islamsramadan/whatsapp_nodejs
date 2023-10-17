@@ -39,7 +39,7 @@ const teamSchema = new mongoose.Schema(
 
     serviceHours: {
       type: mongoose.Schema.ObjectId,
-      ref: 'Sevices',
+      ref: 'Service',
       required: [true, 'Team service hours are required!'],
     },
 

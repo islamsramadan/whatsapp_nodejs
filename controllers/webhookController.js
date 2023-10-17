@@ -289,8 +289,6 @@ const receiveMessageHandler = async (req, res, next) => {
     }
 
     const newMessage = await Message.create(newMessageData);
-    // console.log('newMessageData', newMessageData);
-    // console.log('newMessage', newMessage);
 
     // Adding the received message as last message in the chat
     chat.lastMessage = newMessage._id;
