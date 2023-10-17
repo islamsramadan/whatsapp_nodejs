@@ -715,6 +715,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     // template,
     // whatsappPayload,
     // wahtsappResponse: sendTemplateResponse?.data,
-    newMessage,
+    message: newMessage,
   });
 });
