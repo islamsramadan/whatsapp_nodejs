@@ -5,6 +5,7 @@ const Message = require('../models/messageModel');
 const Chat = require('../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const Team = require('../models/teamModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -128,13 +129,22 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   let newChat;
   if (!chat) {
+    const userTeam = await Team.findById(req.user.team);
+    if (!userTeam) {
+      return next(
+        new AppError(
+          'the user sending the messages must belong to an existing team!',
+          400
+        )
+      );
+    }
     newChat = await Chat.create({
       client: req.params.chatNumber,
-      currentUser: req.user.id,
-      users: [req.user.id],
+      currentUser: req.user._id,
+      users: [req.user._id],
+      team: req.user.team,
     });
   }
-  // console.log('chat', chat);
 
   const selectedChat = chat || newChat;
 
@@ -167,10 +177,9 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // console.log('availableSession', availableSession);
 
   const newMessageObj = {
-    user: req.user.id,
-    chat: selectedChat.id,
+    user: req.user._id,
+    chat: selectedChat._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
-    to: selectedChat.client,
     type: req.body.type,
   };
 
@@ -362,14 +371,14 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   }
 
   // Template Message
-  if (failedMessage.type === 'template') {
-    whatsappPayload.template = {
-      name: 'hello_world',
-      language: {
-        code: 'en_US',
-      },
-    };
-  }
+  // if (failedMessage.type === 'template') {
+  //   whatsappPayload.template = {
+  //     name: 'hello_world',
+  //     language: {
+  //       code: 'en_US',
+  //     },
+  //   };
+  // }
 
   // Text Message
   if (failedMessage.type === 'text') {
@@ -427,12 +436,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   // updating failed message status in database
   failedMessage.status = 'pending';
   failedMessage.whatsappID = response.data.messages[0].id;
-  failedMessage.save();
-
-  // const newMessage = await Message.create({
-  //   ...newMessageObj,
-  //   whatsappID: response.data.messages[0].id,
-  // });
+  await failedMessage.save();
 
   //updating event in socket io
   req.app.io.emit('updating');
@@ -561,10 +565,20 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   let newChat;
   if (!chat) {
+    const userTeam = await Team.findById(req.user.team);
+    if (!userTeam) {
+      return next(
+        new AppError(
+          'the user sending the messages must belong to an existing team!',
+          400
+        )
+      );
+    }
     newChat = await Chat.create({
       client: req.params.chatNumber,
-      currentUser: req.user.id,
-      users: [req.user.id],
+      currentUser: req.user._id,
+      users: [req.user._id],
+      team: req.user.team,
     });
   }
   // console.log('chat', chat);
@@ -617,7 +631,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     user: req.user.id,
     chat: selectedChat.id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
-    to: selectedChat.client,
     type: 'template',
     template: {
       name: templateName,

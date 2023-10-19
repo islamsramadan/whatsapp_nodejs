@@ -26,11 +26,11 @@ const messageSchema = new mongoose.Schema(
       match: [/\d{10,}/, 'Invalid sender whatsapp number!'],
     },
 
-    to: {
-      type: String,
-      required: [true, 'Message must have a receiver!'],
-      match: [/\d{10,}/, 'Invalid receiver whatsapp number!'],
-    },
+    // to: {
+    //   type: String,
+    //   required: [true, 'Message must have a receiver!'],
+    //   match: [/\d{10,}/, 'Invalid receiver whatsapp number!'],
+    // },
 
     type: {
       type: String,

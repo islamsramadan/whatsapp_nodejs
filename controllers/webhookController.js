@@ -5,6 +5,7 @@ const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const Team = require('../models/teamModel');
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
@@ -201,13 +202,18 @@ const receiveMessageHandler = async (req, res, next) => {
 
   const chat = await Chat.findOne({ client: from });
   // console.log('chat', chat);
-  // if (!chat) {
-  //   const newChat = await Chat.create({
-  //     client: from,
-  //     currentUser: req.user.id,
-  //     users: [req.user.id],
-  //   });
-  // }
+
+  let newChat;
+  if (!chat) {
+    const defaultTeam = await Team.findOne({ default: true });
+
+    newChat = await Chat.create({
+      client: from,
+      team: defaultTeam._id,
+    });
+  }
+
+  const selectedChat = chat || newChat;
 
   if (msgType === 'reaction') {
     const reactionEmoji =
@@ -235,10 +241,8 @@ const receiveMessageHandler = async (req, res, next) => {
     res.status(200).json({ reactedMessage });
   } else {
     const newMessageData = {
-      user: chat.currentUser,
-      chat: chat.id,
-      to: process.env.WHATSAPP_PHONE_NUMBER,
-      from: chat.client,
+      chat: selectedChat._id,
+      from: selectedChat.client,
       type: msgType,
       whatsappID: msgID,
       status: 'received',
@@ -291,11 +295,11 @@ const receiveMessageHandler = async (req, res, next) => {
     const newMessage = await Message.create(newMessageData);
 
     // Adding the received message as last message in the chat
-    chat.lastMessage = newMessage._id;
+    selectedChat.lastMessage = newMessage._id;
     // update chat session and notification
-    chat.notification = true;
-    chat.session = Date.now();
-    await chat.save();
+    selectedChat.notification = true;
+    selectedChat.session = Date.now();
+    await selectedChat.save();
 
     //updating event in socket io
     req.app.io.emit('updating');

@@ -28,7 +28,7 @@ exports.createChat = catchAsync(async (req, res, next) => {
     client: req.body.client,
     currentUser: req.user._id,
     users: [req.user._id],
-    team: userTeam,
+    team: userTeam._id,
   });
 
   res.status(201).json({
