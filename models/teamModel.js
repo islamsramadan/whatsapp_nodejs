@@ -49,6 +49,11 @@ const teamSchema = new mongoose.Schema(
         ref: 'AnswersSet',
       },
     ],
+
+    default: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

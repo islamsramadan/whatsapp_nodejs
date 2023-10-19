@@ -15,6 +15,6 @@ router
 
 router
   .route('/:chatNumber')
-  .patch(authController.protect, chatController.updateChatNotification);
+  .patch(authController.protect, chatController.updateChat);
 
 module.exports = router;

@@ -13,7 +13,7 @@ const filterObj = (obj, ...allowedFields) => {
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
   const teams = await Team.find()
-    .sort('-createdAt')
+    .sort('createdAt')
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
     .populate('creator', 'firstName lastName photo')
@@ -129,82 +129,101 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  if (!req.body.supervisor || !(await User.findById(req.body.supervisor))) {
-    return next(new AppError('Team supervisor is required!', 400));
-  }
+  let updatedTeam;
 
-  const filteredBody = filterObj(
-    req.body,
-    'name',
-    'supervisor',
-    'users',
-    'serviceHours',
-    'answersSets'
-  );
-
-  // Adding supervisor to the users array
-  let users = req.body.users || [];
-  if (!users.includes(req.body.supervisor)) {
-    users = [req.body.supervisor, ...users];
-  }
-
-  // Checking if any users or the supervisor is a supervisor in another team
-  const teamWithTheSameSupervisor = await Team.find({
-    supervisor: { $in: users },
-    _id: { $ne: req.params.id },
-  });
-
-  if (teamWithTheSameSupervisor.length > 0) {
-    return next(
-      new AppError(
-        "Team supervisor or any user couldn't be a supervisor of another team!",
-        400
-      )
+  // Updating team to default team
+  if (req.body.default === true) {
+    updatedTeam = await Team.findByIdAndUpdate(
+      req.params.id,
+      {
+        default: true,
+      },
+      { new: true, runValidators: true }
     );
-  }
+  } else {
+    // Updating team by the provided in the body
+    if (!req.body.supervisor || !(await User.findById(req.body.supervisor))) {
+      return next(new AppError('Team supervisor is required!', 400));
+    }
 
-  // Removing team from the removed users only
-  for (let i = 0; i < team.users.length; i++) {
-    if (!users.includes(team.users[i])) {
+    const filteredBody = filterObj(
+      req.body,
+      'name',
+      'supervisor',
+      'users',
+      'serviceHours',
+      'answersSets'
+    );
+
+    // Adding supervisor to the users array
+    let users = req.body.users || [];
+    if (!users.includes(req.body.supervisor)) {
+      users = [req.body.supervisor, ...users];
+    }
+
+    // Checking if any users or the supervisor is a supervisor in another team
+    const teamWithTheSameSupervisor = await Team.find({
+      supervisor: { $in: users },
+      _id: { $ne: req.params.id },
+    });
+
+    if (teamWithTheSameSupervisor.length > 0) {
+      return next(
+        new AppError(
+          "Team supervisor or any user couldn't be a supervisor of another team!",
+          400
+        )
+      );
+    }
+
+    // Removing team from the removed users only
+    for (let i = 0; i < team.users.length; i++) {
+      if (!users.includes(team.users[i])) {
+        await User.findByIdAndUpdate(
+          team.users[i],
+          {
+            $unset: { team: 1 },
+            supervisor: false,
+          },
+          { new: true, runValidators: true }
+        );
+      }
+    }
+
+    updatedTeam = await Team.findByIdAndUpdate(req.params.id, filteredBody, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedTeam) {
+      return next(new AppError('No team found with that ID!', 404));
+    }
+
+    // Adding user.team to all new users
+    for (let i = 0; i < users.length; i++) {
       await User.findByIdAndUpdate(
-        team.users[i],
-        {
-          $unset: { team: 1 },
-          supervisor: false,
-        },
+        users[i],
+        { team: req.params.id },
         { new: true, runValidators: true }
       );
     }
-  }
 
-  const updatedTeam = await Team.findByIdAndUpdate(
-    req.params.id,
-    filteredBody,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
-  if (!updatedTeam) {
-    return next(new AppError('No team found with that ID!', 404));
-  }
-
-  // Adding user.team to all new users
-  for (let i = 0; i < users.length; i++) {
+    // Adding supervisor:true to the supervisor user
     await User.findByIdAndUpdate(
-      users[i],
-      { team: req.params.id },
+      updatedTeam.supervisor,
+      { supervisor: true },
       { new: true, runValidators: true }
     );
   }
 
-  // Adding supervisor:true to the supervisor user
-  await User.findByIdAndUpdate(
-    updatedTeam.supervisor,
-    { supervisor: true },
-    { new: true, runValidators: true }
-  );
+  if (!updatedTeam) {
+    return next(
+      new AppError(
+        'No team updated, Kindly check for the provided varaiables!',
+        400
+      )
+    );
+  }
 
   const populatedTeam = await Team.findById(updatedTeam._id)
     .populate('supervisor', 'firstName lastName photo')
@@ -225,6 +244,10 @@ exports.deleteTeam = catchAsync(async (req, res, next) => {
 
   if (!team) {
     return next(new AppError('No team found with that ID!', 404));
+  }
+
+  if (team.default === true) {
+    return next(new AppError("Couldn't delete default team!", 400));
   }
 
   const users = team.users;

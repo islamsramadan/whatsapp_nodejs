@@ -18,7 +18,13 @@ const chatSchema = new mongoose.Schema(
     currentUser: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
-      required: [true, 'Chat must have an active user!'],
+      // required: [true, 'Chat must have an active user!'],
+    },
+
+    team: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Team',
+      // required: [true, 'Chat must have a team!'],
     },
 
     lastMessage: {
