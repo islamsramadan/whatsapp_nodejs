@@ -12,7 +12,11 @@ router
 router
   .route('/:id')
   .get(authController.protect, teamController.getTeam)
-  .patch(authController.protect, teamController.updateTeam)
+  .patch(
+    authController.protect,
+    teamController.uploadTeamPhoto,
+    teamController.updateTeam
+  )
   .delete(authController.protect, teamController.deleteTeam);
 
 module.exports = router;

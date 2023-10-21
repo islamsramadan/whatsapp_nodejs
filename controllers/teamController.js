@@ -1,3 +1,5 @@
+const multer = require('multer');
+
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Team = require('../models/teamModel');
@@ -10,6 +12,33 @@ const filterObj = (obj, ...allowedFields) => {
   });
   return newObj;
 };
+
+const multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // console.log('file==============', file);
+    cb(null, 'public/img');
+  },
+  filename: (req, file, cb) => {
+    const ext = file.mimetype.split('/')[1];
+
+    cb(null, `team-${req.user.id}-${Date.now()}.${ext}`);
+  },
+});
+
+const multerFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image')) {
+    cb(null, true);
+  } else {
+    cb(new AppError('Not an image! Please upload only images.', 400), false);
+  }
+};
+
+const upload = multer({
+  storage: multerStorage,
+  fileFilter: multerFilter,
+});
+
+exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
   const teams = await Team.find()
@@ -131,8 +160,21 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 
   let updatedTeam;
 
+  // Update Team Photo
+  if (req.body.type === 'update_photo') {
+    if (!req.file) {
+      return next(new AppError('Image not found!', 404));
+    }
+
+    updatedTeam = await Team.findByIdAndUpdate(
+      req.params.id,
+      { photo: req.file.filename },
+      { new: true, runValidators: true }
+    );
+  }
+
   // Updating team to default team
-  if (req.body.default === true) {
+  else if (req.body.default === true) {
     updatedTeam = await Team.findByIdAndUpdate(
       req.params.id,
       {

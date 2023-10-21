@@ -54,6 +54,11 @@ const teamSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    photo: {
+      type: String,
+      default: 'team_photo',
+    },
   },
   { timestamps: true }
 );
