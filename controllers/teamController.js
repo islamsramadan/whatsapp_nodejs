@@ -175,13 +175,21 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 
   // Updating team to default team
   else if (req.body.default === true) {
-    updatedTeam = await Team.findByIdAndUpdate(
-      req.params.id,
-      {
-        default: true,
-      },
+    const team = await Team.findById(req.params.id);
+    if (!team) {
+      return next(new AppError('No team found with that ID!', 404));
+    }
+
+    //remove default from the other default team
+    await Team.findOneAndUpdate(
+      { default: true },
+      { default: false },
       { new: true, runValidators: true }
     );
+
+    //update the new default team
+    team.default = true;
+    updatedTeam = await team.save();
   } else {
     // Updating team by the provided in the body
     if (!req.body.supervisor || !(await User.findById(req.body.supervisor))) {

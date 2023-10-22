@@ -27,8 +27,6 @@ exports.getAllWhatsappTemplates = catchAsync(async (req, res, next) => {
     },
   });
 
-  //   console.log('response', response.data);
-
   res.status(200).json({
     status: 'success',
     results: response.data.data?.length,
@@ -41,11 +39,22 @@ exports.getAllWhatsappTemplates = catchAsync(async (req, res, next) => {
 exports.createWhatsappTemplate = catchAsync(async (req, res, next) => {
   const categoryArray = ['authentication', 'marketing', 'utility'];
   const languageArray = ['ar', 'en_US', 'en'];
-  const { name, category, language } = req.body;
 
-  if (!name || !category || !language) {
+  const { name, category, language, components } = req.body;
+
+  if (
+    !name ||
+    !category ||
+    !language ||
+    !components ||
+    !Array.isArray(components) ||
+    components?.length === 0
+  ) {
     return next(
-      new AppError('Template name, language and category are required!', 400)
+      new AppError(
+        'Template name, language, category and components array are required!',
+        400
+      )
     );
   }
 
@@ -59,21 +68,41 @@ exports.createWhatsappTemplate = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (!languageArray.includes(language)) {
+    return next(new AppError('Invalid template language!', 400));
+  }
+
   if (!categoryArray.includes(category.toLowerCase())) {
     return next(new AppError('Invalid template category!', 400));
+  }
+
+  const bodyComponent = components.filter((comp) => comp.type === 'BODY')[0];
+  if (!bodyComponent) {
+    return next(new AppError('Body component is required!', 400));
   }
 
   const whatsappTemplateData = {
     name,
     language,
-    category,
+    category: category.toUpperCase(),
     allow_category_change: true,
+    components,
   };
+
+  const response = await axios.request({
+    method: 'post',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${whatsappToken}`,
+    },
+    data: whatsappTemplateData,
+  });
 
   res.status(201).json({
     status: 'success',
     data: {
-      //   template,
+      response: response.data,
       whatsappTemplateData,
     },
   });
