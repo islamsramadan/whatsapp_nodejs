@@ -197,7 +197,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       return next(new AppError('Team supervisor is required!', 400));
     }
 
-    if (req.body.default === false) {
+    if (team.default === true && req.body.default === false) {
       return next(
         new AppError(
           "Couldn't remove default from the team, Select another team to be default!",
