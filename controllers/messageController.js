@@ -107,6 +107,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     status: 'success',
     results: messages.length,
     data: {
+      session: chat.session,
       messages,
     },
   });
