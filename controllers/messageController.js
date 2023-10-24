@@ -488,10 +488,7 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   const whatsappPayload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to:
-      reactedMessage.from !== whatsappPhoneNumber
-        ? reactedMessage.from
-        : reactedMessage.to,
+    to: chat.client,
     type: 'reaction',
     reaction: {
       message_id: reactedMessage.whatsappID,
