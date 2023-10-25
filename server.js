@@ -77,6 +77,7 @@ io.on('connection', async (socket) => {
   socket.on('client_to_server', async (data) => {
     const chats = await Chat.find().sort('-updatedAt').populate('lastMessage');
     let messages = [];
+    let chatSession;
     if (data.chatNumber) {
       const chat = await Chat.findOne({ client: data.chatNumber });
       messages = await Message.find({ chat: chat._id })
@@ -86,10 +87,11 @@ io.on('connection', async (socket) => {
           select: { firstName: 1, lastName: 1, photo: 1 },
         })
         .populate('reply');
+      chatSession = chat.session;
     }
 
     // Emit a response event back to the client
-    socket.emit('server_to_client', { chats, messages });
+    socket.emit('server_to_client', { chats, messages, chatSession });
   });
 });
 
