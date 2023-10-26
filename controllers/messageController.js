@@ -314,8 +314,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     status: 'success',
-    wahtsappResponse: response.data,
-    // message: 'Message sent successfully!',
+    // wahtsappResponse: response.data,
     data: {
       message: newMessage,
     },
@@ -444,7 +443,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    wahtsappResponse: response.data,
+    // wahtsappResponse: response.data,
     data: {
       message: failedMessage,
     },
@@ -723,9 +722,11 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     status: 'success',
-    // template,
-    // whatsappPayload,
-    // wahtsappResponse: sendTemplateResponse?.data,
-    message: newMessage,
+    data: {
+      // template,
+      // whatsappPayload,
+      // wahtsappResponse: sendTemplateResponse?.data,
+      message: newMessage,
+    },
   });
 });
