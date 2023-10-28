@@ -305,8 +305,9 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     whatsappID: response.data.messages[0].id,
   });
 
-  // Adding the sent message as last message in the chat
+  // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
+  selectedChat.status = 'open';
   await selectedChat.save();
 
   //updating event in socket io
@@ -713,8 +714,9 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   });
 
   //********************************************************************************* */
-  // Adding the sent message as last message in the chat
+  // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
+  selectedChat.status = 'open';
   await selectedChat.save();
 
   //updating event in socket io

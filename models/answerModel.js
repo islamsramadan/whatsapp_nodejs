@@ -5,7 +5,7 @@ const answerSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Answer name is required!'],
-      unique: true,
+      // unique: true,
     },
 
     body: {
@@ -27,6 +27,8 @@ const answerSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+answerSchema.index({ name: 1, answersSet: 1 }, { unique: true });
 
 const Answer = mongoose.model('Answer', answerSchema);
 module.exports = Answer;

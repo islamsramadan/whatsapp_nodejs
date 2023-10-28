@@ -27,6 +27,12 @@ const chatSchema = new mongoose.Schema(
       // required: [true, 'Chat must have a team!'],
     },
 
+    status: {
+      type: String,
+      enum: ['open', 'archived'],
+      default: 'open',
+    },
+
     lastMessage: {
       type: mongoose.Schema.ObjectId,
       ref: 'Message',

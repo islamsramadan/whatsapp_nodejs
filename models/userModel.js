@@ -43,6 +43,13 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    chats: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Chat',
+      },
+    ],
+
     password: {
       type: String,
       required: [true, 'Password is required!'],

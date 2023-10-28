@@ -50,7 +50,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide the type of update!', 400));
   }
 
-  // Update chat notification
+  //**********Update chat notification
   if (type === 'notification') {
     if (req.body?.notification === false) {
       chat.notification = false;
@@ -58,6 +58,23 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     } else {
       return next(new AppError('Kindly provide notification status!', 400));
     }
+
+    //**********Archive chat
+  } else if (type === 'archive') {
+    if (chat.notification === true) {
+      return next(
+        new AppError("Couldn't archive chat with unread messages", 400)
+      );
+    }
+    chat.currentUser = undefined;
+    chat.status = 'archived';
+    await chat.save();
+    // Removing chat from user open chats
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { chats: chat._id } },
+      { new: true, runValidators: true }
+    );
 
     //**********the user in chat team take the ownership
   } else if (type === 'takeOwnership') {
@@ -67,6 +84,14 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       chat.users = [...chat.users, req.user._id];
     }
     await chat.save();
+    //Add the chat to the user open chats
+    if (!req.user.chats.includes(chat._id)) {
+      await User.findByIdAndUpdate(
+        req.user._id,
+        { chats: [...req.user.chats, chat._id] },
+        { new: true, runValidators: true }
+      );
+    }
 
     //**********Transfer to another user in the same team
   } else if (type === 'transferToUser') {
@@ -74,12 +99,23 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (!user) {
       return next(new AppError('No user found with that ID', 404));
     }
+    //Remove chat from user open chats
+    await User.findByIdAndUpdate(
+      chat.currentUser,
+      { $pull: { chats: chat._id } },
+      { new: true, runValidators: true }
+    );
+
     chat.currentUser = req.body.user;
     //Add new user to the array of users
     if (!chat.users.includes(req.body.user)) {
       chat.users = [...chat.users, req.body.user];
     }
     await chat.save();
+
+    //Adding the chat to the new user
+    user.chats = [...user.chats, chat._id];
+    await user.save();
 
     //********** Transfer the chat to another team and remove the current user
   } else if (type === 'transferToTeam') {
@@ -90,9 +126,28 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (team._id === chat.team) {
       return next(new AppError("Couldn't transfer to the same team!", 400));
     }
+
+    //Selecting chat current user
+    const teamUsers = [];
+    team.users.map(async function (user) {
+      let teamUser = await User.findById(user);
+      teamUsers = teamUsers.push(teamUser);
+    });
+    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+
+    //Update chat
     chat.team = req.body.team;
-    chat.currentUser = undefined;
+    chat.currentUser = teamUsers[0]._id;
     await chat.save();
+
+    //Update selected user open chats
+    if (!teamUsers[0].chats.includes(chat._id)) {
+      await User.findByIdAndUpdate(
+        teamUsers[0]._id,
+        { $push: { chats: chat._id } },
+        { new: true, runValidators: true }
+      );
+    }
   }
 
   res.status(200).json({

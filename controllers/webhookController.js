@@ -296,9 +296,10 @@ const receiveMessageHandler = async (req, res, next) => {
 
     // Adding the received message as last message in the chat
     selectedChat.lastMessage = newMessage._id;
-    // update chat session and notification
+    // update chat session, notification and status
     selectedChat.notification = true;
     selectedChat.session = Date.now();
+    selectedChat.status = 'open';
     await selectedChat.save();
 
     //updating event in socket io
