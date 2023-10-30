@@ -248,7 +248,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     }
 
     //update previous default team to not default
-    if (defaultTeam) {
+    if (defaultTeam && defaultTeam._id !== req.params.id) {
       defaultTeam.default = false;
       await defaultTeam.save();
     }
