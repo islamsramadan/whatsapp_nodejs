@@ -5,7 +5,6 @@ const answerSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Answer name is required!'],
-      // unique: true,
     },
 
     body: {

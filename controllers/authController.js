@@ -139,7 +139,7 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   }
 
   // 1) Getting user from collection
-  const currentUser = await User.findById(req.user.id).select('+password');
+  const currentUser = await User.findById(req.user._id).select('+password');
 
   const { currentPassword, newPassword, passwordConfirm } = req.body;
   if (!currentPassword || !newPassword || !passwordConfirm) {
@@ -175,6 +175,9 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   currentUser.password = newPassword;
   currentUser.passwordConfirm = passwordConfirm;
   await currentUser.save();
+
+  // Disconnect the user from socket after changing password
+  req.app.connectedUsers[req.user._id].disconnect(true);
 
   // 4) Log user in and send jwt token
   createSendToken(currentUser, 200, res);

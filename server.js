@@ -72,8 +72,11 @@ io.use(async (socket, next) => {
 
 // To use socket io inside controller from req
 app.io = io;
+app.connectedUsers = {};
 
 io.on('connection', async (socket) => {
+  app.connectedUsers[socket.user._id] = socket;
+
   socket.on('client_to_server', async (data) => {
     const chats = await Chat.find().sort('-updatedAt').populate('lastMessage');
     let messages = [];
@@ -92,6 +95,10 @@ io.on('connection', async (socket) => {
 
     // Emit a response event back to the client
     socket.emit('server_to_client', { chats, messages, chatSession });
+  });
+
+  socket.on('disconnect', () => {
+    delete app.connectedUsers[socket.user._id];
   });
 });
 

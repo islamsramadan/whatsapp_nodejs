@@ -17,10 +17,30 @@ exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
 });
 
 exports.createAnswersSet = catchAsync(async (req, res, next) => {
-  const newAnswersSet = await AnswersSet.create({
-    ...req.body,
+  const { name, type, answers } = req.body;
+
+  if (req.body?.type === 'private' && req.user.answersSet) {
+    return next(
+      new AppError('You could have only one private answers set!', 400)
+    );
+  }
+
+  const answersSetData = {
+    name,
+    answers,
+    type,
     creator: req.user._id,
-  });
+  };
+
+  const newAnswersSet = await AnswersSet.create(answersSetData);
+
+  if (req.body?.type === 'private') {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { answersSet: newAnswersSet._id },
+      { new: true, runValidators: true }
+    );
+  }
 
   res.status(201).json({
     status: 'success',

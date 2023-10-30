@@ -50,6 +50,11 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
+    answersSet: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'AnswersSet',
+    },
+
     password: {
       type: String,
       required: [true, 'Password is required!'],
