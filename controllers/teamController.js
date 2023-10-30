@@ -46,7 +46,8 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
     .populate('creator', 'firstName lastName photo')
-    .populate('answersSets', 'name');
+    .populate('answersSets', 'name')
+    .populate('serviceHours', 'name');
 
   res.status(200).json({
     status: 'success',
@@ -248,7 +249,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     }
 
     //update previous default team to not default
-    if (defaultTeam && defaultTeam._id !== req.params.id) {
+    if (defaultTeam && defaultTeam._id != req.params.id) {
       defaultTeam.default = false;
       await defaultTeam.save();
     }
