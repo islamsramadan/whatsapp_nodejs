@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema(
       default: 'default.jpg',
     },
 
+    status: {
+      type: String,
+      enum: ['Online', 'Offline', 'Service hours', 'Away'],
+      default: 'Service hours',
+    },
+
     role: {
       type: String,
       enum: ['user', 'admin'],
@@ -53,7 +59,6 @@ const userSchema = new mongoose.Schema(
     answersSet: {
       type: mongoose.Schema.ObjectId,
       ref: 'AnswersSet',
-      // required: [true, 'User private answers set is required!'],
     },
 
     password: {

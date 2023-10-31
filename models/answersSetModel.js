@@ -4,7 +4,14 @@ const answersSetSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Answers set name is required!'],
+      // required: [true, 'Answers set name is required!'],
+      required: function () {
+        if (this.type === 'public') {
+          return [true, 'Answers set name is required!'];
+        } else {
+          return false;
+        }
+      },
       unique: true,
     },
 

@@ -115,6 +115,12 @@ exports.createUser = catchAsync(async (req, res, next) => {
     type: 'private',
   });
 
+  await User.findByIdAndUpdate(
+    newUser._id,
+    { answersSet: newAnswersSet._id },
+    { new: true, runValidators: true }
+  );
+
   // Remove password from output
   newUser.password = undefined;
 
@@ -122,6 +128,7 @@ exports.createUser = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       user: newUser,
+      newAnswersSet,
     },
   });
 });
@@ -129,9 +136,9 @@ exports.createUser = catchAsync(async (req, res, next) => {
 exports.updateUser = catchAsync(async (req, res, next) => {
   /////////////////////////////////////////////////
   // For me
-  if (req.params.userID === '64b01ddcb71752fc73c85619') {
-    return next(new AppError('خليك ف حالك ي معلم!', 400));
-  }
+  // if (req.params.userID === '64b01ddcb71752fc73c85619') {
+  //   return next(new AppError('خليك ف حالك ي معلم!', 400));
+  // }
 
   const user = await User.findById(req.params.userID);
   if (!user) {
@@ -211,8 +218,11 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
 exports.updateMe = catchAsync(async (req, res, next) => {
   // For me
-  if (req.user.id === '64b01ddcb71752fc73c85619') {
-    return next(new AppError('خليك ف حالك ي معلم!', 400));
+  // if (req.user.id === '64b01ddcb71752fc73c85619') {
+  //   return next(new AppError('خليك ف حالك ي معلم!', 400));
+  // }
+
+  if (req.body.status) {
   }
 
   // 1) Create error if user post password data
@@ -226,7 +236,12 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // 2) Filtered out unwanted fields names that are not allowed to be updated
-  const filteredBody = filterObj(req.body, 'firstName', 'lastName', 'email');
+  let filteredBody = filterObj(req.body, 'firstName', 'lastName', 'email');
+
+  // To update only user status
+  if (req.body.status) {
+    filteredBody = { status: req.body.status };
+  }
 
   // 3) Check if photo updated
   if (req.file) {
