@@ -195,6 +195,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       'users',
       'serviceHours',
       'answersSets',
+      'conversation',
       'default'
     );
 

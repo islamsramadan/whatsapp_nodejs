@@ -70,10 +70,14 @@ exports.updateConversation = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteConversation = catchAsync(async (req, res, next) => {
-  const conversation = await Conversation.findByIdAndDelete(req.params.id);
+  const conversation = await Conversation.findById(req.params.id);
 
   if (!conversation) {
     return next(new AppError('No conversation found with that ID!', 404));
+  }
+
+  if (conversation.teams && conversation.teams.length > 0) {
+    return next(new AppError("Couldn't delete conversation used in teams!"));
   }
 
   res.status(200).json({

@@ -27,6 +27,13 @@ const conversationSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Conversation creator is required!'],
     },
+
+    teams: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Team',
+      },
+    ],
   },
   { timestamps: true }
 );

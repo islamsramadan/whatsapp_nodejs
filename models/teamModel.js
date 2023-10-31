@@ -50,6 +50,12 @@ const teamSchema = new mongoose.Schema(
       },
     ],
 
+    conversation: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Conversation',
+      required: [true, 'Team conversation is required!'],
+    },
+
     default: {
       type: Boolean,
       default: false,
