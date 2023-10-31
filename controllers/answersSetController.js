@@ -4,7 +4,7 @@ const AppError = require('../utils/appError');
 const User = require('../models/userModel');
 
 exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
-  const answersSets = await AnswersSet.find()
+  const answersSets = await AnswersSet.find({ type: 'public' })
     .populate('answers', 'name')
     .populate('creator', 'firstName lastName');
 
@@ -53,11 +53,18 @@ exports.createAnswersSet = catchAsync(async (req, res, next) => {
 
 exports.getAnswersSet = catchAsync(async (req, res, next) => {
   const answersSet = await AnswersSet.findById(req.params.id)
-    .populate('answers', 'name')
+    .populate('answers', 'name body')
     .populate('creator', 'firstName lastName');
 
   if (!answersSet) {
     return next(new AppError('No answers set found with that ID!', 404));
+  }
+
+  if (
+    answersSet.type === 'private' &&
+    !req.user._id.equals(answersSet.creator._id)
+  ) {
+    return next(new AppError('Private answers!', 400));
   }
 
   res.status(200).json({

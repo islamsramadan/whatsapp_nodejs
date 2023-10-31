@@ -207,9 +207,18 @@ const receiveMessageHandler = async (req, res, next) => {
   if (!chat) {
     const defaultTeam = await Team.findOne({ default: true });
 
+    //Selecting chat current user
+    const teamUsers = [];
+    defaultTeam.users.map(async function (user) {
+      let teamUser = await User.findById(user);
+      teamUsers = teamUsers.push(teamUser);
+    });
+    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+
     newChat = await Chat.create({
       client: from,
       team: defaultTeam._id,
+      currentUser: teamUsers[0]._id,
     });
   }
 
