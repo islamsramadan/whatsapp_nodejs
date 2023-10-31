@@ -101,6 +101,10 @@ exports.deleteAnswersSet = catchAsync(async (req, res, next) => {
     return next(new AppError('No answers set found with that ID!', 404));
   }
 
+  if (answersSet.type === 'private') {
+    return next(new AppError("Couldn't delete private answers set!", 400));
+  }
+
   if (answersSet.answers.length > 0) {
     return next(
       new AppError("Couldn't delete answers set with active answers!", 400)

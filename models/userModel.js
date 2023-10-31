@@ -53,6 +53,7 @@ const userSchema = new mongoose.Schema(
     answersSet: {
       type: mongoose.Schema.ObjectId,
       ref: 'AnswersSet',
+      // required: [true, 'User private answers set is required!'],
     },
 
     password: {

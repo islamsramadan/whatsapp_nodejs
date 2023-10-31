@@ -3,6 +3,7 @@ const AppError = require('../utils/appError');
 const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
+const AnswersSet = require('../models/answersSetModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -106,6 +107,13 @@ exports.createUser = catchAsync(async (req, res, next) => {
     team.users = [...team.users, newUser._id];
     await team.save();
   }
+
+  // Create private answers set for the user
+  const newAnswersSet = await AnswersSet.create({
+    creator: newUser._id,
+    answers: [],
+    type: 'private',
+  });
 
   // Remove password from output
   newUser.password = undefined;
