@@ -44,7 +44,7 @@ io.use(async (socket, next) => {
   // console.log('decoded', decoded);
 
   // 3) Check if user still exists
-  const currentUser = await User.findById(decoded.id);
+  const currentUser = await User.findById(decoded.id).select('+token');
   if (!currentUser) {
     return next(
       new AppError(
@@ -63,6 +63,16 @@ io.use(async (socket, next) => {
       )
     );
   }
+
+  // 5) check if it is the same token in db as it is the last login
+  if (currentUser.token && currentUser.token !== token) {
+    return next(
+      new AppError('User recently loged in with different token!', 401)
+    );
+  }
+
+  // Remove token from the user to send it in the req
+  currentUser.token = undefined;
 
   // GRANT ACCESS TO PROTECTED ROUTE
   socket.user = currentUser;

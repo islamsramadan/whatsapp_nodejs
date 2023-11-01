@@ -11,7 +11,7 @@ const sendToken = (id) => {
   });
 };
 
-const createSendToken = async (user, statusCode, res) => {
+const createSendToken = async (user, statusCode, req, res) => {
   const token = sendToken(user._id);
 
   await User.findByIdAndUpdate(
@@ -25,6 +25,9 @@ const createSendToken = async (user, statusCode, res) => {
   // user.role = undefined;
   user.deleted = undefined;
   user.passwordChangedAt = undefined;
+
+  // Disconnect the user from socket after creating new token
+  req.app.connectedUsers[req.user._id].disconnect(true);
 
   res.status(statusCode).json({
     status: 'success',
@@ -50,7 +53,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  await createSendToken(newUser, 201, res);
+  await createSendToken(newUser, 201, req, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -73,7 +76,7 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect Email or Password!', 400));
   }
 
-  await createSendToken(user, 200, res);
+  await createSendToken(user, 200, req, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -150,9 +153,9 @@ exports.restrictTo = (...roles) => {
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
   // For me
-  // if (req.user.id === '64b01ddcb71752fc73c85619') {
-  //   return next(new AppError('خليك ف حالك ي معلم!', 400));
-  // }
+  if (req.user.id === '64b01ddcb71752fc73c85619') {
+    return next(new AppError('خليك ف حالك ي معلم!', 400));
+  }
 
   // 1) Getting user from collection
   const currentUser = await User.findById(req.user._id).select('+password');
@@ -192,9 +195,6 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   currentUser.passwordConfirm = passwordConfirm;
   await currentUser.save();
 
-  // Disconnect the user from socket after changing password
-  req.app.connectedUsers[req.user._id].disconnect(true);
-
   // 4) Log user in and send jwt token
-  await createSendToken(currentUser, 200, res);
+  await createSendToken(currentUser, 200, req, res);
 });
