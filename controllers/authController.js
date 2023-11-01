@@ -11,8 +11,14 @@ const sendToken = (id) => {
   });
 };
 
-const createSendToken = (user, statusCode, res) => {
+const createSendToken = async (user, statusCode, res) => {
   const token = sendToken(user._id);
+
+  await User.findByIdAndUpdate(
+    user._id,
+    { token },
+    { new: true, runValidators: true }
+  );
 
   // Remove password ,role and deleted from output
   user.password = undefined;
@@ -44,7 +50,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  createSendToken(newUser, 201, res);
+  await createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -67,7 +73,7 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect Email or Password!', 400));
   }
 
-  createSendToken(user, 200, res);
+  await createSendToken(user, 200, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -94,7 +100,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   // console.log('decoded', decoded);
 
   // 3) Check if user still exists
-  const currentUser = await User.findById(decoded.id);
+  const currentUser = await User.findById(decoded.id).select('+token');
   if (!currentUser) {
     return next(
       new AppError(
@@ -113,6 +119,16 @@ exports.protect = catchAsync(async (req, res, next) => {
       )
     );
   }
+
+  // 5) check if it is the same token in db as it is the last login
+  if (currentUser.token && currentUser.token !== token) {
+    return next(
+      new AppError('User recently loged in with different token!', 401)
+    );
+  }
+
+  // Remove token from the user to send it in the req
+  currentUser.token = undefined;
 
   // GRANT ACCESS TO PROTECTED ROUTE
   req.user = currentUser;
@@ -180,5 +196,5 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   req.app.connectedUsers[req.user._id].disconnect(true);
 
   // 4) Log user in and send jwt token
-  createSendToken(currentUser, 200, res);
+  await createSendToken(currentUser, 200, res);
 });

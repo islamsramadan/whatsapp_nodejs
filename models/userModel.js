@@ -87,6 +87,11 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    token: {
+      type: String,
+      select: false,
+    },
+
     passwordChangedAt: {
       type: Date,
     },
