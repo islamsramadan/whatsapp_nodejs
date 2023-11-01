@@ -27,7 +27,9 @@ const createSendToken = async (user, statusCode, req, res) => {
   user.passwordChangedAt = undefined;
 
   // Disconnect the user from socket after creating new token
-  req.app.connectedUsers[req.user._id].disconnect(true);
+  if (req.app.connectedUsers[user._id]) {
+    req.app.connectedUsers[user._id].disconnect(true);
+  }
 
   res.status(statusCode).json({
     status: 'success',
