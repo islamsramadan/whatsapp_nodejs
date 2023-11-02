@@ -32,6 +32,9 @@ exports.createAnswersSet = catchAsync(async (req, res, next) => {
     type,
     creator: req.user._id,
   };
+  if (req.body?.type === 'private' && !answersSetData.name) {
+    answersSetData.name = `Private-${req.user._id}`;
+  }
 
   const newAnswersSet = await AnswersSet.create(answersSetData);
 

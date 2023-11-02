@@ -59,7 +59,8 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
 });
 
 exports.createTeam = catchAsync(async (req, res, next) => {
-  const { name, supervisor, serviceHours, answersSets } = req.body;
+  const { name, supervisor, serviceHours, conversation, answersSets } =
+    req.body;
 
   if (!name || !supervisor || !serviceHours) {
     return next(
@@ -92,6 +93,7 @@ exports.createTeam = catchAsync(async (req, res, next) => {
     users,
     supervisor,
     serviceHours,
+    conversation,
     answersSets,
     creator: req.user._id,
   };

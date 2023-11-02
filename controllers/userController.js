@@ -110,6 +110,7 @@ exports.createUser = catchAsync(async (req, res, next) => {
 
   // Create private answers set for the user
   const newAnswersSet = await AnswersSet.create({
+    name: `Private-${newUser._id}`,
     creator: newUser._id,
     answers: [],
     type: 'private',
