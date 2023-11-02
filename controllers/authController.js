@@ -127,9 +127,7 @@ exports.protect = catchAsync(async (req, res, next) => {
 
   // 5) check if it is the same token in db as it is the last login
   if (currentUser.token && currentUser.token !== token) {
-    return next(
-      new AppError('User recently loged in with different token!', 401)
-    );
+    return next(new AppError('Invalid token!', 401));
   }
 
   // Remove token from the user to send it in the req

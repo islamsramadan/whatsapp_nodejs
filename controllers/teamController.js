@@ -46,8 +46,9 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
     .populate('creator', 'firstName lastName photo')
-    .populate('answersSets', 'name')
-    .populate('serviceHours', 'name');
+    .populate('serviceHours', 'name')
+    .populate('conversation', 'name')
+    .populate('answersSets', 'name');
 
   res.status(200).json({
     status: 'success',
