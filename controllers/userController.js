@@ -41,21 +41,31 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  let users;
+  const filteredBody = {};
+  let select = '-passwordChangedAt -createdAt -updatedAt';
+  let populate = { path: 'team', select: 'name' };
 
-  // for team users
-  if (req.body.type && req.body.type === 'team') {
-    users = await User.find({
-      $or: [{ supervisor: { $ne: true } }, { team: req.body.teamID }],
-    })
-      .select('firstName lastName photo team')
-      .populate('team', 'name');
-  } else {
-    // for normal users
-    users = await User.find({ deleted: false })
-      .select('-passwordChangedAt -createdAt -updatedAt')
-      .populate('team', 'name');
+  // Users for add or edit team
+  if (req.body.type === 'team') {
+    filteredBody['$or'] = [
+      { supervisor: { $ne: true } },
+      { team: req.body.teamID },
+    ];
+    select = 'firstName lastName photo team';
+    populate = { path: 'team', select: 'name' };
   }
+
+  // users for chat transfer
+  if (req.body.type === 'chatTransfer') {
+    filteredBody['$and'] = [
+      { _id: { $ne: req.user._id } },
+      { team: req.user.team },
+    ];
+    select = 'firstName lastName photo';
+    populate = '';
+  }
+
+  const users = await User.find(filteredBody).select(select).populate(populate);
 
   res.status(200).json({
     status: 'success',

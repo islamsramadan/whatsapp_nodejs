@@ -41,7 +41,12 @@ const upload = multer({
 exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
-  const teams = await Team.find()
+  const filteredBody = {};
+  if (req.body.type === 'chatTransfer') {
+    filteredBody._id = { $ne: req.user.team };
+  }
+
+  let teams = await Team.find(filteredBody)
     .sort('createdAt')
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
