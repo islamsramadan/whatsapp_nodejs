@@ -17,6 +17,7 @@ const sessionSchema = new mongoose.Schema(
     },
     start: {
       type: Date,
+      required: [true, 'Session start date is required!'],
     },
     end: {
       type: Date,

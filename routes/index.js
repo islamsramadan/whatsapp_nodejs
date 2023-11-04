@@ -8,6 +8,7 @@ const conversationRouter = require('./conversationRoutes');
 const serviceRouter = require('./serviceRoutes');
 const departmentRouter = require('./departmentRoutes');
 const chatRouter = require('./chatRoutes');
+const sessionRouter = require('./sessionRoutes');
 const messageRouter = require('./messageRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
 
@@ -22,6 +23,7 @@ router.use('/conversations', conversationRouter);
 router.use('/services', serviceRouter);
 router.use('/departments', departmentRouter);
 router.use('/chats', chatRouter);
+router.use('/sessions', sessionRouter);
 router.use('/messages', messageRouter);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
 
