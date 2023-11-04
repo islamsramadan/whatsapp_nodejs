@@ -114,8 +114,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     await chat.save();
 
     //Adding the chat to the new user
-    user.chats = [...user.chats, chat._id];
-    await user.save();
+    // user.chats = [...user.chats, chat._id];
+    // await user.save();
+    await User.findByIdAndUpdate(
+      req.body.user,
+      {
+        $push: { chats: chat._id },
+      },
+      { new: true, runValidators: true }
+    );
 
     //********** Transfer the chat to another team and remove the current user
   } else if (type === 'transferToTeam') {
