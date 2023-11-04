@@ -130,21 +130,29 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (!team) {
       return next(new AppError('No team found with that ID!', 404));
     }
-    if (team._id === chat.team) {
+
+    if (team._id.equals(chat.team)) {
       return next(new AppError("Couldn't transfer to the same team!", 400));
     }
 
-    //Selecting chat current user
-    const teamUsers = [];
-    team.users.map(async function (user) {
-      let teamUser = await User.findById(user);
-      teamUsers = teamUsers.push(teamUser);
-    });
+    //previous chat current user to be updated later
+    const previousUser = chat.currentUser;
+
+    //Selecting new chat current user
+    let teamUsers = [];
+    for (let i = 0; i < team.users.length; i++) {
+      let teamUser = await User.findById(team.users[i]);
+      console.log('teamUser', teamUser);
+      teamUsers = [...teamUsers, teamUser];
+    }
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
 
     //Update chat
     chat.team = req.body.team;
     chat.currentUser = teamUsers[0]._id;
+    if (!chat.users.includes(chat.currentUser)) {
+      chat.users = [...chat.users, chat.currentUser];
+    }
     await chat.save();
 
     //Update selected user open chats
@@ -155,6 +163,11 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         { new: true, runValidators: true }
       );
     }
+
+    //Update previous user open chats
+    await User.findByIdAndUpdate(previousUser._id, {
+      $pull: { chats: chat._id },
+    });
   }
 
   res.status(200).json({

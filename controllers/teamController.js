@@ -42,7 +42,7 @@ exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
   const filteredBody = {};
-  if (req.body.type === 'chatTransfer') {
+  if (req.query.type === 'chatTransfer') {
     filteredBody._id = { $ne: req.user.team };
   }
 
