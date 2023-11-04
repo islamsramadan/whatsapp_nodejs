@@ -56,7 +56,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   }
 
   // users for chat transfer
-  if (req.params.type === 'chatTransfer') {
+  if (req.query.type === 'chatTransfer') {
     filteredBody['$and'] = [
       { _id: { $ne: req.user._id } },
       { team: req.user.team },
