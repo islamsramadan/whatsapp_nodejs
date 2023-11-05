@@ -196,6 +196,14 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       );
     }
 
+    // Adding supervisor to the users array
+    let users = req.body.users || team.users;
+    if (!users.includes(req.body.supervisor)) {
+      users = [req.body.supervisor, ...users];
+    }
+
+    req.body.users = users;
+
     const filteredBody = filterObj(
       req.body,
       'name',
@@ -206,12 +214,6 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       'conversation',
       'default'
     );
-
-    // Adding supervisor to the users array
-    let users = req.body.users || [];
-    if (!users.includes(req.body.supervisor)) {
-      users = [req.body.supervisor, ...users];
-    }
 
     // Checking if any users or the supervisor is a supervisor in another team
     const teamWithTheSameSupervisor = await Team.find({
@@ -247,6 +249,12 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       defaultTeam = await Team.findOne({ default: true });
     }
 
+    //selecting the previous supervisor
+    let prevSupervisor;
+    if (req.body.supervisor && !team.supervisor.equals(req.body.supervisor)) {
+      prevSupervisor = team.supervisor;
+    }
+
     updatedTeam = await Team.findByIdAndUpdate(req.params.id, filteredBody, {
       new: true,
       runValidators: true,
@@ -267,6 +275,15 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       await User.findByIdAndUpdate(
         users[i],
         { team: req.params.id },
+        { new: true, runValidators: true }
+      );
+    }
+
+    // Adding supervisor:false to the previous supervisor user
+    if (prevSupervisor) {
+      await User.findByIdAndUpdate(
+        prevSupervisor,
+        { supervisor: false },
         { new: true, runValidators: true }
       );
     }
