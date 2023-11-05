@@ -46,7 +46,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   let populate = { path: 'team', select: 'name' };
 
   // Users for add or edit team
-  if (req.body.type === 'team') {
+  if (req.query.type === 'team') {
     filteredBody['$or'] = [
       { supervisor: { $ne: true } },
       { team: req.body.teamID },

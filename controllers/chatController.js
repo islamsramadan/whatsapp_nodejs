@@ -99,12 +99,6 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (!user) {
       return next(new AppError('No user found with that ID', 404));
     }
-    //Remove chat from user open chats
-    await User.findByIdAndUpdate(
-      chat.currentUser,
-      { $pull: { chats: chat._id } },
-      { new: true, runValidators: true }
-    );
 
     chat.currentUser = req.body.user;
     //Add new user to the array of users
@@ -113,9 +107,14 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     }
     await chat.save();
 
+    //Remove chat from user open chats
+    await User.findByIdAndUpdate(
+      chat.currentUser,
+      { $pull: { chats: chat._id } },
+      { new: true, runValidators: true }
+    );
+
     //Adding the chat to the new user
-    // user.chats = [...user.chats, chat._id];
-    // await user.save();
     await User.findByIdAndUpdate(
       req.body.user,
       {
@@ -135,14 +134,13 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       return next(new AppError("Couldn't transfer to the same team!", 400));
     }
 
-    //previous chat current user to be updated later
+    //previous chat user to be updated later
     const previousUser = chat.currentUser;
 
     //Selecting new chat current user
     let teamUsers = [];
     for (let i = 0; i < team.users.length; i++) {
       let teamUser = await User.findById(team.users[i]);
-      console.log('teamUser', teamUser);
       teamUsers = [...teamUsers, teamUser];
     }
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
