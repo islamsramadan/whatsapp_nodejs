@@ -215,8 +215,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 
     // Checking if any users or the supervisor is a supervisor in another team
     const teamWithTheSameSupervisor = await Team.find({
-      supervisor: { $in: users },
-      _id: { $ne: req.params.id },
+      $and: [{ supervisor: { $in: users } }, { _id: { $ne: req.params.id } }],
     });
 
     if (teamWithTheSameSupervisor.length > 0) {

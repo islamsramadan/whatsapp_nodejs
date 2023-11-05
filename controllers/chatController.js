@@ -67,6 +67,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
     chat.currentUser = undefined;
+    chat.team = undefined;
     chat.status = 'archived';
     await chat.save();
     // Removing chat from user open chats
@@ -78,6 +79,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //**********the user in chat team take the ownership
   } else if (type === 'takeOwnership') {
+    if (chat.notification === true) {
+      return next(
+        new AppError("Couldn't transfer chat with unread messages", 400)
+      );
+    }
+
     chat.currentUser = req.user._id;
     //Add new user to the array of users
     if (!chat.users.includes(req.user._id)) {
@@ -95,6 +102,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //**********Transfer to another user in the same team
   } else if (type === 'transferToUser') {
+    if (chat.notification === true) {
+      return next(
+        new AppError("Couldn't transfer chat with unread messages", 400)
+      );
+    }
+
     const user = await User.findById(req.body.user);
     if (!user) {
       return next(new AppError('No user found with that ID', 404));
@@ -125,6 +138,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //********** Transfer the chat to another team and remove the current user
   } else if (type === 'transferToTeam') {
+    if (chat.notification === true) {
+      return next(
+        new AppError("Couldn't transfer chat with unread messages", 400)
+      );
+    }
+
     const team = await Team.findById(req.body.team);
     if (!team) {
       return next(new AppError('No team found with that ID!', 404));

@@ -49,7 +49,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   if (req.query.type === 'team') {
     filteredBody['$or'] = [
       { supervisor: { $ne: true } },
-      { team: req.body.teamID },
+      { team: req.query.teamID },
     ];
     select = 'firstName lastName photo team';
     populate = { path: 'team', select: 'name' };

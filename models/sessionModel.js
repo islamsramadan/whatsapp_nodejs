@@ -7,18 +7,29 @@ const sessionSchema = new mongoose.Schema(
       ref: 'Chat',
       required: [true, 'Session chat is required!'],
     },
+
     user: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
+      required: [true, 'Session user is required!'],
     },
+
+    team: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Team',
+      required: [true, 'Session team is required!'],
+    },
+
     status: {
       type: String,
       enum: ['open', 'onTime', 'tooLate', 'danger'],
     },
+
     start: {
       type: Date,
       required: [true, 'Session start date is required!'],
     },
+
     end: {
       type: Date,
     },
