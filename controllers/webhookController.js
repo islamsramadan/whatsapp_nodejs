@@ -330,6 +330,7 @@ const receiveMessageHandler = async (req, res, next) => {
     let timer = new Date();
     timer.setMinutes(timer.getMinutes() + 20);
     selectedSession.timer = timer;
+    selectedSession.status = 'onTime';
     await selectedSession.save();
 
     //updating event in socket io
