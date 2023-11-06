@@ -154,7 +154,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   const selectedChat = chat || newChat;
 
-  const session = selectedChat.lastSession;
+  const session = await Session.findById(selectedChat.lastSession);
 
   let newSession;
   if (!session) {
@@ -609,7 +609,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   const selectedChat = chat || newChat;
 
-  const session = selectedChat.lastSession;
+  const session = await Session.findById(selectedChat.lastSession);
 
   let newSession;
   if (!session) {

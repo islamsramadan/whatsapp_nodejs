@@ -1,5 +1,7 @@
 // const MongoClient = require('mongodb').MongoClient;
 
+const Session = require('../models/sessionModel');
+
 exports.connectToMongoDB = async () => {
   const client = new MongoClient(uri, { useNewUrlParser: true });
   try {
@@ -10,6 +12,15 @@ exports.connectToMongoDB = async () => {
     console.error('Error connecting to the MongoDB database:', err);
     throw err;
   }
+};
+
+const testFunction = async () => {
+  const sessions = await Session.find({
+    timer: {
+      $exists: true,
+      $ne: '',
+    },
+  });
 };
 
 exports.updateDocumentsBasedOnTimer = async (client) => {
