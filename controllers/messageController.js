@@ -161,7 +161,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     newSession = await Session.create({
       chat: selectedChat._id,
       user: req.user._id,
-      team: selectedChat.team,
+      team: req.user.team,
       status: 'onTime',
     });
 
@@ -616,7 +616,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     newSession = await Session.create({
       chat: selectedChat._id,
       user: req.user._id,
-      team: selectedChat.team,
+      team: req.user.team,
       status: 'onTime',
     });
 
