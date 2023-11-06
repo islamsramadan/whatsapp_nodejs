@@ -6,6 +6,7 @@ const Chat = require('../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
+const Session = require('../models/sessionModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -152,6 +153,22 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   }
 
   const selectedChat = chat || newChat;
+
+  const session = selectedChat.lastSession;
+
+  let newSession;
+  if (!session) {
+    newSession = await Session.create({
+      chat: selectedChat._id,
+      user: selectedChat.currentUser,
+      team: selectedChat.team,
+      status: 'onTime',
+    });
+
+    selectedChat.lastSession = newSession._id;
+    await selectedChat.save();
+  }
+  const selectedSession = session || newSession;
 
   // updating chat notification to false
   selectedChat.notification = false;
@@ -586,6 +603,22 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   // console.log('chat', chat);
 
   const selectedChat = chat || newChat;
+
+  const session = selectedChat.lastSession;
+
+  let newSession;
+  if (!session) {
+    newSession = await Session.create({
+      chat: selectedChat._id,
+      user: selectedChat.currentUser,
+      team: selectedChat.team,
+      status: 'onTime',
+    });
+
+    selectedChat.lastSession = newSession._id;
+    await selectedChat.save();
+  }
+  const selectedSession = session || newSession;
 
   // updating chat notification to false
   selectedChat.notification = false;

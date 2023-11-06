@@ -1,3 +1,4 @@
+const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const User = require('../models/userModel');
 const AppError = require('../utils/appError');
@@ -66,10 +67,21 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         new AppError("Couldn't archive chat with unread messages", 400)
       );
     }
+
+    // Add end date to the session and remove it from chat
+    await Session.findByIdAndUpdate(
+      chat.lastSession,
+      { end: Date.now() },
+      { new: true, runValidators: true }
+    );
+
+    // Updating chat
     chat.currentUser = undefined;
     chat.team = undefined;
     chat.status = 'archived';
+    chat.lastSession = undefined;
     await chat.save();
+
     // Removing chat from user open chats
     await User.findByIdAndUpdate(
       req.user._id,
@@ -85,12 +97,33 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    if (!chat.team.equals(req.user.team)) {
+      return next(
+        new AppError("Couldn't take the ownership from another team", 400)
+      );
+    }
+
+    // Add end date to the session and creat new one
+    await Session.findByIdAndUpdate(
+      chat.lastSession,
+      { end: Date.now() },
+      { new: true, runValidators: true }
+    );
+    const newSession = await Session.create({
+      chat: chat._id,
+      user: req.user._id,
+      team: chat.team,
+      status: 'open',
+    });
+
     chat.currentUser = req.user._id;
+    chat.lastSession = newSession._id;
     //Add new user to the array of users
     if (!chat.users.includes(req.user._id)) {
       chat.users = [...chat.users, req.user._id];
     }
     await chat.save();
+
     //Add the chat to the user open chats
     if (!req.user.chats.includes(chat._id)) {
       await User.findByIdAndUpdate(
@@ -113,7 +146,27 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       return next(new AppError('No user found with that ID', 404));
     }
 
+    if (!user.team.equals(chat.team)) {
+      return next(
+        new AppError("Couldn't transfer to users outside the team", 400)
+      );
+    }
+
+    // Add end date to the session and creat new one
+    await Session.findByIdAndUpdate(
+      chat.lastSession,
+      { end: Date.now() },
+      { new: true, runValidators: true }
+    );
+    const newSession = await Session.create({
+      chat: chat._id,
+      user: req.body.user,
+      team: chat.team,
+      status: 'open',
+    });
+
     chat.currentUser = req.body.user;
+    chat.lastSession = newSession._id;
     //Add new user to the array of users
     if (!chat.users.includes(req.body.user)) {
       chat.users = [...chat.users, req.body.user];
@@ -164,9 +217,23 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     }
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
 
+    // Add end date to the session and creat new one
+    await Session.findByIdAndUpdate(
+      chat.lastSession,
+      { end: Date.now() },
+      { new: true, runValidators: true }
+    );
+    const newSession = await Session.create({
+      chat: chat._id,
+      user: teamUsers[0]._id,
+      team: req.body.team,
+      status: 'open',
+    });
+
     //Update chat
     chat.team = req.body.team;
     chat.currentUser = teamUsers[0]._id;
+    chat.lastSession = newSession._id;
     if (!chat.users.includes(chat.currentUser)) {
       chat.users = [...chat.users, chat.currentUser];
     }

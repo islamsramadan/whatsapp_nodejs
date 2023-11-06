@@ -6,6 +6,7 @@ const Chat = require('./../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
+const Session = require('../models/sessionModel');
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
@@ -223,6 +224,21 @@ const receiveMessageHandler = async (req, res, next) => {
   }
 
   const selectedChat = chat || newChat;
+  const session = selectedChat.lastSession;
+
+  let newSession;
+  if (!session) {
+    newSession = await Session.create({
+      chat: selectedChat._id,
+      user: selectedChat.currentUser,
+      team: selectedChat.team,
+      status: 'onTime',
+    });
+
+    selectedChat.lastSession = newSession._id;
+    await selectedChat.save();
+  }
+  const selectedSession = session || newSession;
 
   if (msgType === 'reaction') {
     const reactionEmoji =

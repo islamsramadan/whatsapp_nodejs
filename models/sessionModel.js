@@ -25,10 +25,10 @@ const sessionSchema = new mongoose.Schema(
       enum: ['open', 'onTime', 'tooLate', 'danger'],
     },
 
-    start: {
-      type: Date,
-      required: [true, 'Session start date is required!'],
-    },
+    // start: {
+    //   type: Date,
+    //   required: [true, 'Session start date is required!'],
+    // },
 
     end: {
       type: Date,

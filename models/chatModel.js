@@ -36,6 +36,11 @@ const chatSchema = new mongoose.Schema(
       ref: 'Message',
     },
 
+    lastSession: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Session',
+    },
+
     notification: {
       type: Boolean,
       default: false,
