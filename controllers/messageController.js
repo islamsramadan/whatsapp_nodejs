@@ -331,6 +331,11 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   selectedChat.status = 'open';
   await selectedChat.save();
 
+  // Updating session to new status ((open))
+  selectedSession.status = 'open';
+  selectedSession.timer = undefined;
+  await selectedSession.save();
+
   //updating event in socket io
   req.app.io.emit('updating');
 
@@ -755,6 +760,11 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   selectedChat.lastMessage = newMessage._id;
   selectedChat.status = 'open';
   await selectedChat.save();
+
+  // Updating session to new status ((open))
+  selectedSession.status = 'open';
+  selectedSession.timer = undefined;
+  await selectedSession.save();
 
   //updating event in socket io
   req.app.io.emit('updating');

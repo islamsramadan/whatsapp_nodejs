@@ -4,6 +4,9 @@ const http = require('http');
 const socketio = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
+const cron = require('node-cron');
+
+const sessionTimerUpdate = require('./utils/sessionTimerUpdate');
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
@@ -122,8 +125,14 @@ mongoose
     // useCreateIndex: true,
     // useFindAndModify: false,
   })
-  .then(() => {
+  .then((client) => {
     console.log('DB connected successfully!!');
+    const delay = 100;
+    // Schedule the update task
+    const cronExpression = `*/${delay / 60000} * * * * *`; // Your schedule
+    cron.schedule(cronExpression, () => {
+      sessionTimerUpdate.updateDocumentsBasedOnTimer(client);
+    });
   });
 
 const port = process.env.PORT || 8080;

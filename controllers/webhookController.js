@@ -327,6 +327,11 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.status = 'open';
     await selectedChat.save();
 
+    let timer = new Date();
+    timer.setMinutes(timer.getMinutes() + 20);
+    selectedSession.timer = timer;
+    await selectedSession.save();
+
     //updating event in socket io
     req.app.io.emit('updating');
 
