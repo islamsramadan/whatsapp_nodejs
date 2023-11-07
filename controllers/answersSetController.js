@@ -2,11 +2,27 @@ const catchAsync = require('../utils/catchAsync');
 const AnswersSet = require('../models/answersSetModel');
 const AppError = require('../utils/appError');
 const User = require('../models/userModel');
+const Team = require('../models/teamModel');
 
 exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
-  const answersSets = await AnswersSet.find({ type: 'public' })
-    .populate('answers', 'name')
-    .populate('creator', 'firstName lastName');
+  let answersSets;
+
+  // getting team answers sets as well as user private answers
+  if (req.query.type === 'chatting') {
+    const team = await Team.findById(req.user.team);
+    let answersSetsIDs = [req.user.answersSet, ...team.answersSets];
+
+    answersSets = await AnswersSet.find({
+      _id: { $in: answersSetsIDs },
+    })
+      .select('name answers type')
+      .populate('answers', 'name body');
+  } else {
+    // getting all public answers sets
+    answersSets = await AnswersSet.find({ type: 'public' })
+      .populate('answers', 'name')
+      .populate('creator', 'firstName lastName');
+  }
 
   res.status(200).json({
     status: 'success',
