@@ -47,10 +47,14 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 
   // Users for add or edit team
   if (req.query.type === 'team') {
-    filteredBody['$or'] = [
-      { supervisor: { $ne: true } },
-      { team: req.query.teamID },
-    ];
+    if (req.query.teamID) {
+      filteredBody['$or'] = [
+        { supervisor: { $ne: true } },
+        { team: req.query.teamID },
+      ];
+    } else {
+      filteredBody.supervisor = { $ne: true };
+    }
     select = 'firstName lastName photo team';
     populate = { path: 'team', select: 'name' };
   }
@@ -65,6 +69,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     populate = '';
   }
 
+  console.log('filteredBody', filteredBody);
   const users = await User.find(filteredBody).select(select).populate(populate);
 
   res.status(200).json({

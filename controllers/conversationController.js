@@ -77,7 +77,9 @@ exports.deleteConversation = catchAsync(async (req, res, next) => {
   }
 
   if (conversation.teams && conversation.teams.length > 0) {
-    return next(new AppError("Couldn't delete conversation used in teams!"));
+    return next(
+      new AppError("Couldn't delete conversation used in teams!", 400)
+    );
   }
 
   await Conversation.findByIdAndDelete(req.params.id);
