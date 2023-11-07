@@ -4,6 +4,7 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Team = require('../models/teamModel');
 const User = require('../models/userModel');
+const Conversation = require('../models/conversationModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -68,9 +69,12 @@ exports.createTeam = catchAsync(async (req, res, next) => {
   const { name, supervisor, serviceHours, conversation, answersSets } =
     req.body;
 
-  if (!name || !supervisor || !serviceHours) {
+  if (!name || !supervisor || !serviceHours || !conversation) {
     return next(
-      new AppError('Team name, supervisor and service hours are required!', 404)
+      new AppError(
+        'Team name, supervisor, conversation and service hours are required!',
+        404
+      )
     );
   }
 
@@ -104,7 +108,19 @@ exports.createTeam = catchAsync(async (req, res, next) => {
     creator: req.user._id,
   };
 
+  const conversationDoc = await Conversation.findById(conversation);
+  if (!conversationDoc) {
+    return next(new AppError('No conversation found with that ID!', 404));
+  }
+
   const newTeam = await Team.create(newTeamData);
+
+  // Updating conversation by adding team to it
+  await Conversation.findByIdAndUpdate(
+    conversation,
+    { $push: { teams: newTeam._id } },
+    { new: true, runValidators: true }
+  );
 
   // Updating users and teams
   for (let i = 0; i < users.length; i++) {
@@ -196,6 +212,15 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       );
     }
 
+    // Checking if the new conversation already exist
+    if (
+      req.body.conversation &&
+      !team.conversation.equals(req.body.conversation) &&
+      !(await Conversation.findById(req.body.conversation))
+    ) {
+      return next(new AppError('No conversation found with that ID', 404));
+    }
+
     // Adding supervisor to the users array
     let users = req.body.users || team.users;
     if (!users.includes(req.body.supervisor)) {
@@ -262,6 +287,26 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
 
     if (!updatedTeam) {
       return next(new AppError('No team found with that ID!', 404));
+    }
+
+    //Updating conversations if there is an update
+    if (
+      req.body.conversation &&
+      !team.conversation.equals(req.body.conversation)
+    ) {
+      //removing
+      await Conversation.findByIdAndUpdate(
+        team.conversation,
+        { $pull: { teams: req.params.id } },
+        { new: true, runValidators: true }
+      );
+
+      //adding
+      await Conversation.findByIdAndUpdate(
+        req.body.conversation,
+        { $push: { teams: req.params.id } },
+        { new: true, runValidators: true }
+      );
     }
 
     //update previous default team to not default
