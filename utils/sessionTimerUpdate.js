@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const Session = require('../models/sessionModel');
 
+const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
+
 const getCronExpression = (timer) => {
   const timerExpression = {
     year: timer.getFullYear(),
@@ -25,7 +27,9 @@ const updateTask = (req, timer, sessionID, status, delay) => {
     if (
       session.timer &&
       ((session.timer.getTime() === timer.getTime() && status === 'tooLate') ||
-        (new Date(session.timer - delay * 0.2).getTime() === timer.getTime() &&
+        (new Date(
+          session.timer - delay * (1 - responseDangerTime)
+        ).getTime() === timer.getTime() &&
           status === 'danger'))
     ) {
       // console.log('status again', status);
@@ -51,7 +55,9 @@ exports.scheduleDocumentUpdateTask = async (sessions, req) => {
 
       if (session.timer) {
         let lateTimer = session.timer;
-        let dangerTimer = new Date(session.timer - delayArray[i] * 0.2);
+        let dangerTimer = new Date(
+          session.timer - delayArray[i] * (1 - responseDangerTime)
+        );
 
         // console.log('session', session);
 
