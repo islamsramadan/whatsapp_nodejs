@@ -2,13 +2,42 @@ const Session = require('../models/sessionModel');
 const catchAsync = require('../utils/catchAsync');
 
 exports.getAllSessions = catchAsync(async (req, res, next) => {
-  const sessions = await Session.find();
+  const userSessions = await Session.find({
+    user: req.user._id,
+    status: { $ne: 'finished' },
+  });
+  const userSessionsfilters = {
+    all: userSessions.length,
+    onTime: userSessions.filter((session) => session.status === 'onTime')
+      .length,
+    danger: userSessions.filter((session) => session.status === 'danger')
+      .length,
+    tooLate: userSessions.filter((session) => session.status === 'tooLate')
+      .length,
+    open: userSessions.filter((session) => session.status === 'open').length,
+  };
+
+  const teamSessions = await Session.find({
+    team: req.user.team,
+    status: { $ne: 'finished' },
+  });
+  const teamSessionsfilters = {
+    all: teamSessions.length,
+    onTime: teamSessions.filter((session) => session.status === 'onTime')
+      .length,
+    danger: teamSessions.filter((session) => session.status === 'danger')
+      .length,
+    tooLate: teamSessions.filter((session) => session.status === 'tooLate')
+      .length,
+    open: teamSessions.filter((session) => session.status === 'open').length,
+  };
 
   res.status(200).json({
     status: 'success',
-    results: sessions.length,
     data: {
-      sessions,
+      usersSessions: userSessionsfilters,
+      teamSessions: teamSessionsfilters,
+      userSessions,
     },
   });
 });

@@ -71,7 +71,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and remove it from chat
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now() },
+      { end: Date.now(), status: 'finished' },
       { new: true, runValidators: true }
     );
 
@@ -97,6 +97,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    console.log('chat.team', chat.team);
     if (!chat.team.equals(req.user.team)) {
       return next(
         new AppError("Couldn't take the ownership from another team", 400)
@@ -106,7 +107,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now() },
+      { end: Date.now(), status: 'finished' },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
@@ -155,7 +156,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now() },
+      { end: Date.now(), status: 'finished' },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
@@ -220,7 +221,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now() },
+      { end: Date.now(), status: 'finished' },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
