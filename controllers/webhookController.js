@@ -8,6 +8,7 @@ const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
+const Service = require('../models/serviceModel');
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
@@ -328,9 +329,20 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.status = 'open';
     await selectedChat.save();
 
+    //Updating session status
     if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
+      const team = await Team.findById(selectedSession.team);
+      const serviceHours = await Service.findById(team.serviceHours);
+
+      let delay = {
+        hours: serviceHours.responseTime.hours,
+        minutes: serviceHours.responseTime.minutes,
+      };
+
       let timer = new Date();
-      timer.setMinutes(timer.getMinutes() + 3);
+      timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
+      timer.setHours(timer.getHours() + delay.hours * 1);
+
       selectedSession.timer = timer;
       selectedSession.status = 'onTime';
       await selectedSession.save();
