@@ -1,54 +1,63 @@
-// const MongoClient = require('mongodb').MongoClient;
-
+const cron = require('node-cron');
 const Session = require('../models/sessionModel');
 
-exports.connectToMongoDB = async () => {
-  const client = new MongoClient(uri, { useNewUrlParser: true });
-  try {
-    await client.connect();
-    console.log('Connected to the MongoDB database');
-    return client;
-  } catch (err) {
-    console.error('Error connecting to the MongoDB database:', err);
-    throw err;
-  }
+const getCronExpression = (timer) => {
+  const timerExpression = {
+    year: timer.getFullYear(),
+    month: timer.getMonth() + 1,
+    day: timer.getDate(),
+    hour: timer.getHours(),
+    minute: timer.getMinutes(),
+    second: timer.getSeconds(),
+  };
+
+  return `${timerExpression.second} ${timerExpression.minute} ${timerExpression.hour} ${timerExpression.day} ${timerExpression.month} * ${timerExpression.year}`;
 };
 
-const testFunction = async () => {
-  const sessions = await Session.find({
-    timer: {
-      $exists: true,
-      $ne: '',
-    },
+const updateTask = (req, timer, sessionID, status, delay) => {
+  const cronExpression = getCronExpression(timer);
+  // console.log('cronExpression', cronExpression);
+
+  cron.schedule(cronExpression, async () => {
+    // console.log('status', status);
+    const session = await Session.findById(sessionID);
+
+    if (
+      session.timer &&
+      ((session.timer.getTime() === timer.getTime() && status === 'tooLate') ||
+        (new Date(session.timer - delay * 0.2).getTime() === timer.getTime() &&
+          status === 'danger'))
+    ) {
+      // console.log('status again', status);
+      session.status = status;
+      await session.save();
+
+      //updating event in socket io
+      req.app.io.emit('updating');
+    }
   });
 };
 
-exports.updateDocumentsBasedOnTimer = async (client) => {
-  // Your update logic here
-};
+exports.scheduleDocumentUpdateTask = async (sessions, req) => {
+  // console.log('sessions', sessions);
+  const currentTime = new Date();
 
-const scheduleDocumentUpdateTask = (customDate) => {
-  // Connect to the MongoDB database
-  connectToMongoDB()
-    .then((client) => {
-      // Calculate the delay until the custom date
-      const currentTime = new Date();
-      const delay = customDate - currentTime;
+  const delayArray = sessions.map((session) => session.timer - currentTime);
+  console.log('delayArray', delayArray);
 
-      if (delay > 0) {
-        const cronExpression = `*/${delay / 60000} * * * * *`; // Convert delay to minutes
-        cron.schedule(cronExpression, () => {
-          db.updateDocumentsBasedOnTimer(client);
-        });
+  for (let i = 0; i < delayArray.length; i++) {
+    if (delayArray[i] > 0) {
+      let session = await Session.findById(sessions[i]._id);
 
-        console.log(`Scheduled update at ${customDate}`);
-      } else {
-        console.log('The specified date has already passed.');
+      if (session.timer) {
+        let lateTimer = session.timer;
+        let dangerTimer = new Date(session.timer - delayArray[i] * 0.2);
+
+        // console.log('session', session);
+
+        updateTask(req, dangerTimer, sessions[i]._id, 'danger', delayArray[i]);
+        updateTask(req, lateTimer, sessions[i]._id, 'tooLate', delayArray[i]);
       }
-
-      // ... Rest of your application setup ...
-    })
-    .catch((err) => {
-      console.error('Unable to start the application:', err);
-    });
+    }
+  }
 };

@@ -22,7 +22,7 @@ const sessionSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['open', 'onTime', 'tooLate', 'danger'],
+      enum: ['open', 'onTime', 'tooLate', 'danger', 'finished'],
     },
 
     // start: {

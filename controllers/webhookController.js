@@ -7,6 +7,7 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
+const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
@@ -327,11 +328,21 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.status = 'open';
     await selectedChat.save();
 
-    let timer = new Date();
-    timer.setMinutes(timer.getMinutes() + 20);
-    selectedSession.timer = timer;
-    selectedSession.status = 'onTime';
-    await selectedSession.save();
+    if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
+      let timer = new Date();
+      timer.setMinutes(timer.getMinutes() + 3);
+      selectedSession.timer = timer;
+      selectedSession.status = 'onTime';
+      await selectedSession.save();
+
+      const sessions = await Session.find({
+        timer: {
+          $exists: true,
+          $ne: '',
+        },
+      });
+      await sessionTimerUpdate.scheduleDocumentUpdateTask(sessions, req);
+    }
 
     //updating event in socket io
     req.app.io.emit('updating');
