@@ -6,7 +6,56 @@ const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
-  const chats = await Chat.find().sort('-updatedAt').populate('lastMessage');
+  const chats = await Chat.find()
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status');
+
+  res.status(200).json({
+    status: 'success',
+    results: chats.length,
+    data: {
+      chats,
+    },
+  });
+});
+
+exports.getAllUserChats = catchAsync(async (req, res, next) => {
+  let statuses = req.query.status.split(',');
+  if (statuses.includes('all')) {
+    statuses = ['open', 'onTime', 'danger', 'tooLate'];
+  }
+
+  let chats = await Chat.find({ currentUser: req.user._id })
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status');
+
+  // console.log('statuses', statuses);
+  chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  res.status(200).json({
+    status: 'success',
+    results: chats.length,
+    data: {
+      chats,
+    },
+  });
+});
+
+exports.getAllTeamChats = catchAsync(async (req, res, next) => {
+  let statuses = req.query.status.split(',');
+  if (statuses.includes('all')) {
+    statuses = ['open', 'onTime', 'danger', 'tooLate'];
+  }
+
+  let chats = await Chat.find({ team: req.user.team })
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status');
+
+  // console.log('statuses', statuses);
+  chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
 
   res.status(200).json({
     status: 'success',

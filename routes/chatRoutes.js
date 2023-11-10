@@ -13,6 +13,18 @@ router
   .get(authController.protect, chatController.getAllChats)
   .post(authController.protect, chatController.createChat);
 
+router.get(
+  '/userChats',
+  authController.protect,
+  chatController.getAllUserChats
+);
+
+router.get(
+  '/teamChats',
+  authController.protect,
+  chatController.getAllTeamChats
+);
+
 router
   .route('/:chatNumber')
   .patch(authController.protect, chatController.updateChat);
