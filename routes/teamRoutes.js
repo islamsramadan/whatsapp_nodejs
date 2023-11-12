@@ -7,7 +7,11 @@ const router = express.Router();
 router
   .route('/')
   .get(authController.protect, teamController.getAllTeams)
-  .post(authController.protect, teamController.createTeam);
+  .post(
+    authController.protect,
+    authController.restrictTo('admin'),
+    teamController.createTeam
+  );
 
 router
   .route('/:id')
@@ -15,8 +19,13 @@ router
   .patch(
     authController.protect,
     teamController.uploadTeamPhoto,
+    // restrict with supervisor in update function
     teamController.updateTeam
   )
-  .delete(authController.protect, teamController.deleteTeam);
+  .delete(
+    authController.protect,
+    authController.restrictTo('admin'),
+    teamController.deleteTeam
+  );
 
 module.exports = router;

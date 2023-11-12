@@ -24,12 +24,24 @@ router.patch(
 router
   .route('/')
   .get(authController.protect, userController.getAllUsers)
-  .post(authController.protect, userController.createUser);
+  .post(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.createUser
+  );
 
 router
   .route('/:userID')
   .get(authController.protect, userController.getUser)
-  .patch(authController.protect, userController.updateUser)
-  .delete(authController.protect, userController.deleteUser);
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.updateUser
+  )
+  .delete(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.deleteUser
+  );
 
 module.exports = router;

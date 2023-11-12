@@ -184,6 +184,15 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
+  if (
+    req.user.role !== 'admin' &&
+    !(req.user.supervisor === true && req.user.team.equals(team._id))
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   let updatedTeam;
 
   // Update Team Photo
