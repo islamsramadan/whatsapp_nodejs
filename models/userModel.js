@@ -105,6 +105,8 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({ firstName: 1, lastName: 1 }, { unique: true });
+
 // Hashing password
 userSchema.pre('save', async function (next) {
   // Only run this function if password was actually modified

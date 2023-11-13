@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const cron = require('node-cron');
 
+const socketController = require('./controllers/socketController');
 const sessionTimerUpdate = require('./utils/sessionTimerUpdate');
 
 process.on('uncaughtException', (err) => {
@@ -28,6 +29,7 @@ const io = socketio(appSocket, {
 
 // Authenticating socket request
 io.use(async (socket, next) => {
+  // console.log('socket ===========', socket);
   // 1) Getting token and check if it is there
   let token;
   if (
@@ -36,7 +38,7 @@ io.use(async (socket, next) => {
   ) {
     token = socket.handshake.query.token.split(' ')[1];
   }
-  // console.log('token', token);
+  // console.log('token ===========================', token);
 
   if (!token) {
     return next(new AppError('Authentication error: Token missing!', 401));
@@ -91,23 +93,42 @@ io.on('connection', async (socket) => {
   app.connectedUsers[socket.user._id] = socket;
 
   socket.on('client_to_server', async (data) => {
-    const chats = await Chat.find().sort('-updatedAt').populate('lastMessage');
-    let messages = [];
-    let chatSession;
-    if (data.chatNumber) {
-      const chat = await Chat.findOne({ client: data.chatNumber });
-      messages = await Message.find({ chat: chat._id })
-        .sort('createdAt')
-        .populate({
-          path: 'user',
-          select: { firstName: 1, lastName: 1, photo: 1 },
-        })
-        .populate('reply');
-      chatSession = chat.session;
-    }
+    // console.log('data ===================', data);
 
+    let userSessions, teamSessions, chats, chatSession, messages;
+
+    if (data.chatNumber) {
+      let chatData = await socketController.getAllChatMessages(data.chatNumber);
+      messages = chatData.messages;
+      chatSession = chatData.chatSession;
+    }
+    if (data.chatsType === 'user') {
+      chats = await socketController.getAllUserChats(
+        socket.user,
+        data.status || 'all'
+      );
+    }
+    if (data.chatsType === 'team') {
+      chats = await socketController.getAllteamChats(
+        socket.user,
+        data.status || 'all'
+      );
+
+      console.log('chats.length', chats.length);
+    }
+    if (data.sessions === true) {
+      let sessions = await socketController.getAllSessions(socket.user);
+      userSessions = sessions.userSessions;
+      teamSessions = sessions.teamSessions;
+    }
     // Emit a response event back to the client
-    socket.emit('server_to_client', { chats, messages, chatSession });
+    socket.emit('server_to_client', {
+      userSessions,
+      teamSessions,
+      chats,
+      messages,
+      chatSession,
+    });
   });
 
   socket.on('disconnect', () => {

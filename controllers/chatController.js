@@ -31,7 +31,7 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status');
 
-  // console.log('statuses', statuses);
+  console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
 
   res.status(200).json({

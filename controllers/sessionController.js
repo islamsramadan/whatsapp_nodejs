@@ -37,7 +37,7 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
     data: {
       usersSessions: userSessionsfilters,
       teamSessions: teamSessionsfilters,
-      userSessions,
+      // userSessions,
     },
   });
 });

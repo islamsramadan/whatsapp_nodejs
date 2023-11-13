@@ -10,7 +10,10 @@ exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
   // getting team answers sets as well as user private answers
   if (req.query.type === 'chatting') {
     const team = await Team.findById(req.user.team);
-    let answersSetsIDs = [req.user.answersSet, ...team.answersSets];
+    let answersSetsIDs = [req.user.answersSet];
+    if (team.answersSets) {
+      answersSetsIDs = [answersSetsIDs, ...team.answersSets];
+    }
 
     answersSets = await AnswersSet.find({
       _id: { $in: answersSetsIDs },
