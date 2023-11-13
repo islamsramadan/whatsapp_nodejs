@@ -164,7 +164,8 @@ exports.getTeam = catchAsync(async (req, res, next) => {
     .populate('users', 'firstName lastName photo')
     .populate('creator', 'firstName lastName photo')
     .populate('answersSets')
-    .populate('serviceHours');
+    .populate('serviceHours')
+    .populate('conversation');
 
   if (!team) {
     return next(new AppError('No team found with that ID!'));
