@@ -163,7 +163,10 @@ exports.getTeam = catchAsync(async (req, res, next) => {
     .populate('supervisor', 'firstName lastName photo')
     .populate('users', 'firstName lastName photo')
     .populate('creator', 'firstName lastName photo')
-    .populate('answersSets')
+    .populate({
+      path: 'answersSets',
+      populate: { path: 'answers', select: 'name body' },
+    })
     .populate('serviceHours')
     .populate('conversation');
 
