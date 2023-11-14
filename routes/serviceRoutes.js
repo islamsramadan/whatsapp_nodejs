@@ -6,11 +6,7 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(
-    authController.protect,
-    authController.restrictTo('admin'),
-    serviceController.getAllServices
-  )
+  .get(authController.protect, serviceController.getAllServices)
   .post(
     authController.protect,
     authController.restrictTo('admin'),
@@ -19,11 +15,7 @@ router
 
 router
   .route('/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('admin'),
-    serviceController.getService
-  )
+  .get(authController.protect, serviceController.getService)
   .patch(
     authController.protect,
     authController.restrictTo('admin'),
