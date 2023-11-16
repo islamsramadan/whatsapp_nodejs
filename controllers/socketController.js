@@ -142,5 +142,7 @@ exports.getAllChatMessages = async (chatNumber) => {
 
   const chatSession = chat.session;
 
-  return { messages, chatSession };
+  const currentUser = chat.currentUser;
+
+  return { messages, chatSession, currentUser };
 };
