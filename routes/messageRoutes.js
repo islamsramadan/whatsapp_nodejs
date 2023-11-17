@@ -20,9 +20,9 @@ router.route('/templates').post(
   messageController.sendTemplateMessage
 );
 
-router
-  .route('/:messageID/failedMessage')
-  .patch(authController.protect, messageController.sendFailedMessage);
+// router
+//   .route('/:messageID/failedMessage')
+//   .patch(authController.protect, messageController.sendFailedMessage);
 
 router
   .route('/:messageID/reaction')

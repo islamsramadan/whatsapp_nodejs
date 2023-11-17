@@ -81,6 +81,13 @@ const upload = multer({
 exports.uploadMessageImage = upload.single('file');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
+  const userTeam = await Team.findById(req.user.team);
+  if (!userTeam) {
+    return next(
+      new AppError("This user doesn't belong to any existed team!", 400)
+    );
+  }
+
   if (!req.params.chatNumber) {
     return next(new AppError('Kindly provide chat number!', 400));
   }
@@ -91,10 +98,17 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       client: req.params.chatNumber,
       users: [req.user._id],
       currentUser: req.user._id,
+      team: req.user.team,
     });
   }
-
   // console.log('chat', chat);
+
+  // Checking if the user in the same team of the chat
+  if (!chat.team.equals(req.user.team)) {
+    return next(
+      new AppError("You don't have permission to view this chat!", 403)
+    );
+  }
 
   const messages = await Message.find({ chat: chat._id })
     .sort('createdAt')
@@ -167,9 +181,17 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     });
 
     selectedChat.lastSession = newSession._id;
+    selectedChat.currentUser = req.user._id;
     await selectedChat.save();
   }
   const selectedSession = session || newSession;
+
+  // checking if the user is the chat current user
+  if (!selectedChat.currentUser.equals(req.user._id)) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
 
   // updating chat notification to false
   selectedChat.notification = false;
@@ -487,6 +509,13 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
 
   const chat = await Chat.findById(reactedMessage.chat);
 
+  // checking if the user is the chat current user
+  if (!chat.currentUser || !chat.currentUser.equals(req.user._id)) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   // updating chat notification to false
   chat.notification = false;
   await chat.save();
@@ -622,9 +651,17 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     });
 
     selectedChat.lastSession = newSession._id;
+    selectedChat.currentUser = req.user._id;
     await selectedChat.save();
   }
   const selectedSession = session || newSession;
+
+  // checking if the user is the chat current user
+  if (!selectedChat.currentUser.equals(req.user._id)) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
 
   // updating chat notification to false
   selectedChat.notification = false;

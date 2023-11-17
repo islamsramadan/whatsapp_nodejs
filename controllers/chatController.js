@@ -31,7 +31,7 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status');
 
-  console.log('statuses', statuses);
+  // console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
 
   res.status(200).json({
@@ -67,7 +67,7 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
 });
 
 exports.createChat = catchAsync(async (req, res, next) => {
-  const userTeam = await Team.findById(req.user._id);
+  const userTeam = await Team.findById(req.user.team);
   if (!userTeam) {
     return next(
       new AppError("This user doesn't belong to any existed team!", 400)
@@ -78,7 +78,7 @@ exports.createChat = catchAsync(async (req, res, next) => {
     client: req.body.client,
     currentUser: req.user._id,
     users: [req.user._id],
-    team: userTeam._id,
+    team: req.user.team,
   });
 
   res.status(201).json({
@@ -117,6 +117,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    if (!chat.currentUser.equals(req.user._id)) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
+      );
+    }
+
     // Add end date to the session and remove it from chat
     await Session.findByIdAndUpdate(
       chat.lastSession,
@@ -146,10 +152,13 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
-    console.log('chat.team', chat.team);
-    if (!chat.team.equals(req.user.team)) {
+    // console.log('chat.team', chat.team);
+    if (
+      !chat.team.equals(req.user.team) ||
+      chat.currentUser.equals(req.user_id)
+    ) {
       return next(
-        new AppError("Couldn't take the ownership from another team", 400)
+        new AppError("You don't have permission to perform this action!", 403)
       );
     }
 
@@ -188,6 +197,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (chat.notification === true) {
       return next(
         new AppError("Couldn't transfer chat with unread messages", 400)
+      );
+    }
+
+    if (!chat.team.equals(req.user.team)) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
       );
     }
 
@@ -244,6 +259,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (chat.notification === true) {
       return next(
         new AppError("Couldn't transfer chat with unread messages", 400)
+      );
+    }
+
+    if (!chat.team.equals(req.user.team)) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
       );
     }
 
