@@ -92,19 +92,23 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide chat number!', 400));
   }
 
-  let chat = await Chat.findOne({ client: req.params.chatNumber });
-  if (!chat) {
-    chat = await Chat.create({
-      client: req.params.chatNumber,
-      users: [req.user._id],
-      currentUser: req.user._id,
-      team: req.user.team,
-    });
-  }
+  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  // if (!chat) {
+  //   chat = await Chat.create({
+  //     client: req.params.chatNumber,
+  //     users: [req.user._id],
+  //     currentUser: req.user._id,
+  //     team: req.user.team,
+  //   });
+  // }
   // console.log('chat', chat);
 
+  if (!chat) {
+    return next(new AppError('No chat found with that number!', 400));
+  }
+
   // Checking if the user in the same team of the chat
-  if (!chat.team.equals(req.user.team)) {
+  if (chat.team && !chat.team.equals(req.user.team)) {
     return next(
       new AppError("You don't have permission to view this chat!", 403)
     );
