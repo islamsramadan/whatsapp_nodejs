@@ -9,6 +9,7 @@ const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const Service = require('../models/serviceModel');
+const messageController = require('./messageController');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -366,30 +367,86 @@ const receiveMessageHandler = async (req, res, next) => {
     //updating event in socket io
     req.app.io.emit('updating');
 
-    // axios({
-    //   method: 'post',
-    //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-    //   },
-    //   data: JSON.stringify({
-    //     messaging_product: 'whatsapp',
-    //     recipient_type: 'individual',
-    //     to: from,
-    //     type: 'text',
-    //     text: {
-    //       preview_url: false,
-    //       body: "hello it's me and this is your message: " + msgBody,
-    //     },
-    //   }),
-    // })
-    //   .then((response) => {
-    //     console.log('Response ==============', JSON.stringify(response.data));
-    //   })
-    //   .catch((error) => {
-    //     console.log(error);
-    //   });
+    if (!session) {
+      const newMessageObj = {
+        user: selectedChat.currentUser,
+        chat: selectedChat._id,
+        from: process.env.WHATSAPP_PHONE_NUMBER,
+        type: 'text',
+        text: 'receiving your message successfully!',
+      };
+
+      const whatsappPayload = {
+        messaging_product: 'whatsapp',
+        to: selectedChat.client,
+        type: 'text',
+        recipient_type: 'individual',
+        text: {
+          preview_url: false,
+          body: 'receiving your message successfully!',
+        },
+      };
+
+      let response;
+      try {
+        response = await axios.request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify(whatsappPayload),
+        });
+      } catch (err) {
+        console.log('err', err);
+      }
+
+      // console.log('response.data----------------', JSON.stringify(response.data));
+      const newMessage = await Message.create({
+        ...newMessageObj,
+        whatsappID: response.data.messages[0].id,
+      });
+
+      // Adding the sent message as last message in the chat and update chat status
+      selectedChat.lastMessage = newMessage._id;
+      selectedChat.status = 'open';
+      await selectedChat.save();
+
+      // Updating session to new status ((open))
+      selectedSession.status = 'open';
+      selectedSession.timer = undefined;
+      await selectedSession.save();
+
+      //updating event in socket io
+      req.app.io.emit('updating');
+
+      // axios({
+      //   method: 'post',
+      //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      //   },
+      //   data: JSON.stringify({
+      //     messaging_product: 'whatsapp',
+      //     recipient_type: 'individual',
+      //     to: from,
+      //     type: 'text',
+      //     text: {
+      //       preview_url: false,
+      //       body: "hello it's me and this is your message: " + msgBody,
+      //     },
+      //   }),
+      // })
+      //   .then((response) => {
+      //     console.log('Response ==============', JSON.stringify(response.data));
+      //   })
+      //   .catch((error) => {
+      //     console.log(error);
+      //   });
+    }
 
     res.status(200).json({ newMessage });
   }
