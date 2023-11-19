@@ -182,6 +182,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
     selectedChat.lastSession = newSession._id;
     selectedChat.currentUser = req.user._id;
+    selectedChat.team = req.user.team;
     await selectedChat.save();
   }
   const selectedSession = session || newSession;
@@ -652,6 +653,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
     selectedChat.lastSession = newSession._id;
     selectedChat.currentUser = req.user._id;
+    selectedChat.team = req.user.team;
     await selectedChat.save();
   }
   const selectedSession = session || newSession;

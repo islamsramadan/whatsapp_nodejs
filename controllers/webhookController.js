@@ -10,6 +10,8 @@ const Session = require('../models/sessionModel');
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const Service = require('../models/serviceModel');
 
+const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
+
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1000);
 
@@ -353,7 +355,12 @@ const receiveMessageHandler = async (req, res, next) => {
           $ne: '',
         },
       });
-      await sessionTimerUpdate.scheduleDocumentUpdateTask(sessions, req);
+      await sessionTimerUpdate.scheduleDocumentUpdateTask(
+        sessions,
+        req,
+        //from config.env
+        responseDangerTime
+      );
     }
 
     //updating event in socket io

@@ -26,6 +26,17 @@ exports.createAnswer = catchAsync(async (req, res, next) => {
     return next(new AppError("Couldn't found answers set with that ID!", 404));
   }
 
+  // Restriction to specific conditions
+  if (
+    (answersSet.type === 'private' &&
+      !answersSet.creator.equals(req.user._id)) ||
+    (answersSet.type === 'public' && req.user.role === 'user')
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   const newAnswer = await Answer.create({ ...req.body, creator: req.user._id });
 
   await AnswersSet.findByIdAndUpdate(answersSet._id, {
@@ -58,17 +69,26 @@ exports.getAnswer = catchAsync(async (req, res, next) => {
 });
 
 exports.updateAnswer = catchAsync(async (req, res, next) => {
-  const answer = await Answer.findByIdAndUpdate(
-    req.params.id,
-    { ...req.body, user: req.user._id },
-    {
-      runValidators: true,
-    }
-  );
-
+  const answer = await Answer.findById(req.params.id);
   if (!answer) {
     return next(new AppError('No answer found with that ID!', 404));
   }
+
+  // Restriction to specific conditions
+  const answersSet = await AnswersSet.findById(answer.answersSet);
+  if (
+    (answersSet.type === 'private' &&
+      !answersSet.creator.equals(req.user._id)) ||
+    (answersSet.type === 'public' && req.user.role === 'user')
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
+  await Answer.findByIdAndUpdate(req.params.id, req.body, {
+    runValidators: true,
+  });
 
   res.status(200).json({
     status: 'success',
@@ -82,15 +102,22 @@ exports.deleteAnswer = catchAsync(async (req, res, next) => {
     return next(new AppError('No answer found with that ID!', 404));
   }
 
+  // Restriction to specific conditions
   const answersSet = await AnswersSet.findById(answer.answersSet);
-  if (!answersSet) {
-    return next(new AppError('No answers set found for this answer!', 404));
+  if (
+    (answersSet.type === 'private' &&
+      !answersSet.creator.equals(req.user._id)) ||
+    (answersSet.type === 'public' && req.user.role === 'user')
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
   }
 
   await Answer.findByIdAndRemove(req.params.id);
 
   await AnswersSet.findByIdAndUpdate(answer.answersSet, {
-    answers: answersSet.answers.filter((el) => !el.equals(answer._id)),
+    $pull: { answers: answer._id },
   });
 
   res.status(200).json({
@@ -116,12 +143,42 @@ exports.deleteMultiAnswers = catchAsync(async (req, res, next) => {
     );
   }
 
+  const differentAnswersSet = answersToBeDeleted.filter(
+    (answer) => !answer.answersSet.equals(answersToBeDeleted[0].answersSet)
+  );
+
+  if (differentAnswersSet.length > 0) {
+    return next(
+      new AppError("Couldn't delete answers from different answers sets!", 400)
+    );
+  }
+
+  // Restriction to specific conditions
+  const answersSet = await AnswersSet.findById(
+    answersToBeDeleted[0].answersSet
+  );
+  if (
+    (answersSet.type === 'private' &&
+      !answersSet.creator.equals(req.user._id)) ||
+    (answersSet.type === 'public' && req.user.role === 'user')
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
+  // Delete answers
   const deletedAnswers = await Answer.deleteMany({ _id: { $in: answersIDs } });
+
+  // Updating answers set
+  await AnswersSet.findByIdAndUpdate(
+    answersToBeDeleted[0].answersSet,
+    { $pull: { answers: { $in: answersIDs } } },
+    { new: true, runValidators: true }
+  );
 
   res.status(200).json({
     status: 'success',
     message: `${deletedAnswers.deletedCount} Answers deleted successfully!`,
-    // answersToBeDeleted,
-    // deletedAnswers,
   });
 });

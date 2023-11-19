@@ -7,12 +7,24 @@ const router = express.Router();
 router
   .route('/')
   .get(authController.protect, answersSetController.getAllAnswersSet)
-  .post(authController.protect, answersSetController.createAnswersSet);
+  .post(
+    authController.protect,
+    authController.restrictTo('admin'),
+    answersSetController.createAnswersSet
+  );
 
 router
   .route('/:id')
   .get(authController.protect, answersSetController.getAnswersSet)
-  .patch(authController.protect, answersSetController.updateAnswersSet)
-  .delete(authController.protect, answersSetController.deleteAnswersSet);
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    answersSetController.updateAnswersSet
+  )
+  .delete(
+    authController.protect,
+    authController.restrictTo('admin'),
+    answersSetController.deleteAnswersSet
+  );
 
 module.exports = router;

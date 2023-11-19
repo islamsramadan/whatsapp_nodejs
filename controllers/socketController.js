@@ -125,7 +125,7 @@ exports.getAllteamChats = async (user, status) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status');
-  console.log('chats', chats.length);
+  // console.log('chats', chats.length);
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
 

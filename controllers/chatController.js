@@ -325,6 +325,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     });
   }
 
+  //updating event in socket io
+  req.app.io.emit('updating');
+
   res.status(200).json({
     status: 'success',
     message: 'Chat updated successfully!',

@@ -1,8 +1,6 @@
 const cron = require('node-cron');
 const Session = require('../models/sessionModel');
 
-const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
-
 const getCronExpression = (timer) => {
   const timerExpression = {
     year: timer.getFullYear(),
@@ -16,13 +14,22 @@ const getCronExpression = (timer) => {
   return `${timerExpression.second} ${timerExpression.minute} ${timerExpression.hour} ${timerExpression.day} ${timerExpression.month} * ${timerExpression.year}`;
 };
 
-const updateTask = (req, timer, sessionID, status, delay) => {
+const updateTask = (
+  req,
+  timer,
+  sessionID,
+  status,
+  delay,
+  responseDangerTime
+) => {
   const cronExpression = getCronExpression(timer);
   // console.log('cronExpression', cronExpression);
 
   cron.schedule(cronExpression, async () => {
     // console.log('status', status);
     const session = await Session.findById(sessionID);
+
+    // console.log('session', session);
 
     if (
       session.timer &&
@@ -42,12 +49,16 @@ const updateTask = (req, timer, sessionID, status, delay) => {
   });
 };
 
-exports.scheduleDocumentUpdateTask = async (sessions, req) => {
+exports.scheduleDocumentUpdateTask = async (
+  sessions,
+  req,
+  responseDangerTime
+) => {
   // console.log('sessions', sessions);
   const currentTime = new Date();
 
   const delayArray = sessions.map((session) => session.timer - currentTime);
-  console.log('delayArray', delayArray);
+  // console.log('delayArray', delayArray);
 
   for (let i = 0; i < delayArray.length; i++) {
     if (delayArray[i] > 0) {
@@ -61,8 +72,22 @@ exports.scheduleDocumentUpdateTask = async (sessions, req) => {
 
         // console.log('session', session);
 
-        updateTask(req, dangerTimer, sessions[i]._id, 'danger', delayArray[i]);
-        updateTask(req, lateTimer, sessions[i]._id, 'tooLate', delayArray[i]);
+        updateTask(
+          req,
+          dangerTimer,
+          sessions[i]._id,
+          'danger',
+          delayArray[i],
+          responseDangerTime
+        );
+        updateTask(
+          req,
+          lateTimer,
+          sessions[i]._id,
+          'tooLate',
+          delayArray[i],
+          responseDangerTime
+        );
       }
     }
   }
