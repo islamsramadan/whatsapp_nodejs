@@ -3,6 +3,7 @@ const axios = require('axios');
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
+const User = require('./../models/userModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
@@ -233,14 +234,26 @@ const receiveMessageHandler = async (req, res, next) => {
 
   let newSession;
   if (!session) {
+    const defaultTeam = await Team.findOne({ default: true });
+
+    //Selecting chat current user
+    const teamUsers = [];
+    defaultTeam.users.map(async function (user) {
+      let teamUser = await User.findById(user);
+      teamUsers = teamUsers.push(teamUser);
+    });
+    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+
     newSession = await Session.create({
       chat: selectedChat._id,
-      user: selectedChat.currentUser,
-      team: selectedChat.team,
+      user: teamUsers[0]._id,
+      team: defaultTeam._id,
       status: 'onTime',
     });
 
     selectedChat.lastSession = newSession._id;
+    selectedChat.team = defaultTeam._id;
+    selectedChat.currentUser = teamUsers[0]._id;
     await selectedChat.save();
   }
   const selectedSession = session || newSession;
