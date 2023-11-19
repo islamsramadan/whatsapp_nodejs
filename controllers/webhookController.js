@@ -215,7 +215,7 @@ const receiveMessageHandler = async (req, res, next) => {
     const defaultTeam = await Team.findOne({ default: true });
 
     //Selecting chat current user
-    const teamUsers = [];
+    let teamUsers = [];
     defaultTeam.users.map(async function (user) {
       let teamUser = await User.findById(user);
       teamUsers = teamUsers.push(teamUser);
@@ -237,7 +237,7 @@ const receiveMessageHandler = async (req, res, next) => {
     const defaultTeam = await Team.findOne({ default: true });
 
     //Selecting chat current user
-    const teamUsers = [];
+    let teamUsers = [];
     defaultTeam.users.map(async function (user) {
       let teamUser = await User.findById(user);
       teamUsers = teamUsers.push(teamUser);

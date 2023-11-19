@@ -568,7 +568,7 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
     data: JSON.stringify(whatsappPayload),
   });
 
-  console.log('response ======>', response.data);
+  // console.log('response ======>', response.data);
   if (req.body.emoji) {
     reactedMessage.userReaction = {
       emoji: req.body.emoji,
@@ -607,7 +607,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
   const template = response.data.data[0];
-  console.log('template', template);
+  // console.log('template', template);
 
   if (!template) {
     return next(new AppError('There is no template with that name!', 404));
@@ -735,7 +735,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         const headerParameters = whatsappPayload.template.components.filter(
           (comp) => comp.type === 'HEADER'
         )[0].parameters;
-        console.log('headerParameters', headerParameters);
+        // console.log('headerParameters', headerParameters);
         for (let i = 0; i < headerParameters.length; i++) {
           templateComponent[`${component.format.toLowerCase()}`] =
             templateComponent[`${component.format.toLowerCase()}`].replace(
