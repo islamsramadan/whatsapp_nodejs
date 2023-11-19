@@ -66,6 +66,18 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
+  const chats = await Chat.find({ status: 'archived' });
+
+  res.status(200).json({
+    status: 'success',
+    results: chats.length,
+    data: {
+      chats,
+    },
+  });
+});
+
 exports.createChat = catchAsync(async (req, res, next) => {
   const userTeam = await Team.findById(req.user.team);
   if (!userTeam) {

@@ -25,6 +25,12 @@ router.get(
   chatController.getAllTeamChats
 );
 
+router.get(
+  '/archivedChats',
+  authController.protect,
+  chatController.getAllArchivedChats
+);
+
 router
   .route('/:chatNumber')
   .patch(authController.protect, chatController.updateChat);
