@@ -90,6 +90,10 @@ app.io = io;
 app.connectedUsers = {};
 
 io.on('connection', async (socket) => {
+  console.log(
+    'connecting =========================================',
+    socket.user._id
+  );
   app.connectedUsers[socket.user._id] = socket;
 
   socket.on('client_to_server', async (data) => {
