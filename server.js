@@ -91,7 +91,7 @@ app.connectedUsers = {};
 
 io.on('connection', async (socket) => {
   console.log(
-    'connecting =========================================',
+    'connectinggit =========================================',
     socket.user._id
   );
   app.connectedUsers[socket.user._id] = socket;
@@ -99,7 +99,7 @@ io.on('connection', async (socket) => {
   socket.on('client_to_server', async (data) => {
     console.log('data ==========================================', data);
 
-    let userSessions, teamSessions, chats, chatSession, messages;
+    let userSessions, teamSessions, chats, chatSession, messages, currentUser;
 
     if (data.chatNumber) {
       let chatData = await socketController.getAllChatMessages(data.chatNumber);
