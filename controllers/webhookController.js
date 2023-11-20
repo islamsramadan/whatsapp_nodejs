@@ -4,13 +4,16 @@ const axios = require('axios');
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
 const User = require('./../models/userModel');
+const Conversation = require('./../models/conversationModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
-const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const Service = require('../models/serviceModel');
 const messageController = require('./messageController');
+
+const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
+const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -215,11 +218,12 @@ const receiveMessageHandler = async (req, res, next) => {
     const defaultTeam = await Team.findOne({ default: true });
 
     //Selecting chat current user
-    let teamUsers = [];
-    defaultTeam.users.map(async function (user) {
-      let teamUser = await User.findById(user);
-      teamUsers = teamUsers.push(teamUser);
-    });
+    let teamUsers = await Promise.all(
+      defaultTeam.users.map(async function (user) {
+        let teamUser = await User.findById(user);
+        return teamUser;
+      })
+    );
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
 
     newChat = await Chat.create({
@@ -234,14 +238,14 @@ const receiveMessageHandler = async (req, res, next) => {
 
   let newSession;
   if (!session) {
+    //Selecting session user
     const defaultTeam = await Team.findOne({ default: true });
-
-    //Selecting chat current user
-    let teamUsers = [];
-    defaultTeam.users.map(async function (user) {
-      let teamUser = await User.findById(user);
-      teamUsers = teamUsers.push(teamUser);
-    });
+    let teamUsers = await Promise.all(
+      defaultTeam.users.map(async function (user) {
+        let teamUser = await User.findById(user);
+        return teamUser;
+      })
+    );
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
 
     newSession = await Session.create({
@@ -255,6 +259,15 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.team = defaultTeam._id;
     selectedChat.currentUser = teamUsers[0]._id;
     await selectedChat.save();
+
+    // Adding the selected chat to the user chats
+    if (!teamUsers[0].chats.includes(selectedChat._id)) {
+      await User.findByIdAndUpdate(
+        teamUsers[0]._id,
+        { $push: { chats: selectedChat._id } },
+        { new: true, runValidators: true }
+      );
+    }
   }
   const selectedSession = session || newSession;
 
@@ -381,12 +394,35 @@ const receiveMessageHandler = async (req, res, next) => {
     req.app.io.emit('updating');
 
     if (!session) {
+      const user = await User.findById(selectedChat.currentUser);
+      const team = await Team.findById(selectedChat.team)
+        .populate('conversation')
+        .populate('serviceHours', 'durations');
+
+      let autoReplyText = 'still checking';
+
+      if (user.status === 'Online') {
+        // console.log('online');
+        autoReplyText = team.conversation.bodyOn;
+      } else if (user.status === 'Service hours') {
+        // console.log(
+        //   'service hours',
+        //   checkInsideServiceHours(team.serviceHours.durations)
+        // );
+        autoReplyText = checkInsideServiceHours(team.serviceHours.durations)
+          ? team.conversation.bodyOn
+          : team.conversation.bodyOff;
+      } else {
+        // console.log('offline');
+        autoReplyText = team.conversation.bodyOff;
+      }
+
       const newMessageObj = {
         user: selectedChat.currentUser,
         chat: selectedChat._id,
         from: process.env.WHATSAPP_PHONE_NUMBER,
         type: 'text',
-        text: 'receiving your message successfully!',
+        text: autoReplyText,
       };
 
       const whatsappPayload = {
@@ -396,7 +432,7 @@ const receiveMessageHandler = async (req, res, next) => {
         recipient_type: 'individual',
         text: {
           preview_url: false,
-          body: 'receiving your message successfully!',
+          body: autoReplyText,
         },
       };
 
