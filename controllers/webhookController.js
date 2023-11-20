@@ -409,7 +409,9 @@ const receiveMessageHandler = async (req, res, next) => {
         //   'service hours',
         //   checkInsideServiceHours(team.serviceHours.durations)
         // );
-        autoReplyText = checkInsideServiceHours(team.serviceHours.durations)
+        autoReplyText = checkInsideServiceHours.checkInsideServiceHours(
+          team.serviceHours.durations
+        )
           ? team.conversation.bodyOn
           : team.conversation.bodyOff;
       } else {
