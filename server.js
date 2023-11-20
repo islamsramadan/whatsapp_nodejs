@@ -93,7 +93,7 @@ io.on('connection', async (socket) => {
   app.connectedUsers[socket.user._id] = socket;
 
   socket.on('client_to_server', async (data) => {
-    // console.log('data ===================', data);
+    console.log('data ==========================================', data);
 
     let userSessions, teamSessions, chats, chatSession, messages;
 
@@ -134,6 +134,10 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('disconnect', () => {
+    console.log(
+      'disconnect =========================================',
+      socket.user._id
+    );
     delete app.connectedUsers[socket.user._id];
   });
 });
