@@ -93,14 +93,6 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   }
 
   const chat = await Chat.findOne({ client: req.params.chatNumber });
-  // if (!chat) {
-  //   chat = await Chat.create({
-  //     client: req.params.chatNumber,
-  //     users: [req.user._id],
-  //     currentUser: req.user._id,
-  //     team: req.user.team,
-  //   });
-  // }
   // console.log('chat', chat);
 
   if (!chat) {

@@ -162,19 +162,33 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   }
 
   // 1) Create error if user post password data
-  if (req.body.password || req.body.passwordConfirm) {
-    return next(new AppError('This route is not for password updates!', 400));
-  }
+  // if (req.body.password || req.body.passwordConfirm) {
+  //   return next(new AppError('This route is not for password updates!', 400));
+  // }
 
   // 2) Filtered out unwanted fields names that are not allowed to be updated
   const filteredBody = filterObj(
     req.body,
-    // 'firstName',
-    // 'lastName',
-    // 'email',
-    'role',
-    'team'
+    'firstName',
+    'lastName',
+    'email',
+    'role'
+    // 'team'
   );
+
+  // Checking for password
+  if (req.body.password && req.body.password !== req.body.passwordConfirm) {
+    return next(
+      new AppError('Password and password confirm must be the same', 400)
+    );
+  }
+
+  if (req.body.password) {
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.token = undefined;
+    await user.save();
+  }
 
   const team = await Team.findById(req.body.team);
 
