@@ -174,6 +174,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    // to update later
+    const previousUserID = chat.currentUser;
+
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
@@ -199,10 +202,17 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     if (!req.user.chats.includes(chat._id)) {
       await User.findByIdAndUpdate(
         req.user._id,
-        { chats: [...req.user.chats, chat._id] },
+        { $push: { chats: chat._id } },
         { new: true, runValidators: true }
       );
     }
+
+    //Remove the chat from the previous user open chats
+    await User.findByIdAndUpdate(
+      previousUserID,
+      { $pull: { chats: chat._id } },
+      { new: true, runValidators: true }
+    );
 
     //**********Transfer to another user in the same team
   } else if (type === 'transferToUser') {
@@ -217,6 +227,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         new AppError("You don't have permission to perform this action!", 403)
       );
     }
+
+    // to update later
+    const previousUserID = chat.currentUser;
 
     const user = await User.findById(req.body.user);
     if (!user) {
@@ -252,7 +265,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //Remove chat from user open chats
     await User.findByIdAndUpdate(
-      chat.currentUser,
+      previousUserID,
       { $pull: { chats: chat._id } },
       { new: true, runValidators: true }
     );
@@ -290,7 +303,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     }
 
     //previous chat user to be updated later
-    const previousUser = chat.currentUser;
+    const previousUserID = chat.currentUser;
 
     //Selecting new chat current user
     let teamUsers = [];
@@ -299,6 +312,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       teamUsers = [...teamUsers, teamUser];
     }
     teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    // console.log('teamUsers=============', teamUsers);
 
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
@@ -332,7 +346,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     }
 
     //Update previous user open chats
-    await User.findByIdAndUpdate(previousUser._id, {
+    await User.findByIdAndUpdate(previousUserID, {
       $pull: { chats: chat._id },
     });
   }

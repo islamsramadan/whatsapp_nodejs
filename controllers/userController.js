@@ -211,6 +211,11 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
+  // Remove token from database if email updated
+  if (req.body.email && req.body.email !== user.email) {
+    filteredBody.token = undefined;
+  }
+
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
     req.params.userID,

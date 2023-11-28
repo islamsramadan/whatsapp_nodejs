@@ -405,6 +405,13 @@ exports.deleteTeam = catchAsync(async (req, res, next) => {
     $unset: { team: 1 },
   });
 
+  // Updating conversation doc
+  await Conversation.findByIdAndUpdate(
+    team.conversation,
+    { $pull: { teams: req.params.id } },
+    { new: true, runValidators: true }
+  );
+
   res.status(200).json({
     status: 'success',
     message: 'Team deleted successfully!',
