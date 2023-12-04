@@ -6,7 +6,7 @@ phases:
       nodejs: latest
     commands:
       - npm install
-      - npm install --arch=x64 --platform=linux --target=16x sharp
+      # - npm install --arch=x64 --platform=linux --target=16x sharp
   build:
     commands:
       - echo Build started on `date`
@@ -29,3 +29,4 @@ artifacts:
     - models/*
     - utils/*
     - config.env
+    - public/*
