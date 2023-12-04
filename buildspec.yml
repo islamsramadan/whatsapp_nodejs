@@ -28,3 +28,4 @@ artifacts:
     - controllers/*
     - models/*
     - utils/*
+    - config.env
