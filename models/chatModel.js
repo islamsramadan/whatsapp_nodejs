@@ -8,6 +8,10 @@ const chatSchema = new mongoose.Schema(
       match: [/\d{10,}/, 'Invalid client whatsapp number!'],
     },
 
+    contactName: {
+      type: String,
+    },
+
     users: [
       {
         type: mongoose.Schema.ObjectId,

@@ -209,6 +209,8 @@ const receiveMessageHandler = async (req, res, next) => {
   const from = req.body.entry[0].changes[0].value.messages[0].from;
   const msgType = req.body.entry[0].changes[0].value.messages[0].type;
   const msgID = req.body.entry[0].changes[0].value.messages[0].id;
+  const contactName =
+    req.body.entry[0].changes[0].value.contacts[0].profile.name;
 
   const chat = await Chat.findOne({ client: from });
   // console.log('chat', chat);
@@ -356,6 +358,7 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.notification = true;
     selectedChat.session = Date.now();
     selectedChat.status = 'open';
+    selectedChat.contactName = contactName;
     await selectedChat.save();
 
     //Updating session status
