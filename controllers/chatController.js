@@ -9,7 +9,8 @@ exports.getAllChats = catchAsync(async (req, res, next) => {
   const chats = await Chat.find()
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status');
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
 
   res.status(200).json({
     status: 'success',
@@ -29,7 +30,8 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find({ currentUser: req.user._id })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status');
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
 
   // console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
@@ -52,7 +54,8 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find({ team: req.user.team })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status');
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
 
   // console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
@@ -67,7 +70,11 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
-  const chats = await Chat.find({ status: 'archived' });
+  const chats = await Chat.find({ status: 'archived' })
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
 
   res.status(200).json({
     status: 'success',

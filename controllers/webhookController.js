@@ -14,6 +14,7 @@ const messageController = require('./messageController');
 
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
+const Contact = require('../models/contactModel');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -352,13 +353,49 @@ const receiveMessageHandler = async (req, res, next) => {
 
     const newMessage = await Message.create(newMessageData);
 
+    let contact;
+    if (!selectedChat.contactName) {
+      let contactResponse;
+      try {
+        contactResponse = await axios.request({
+          method: 'get',
+          maxBodyLength: Infinity,
+          url: `https://inspection.cpvarabia.com/api/GetProjectByPhone.php?PhoneNumber=${selectedChat.client}`,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (err) {
+        console.log('err', err);
+      }
+
+      // console.log('contactResponse', contactResponse.data.name);
+
+      let contactData = {
+        number: selectedChat.client,
+        whatsappName: contactName,
+        name: contactName,
+      };
+      if (
+        contactResponse &&
+        contactResponse.data &&
+        contactResponse.data.name
+      ) {
+        contactData.externalName = contactResponse.data.name;
+        contactData.name = contactResponse.data.name;
+      }
+      contact = await Contact.create(contactData);
+    }
+
     // Adding the received message as last message in the chat
     selectedChat.lastMessage = newMessage._id;
     // update chat session, notification and status
     selectedChat.notification = true;
     selectedChat.session = Date.now();
     selectedChat.status = 'open';
-    selectedChat.contactName = contactName;
+    if (contact) {
+      selectedChat.contactName = contact;
+    }
     await selectedChat.save();
 
     //Updating session status

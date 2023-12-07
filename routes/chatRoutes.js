@@ -10,7 +10,7 @@ router.use('/:chatNumber/messages', messageRouter);
 
 router
   .route('/')
-  // .get(authController.protect, chatController.getAllChats)
+  .get(authController.protect, chatController.getAllChats)
   .post(authController.protect, chatController.createChat);
 
 router.get(
