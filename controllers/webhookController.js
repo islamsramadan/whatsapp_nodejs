@@ -341,6 +341,15 @@ const receiveMessageHandler = async (req, res, next) => {
       };
     }
 
+    if (msgType === 'contacts') {
+      const contacts = selectedMessage.contacts.map((contact) => ({
+        name: contact.name.formatted_name,
+        phones: contact.phones,
+        emails: contact.emails,
+      }));
+      newMessageData.contacts = contacts;
+    }
+
     if (
       msgType === 'image' ||
       msgType === 'video' ||

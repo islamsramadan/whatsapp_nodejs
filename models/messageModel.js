@@ -44,6 +44,7 @@ const messageSchema = new mongoose.Schema(
         'document',
         'location',
         'sticker',
+        'contacts',
         'unsupported',
       ],
       required: [true, 'Message must have a type!'],
@@ -288,23 +289,29 @@ const messageSchema = new mongoose.Schema(
       },
     },
 
-    // contacts: [
-    //   {
-    //     phones: [
-    //       {
-    //         phone: String,
-    //         type: String,
-    //       },
-    //     ],
-    //     emails: [
-    //       {
-    //         type: String,
-    //         email: String,
-    //       },
-    //     ],
-    //     name: String,
-    //   },
-    // ],
+    contacts: [
+      {
+        phones: [
+          {
+            phone: String,
+            wa_id: String,
+            type: { type: String },
+          },
+        ],
+        emails: [
+          {
+            email: String,
+            type: { type: String },
+          },
+        ],
+        name: String,
+        org: {
+          company: String,
+          department: String,
+          title: String,
+        },
+      },
+    ],
 
     reply: {
       type: mongoose.Schema.ObjectId,
