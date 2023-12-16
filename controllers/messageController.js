@@ -263,6 +263,39 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     newMessageObj.text = req.body.text;
   }
 
+  // Contacts Message
+  if (req.body.type === 'contacts') {
+    if (!req.body.contacts || req.body.contacts.length === 0) {
+      return next(new AppError('Contacts are required!', 400));
+    }
+    const contacts = req.body.contacts.map((contact) => {
+      if (!contact.name) {
+        return next(new AppError('contact name is required!', 400));
+      }
+      if (!contact.phones || contact.phones.length === 0) {
+        return next(new AppError('contact phone is required!', 400));
+      }
+
+      return {
+        name: { formatted_name: contact.name, first_name: contact.name },
+        phones: contact.phones.map((item) => ({
+          phone: item,
+          wa_id: item,
+          type: 'WORK',
+        })),
+        emails: contact.emails?.map((item) => ({ email: item, type: 'WORK' })),
+        org: contact.org,
+      };
+    });
+
+    // console.log('contacts===========', contacts, contacts[0].phones);
+    whatsappPayload.contacts = contacts;
+    newMessageObj.contacts = contacts.map((contact) => ({
+      ...contact,
+      name: contact.name.formatted_name,
+    }));
+  }
+
   // Image Message
   if (req.body.type === 'image') {
     if (!req.file) {
@@ -815,3 +848,14 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+// const user = {
+//   name: 'islam mansour',
+//   phones: [201016817590, 971567161712],
+//   emails: ['islam@gamil.com', 'islam@outlook.com'],
+//   org: {
+//     company: 'CPV',
+//     title: 'Eng',
+//     department: 'Inspection',
+//   },
+// };
