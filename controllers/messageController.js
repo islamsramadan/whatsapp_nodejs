@@ -13,7 +13,7 @@ const whatsappToken = process.env.WHATSAPP_TOKEN;
 const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
 const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-const ngrokLink = process.env.NGROK_LINK;
+const productionLink = process.env.PRODUCTION_LINK;
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1);
@@ -265,6 +265,8 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   // Contacts Message
   if (req.body.type === 'contacts') {
+    // To get the list of contacts
+    // https://test.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
     if (!req.body.contacts || req.body.contacts.length === 0) {
       return next(new AppError('Contacts are required!', 400));
     }
@@ -303,7 +305,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `${ngrokLink}/img/${req.file.filename}`,
+      link: `${productionLink}/img/${req.file.filename}`,
       caption: req.body.caption,
     };
 
@@ -317,7 +319,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.video = {
-      link: `${ngrokLink}/videos/${req.file.filename}`,
+      link: `${productionLink}/videos/${req.file.filename}`,
       caption: req.body.caption,
     };
 
@@ -331,7 +333,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'audio') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.audio = {
-      link: `${ngrokLink}/audios/${req.file.filename}`,
+      link: `${productionLink}/audios/${req.file.filename}`,
     };
 
     newMessageObj.audio = {
@@ -344,7 +346,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `${ngrokLink}/docs/${req.file.filename}`,
+      link: `${productionLink}/docs/${req.file.filename}`,
       filename: req.file.originalname,
       caption: req.body.caption,
     };
@@ -471,7 +473,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   // Image Message
   if (failedMessage.type === 'image') {
     whatsappPayload.image = {
-      link: `${ngrokLink}/img/${failedMessage.image.file}`,
+      link: `${productionLink}/img/${failedMessage.image.file}`,
       caption: failedMessage.image.caption,
     };
   }
@@ -479,7 +481,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   // Video Message
   if (failedMessage.type === 'video') {
     whatsappPayload.video = {
-      link: `${ngrokLink}/videos/${failedMessage.video.file}`,
+      link: `${productionLink}/videos/${failedMessage.video.file}`,
       caption: failedMessage.video.caption,
     };
   }
@@ -487,14 +489,14 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   // Audio Message
   if (failedMessage.type === 'audio') {
     whatsappPayload.audio = {
-      link: `${ngrokLink}/audios/${failedMessage.audio.file}`,
+      link: `${productionLink}/audios/${failedMessage.audio.file}`,
     };
   }
 
   // Document Message
   if (failedMessage.type === 'document') {
     whatsappPayload.document = {
-      link: `${ngrokLink}/docs/${failedMessage.document.file}`,
+      link: `${productionLink}/docs/${failedMessage.document.file}`,
       filename: failedMessage.document.filename,
       caption: failedMessage.document.caption,
     };

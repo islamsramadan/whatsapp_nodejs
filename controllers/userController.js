@@ -150,12 +150,6 @@ exports.createUser = catchAsync(async (req, res, next) => {
 });
 
 exports.updateUser = catchAsync(async (req, res, next) => {
-  /////////////////////////////////////////////////
-  // For me
-  // if (req.params.userID === '64b01ddcb71752fc73c85619') {
-  //   return next(new AppError('خليك ف حالك ي معلم!', 400));
-  // }
-
   const user = await User.findById(req.params.userID);
   if (!user) {
     return next(new AppError('No user found with that ID!', 404));
@@ -252,14 +246,6 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
-  // For me
-  // if (req.user.id === '64b01ddcb71752fc73c85619') {
-  //   return next(new AppError('خليك ف حالك ي معلم!', 400));
-  // }
-
-  if (req.body.status) {
-  }
-
   // 1) Create error if user post password data
   if (req.body.password || req.body.passwordConfirm) {
     return next(
@@ -298,11 +284,6 @@ exports.updateMe = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteUser = catchAsync(async (req, res, next) => {
-  // For me
-  if (req.params.userID === '64b01ddcb71752fc73c85619') {
-    return next(new AppError('خليك ف حالك ي معلم!', 400));
-  }
-
   const user = await User.findById(req.params.userID);
   if (!user) {
     return next(new AppError('No user found with that ID', 404));
