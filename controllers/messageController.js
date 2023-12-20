@@ -100,7 +100,11 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   }
 
   // Checking if the user in the same team of the chat
-  if (chat.team && !chat.team.equals(req.user.team)) {
+  if (
+    chat.team &&
+    !chat.team.equals(req.user.team) &&
+    req.user.role === 'user'
+  ) {
     return next(
       new AppError("You don't have permission to view this chat!", 403)
     );
