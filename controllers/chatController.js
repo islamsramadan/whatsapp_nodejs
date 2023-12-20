@@ -51,7 +51,15 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
     statuses = ['open', 'onTime', 'danger', 'tooLate'];
   }
 
-  let chats = await Chat.find({ team: req.user.team })
+  const teamsIDs = req.query.teams.split(',');
+  if (teamsIDs.length === 0) {
+    return next(new AppError('Teams IDs are required!', 400));
+  }
+
+  let chats = await Chat.find({
+    team: { $in: teamsIDs },
+    // team: req.user.team,
+  })
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status')

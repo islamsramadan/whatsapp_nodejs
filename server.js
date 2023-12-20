@@ -91,13 +91,13 @@ app.connectedUsers = {};
 
 io.on('connection', async (socket) => {
   console.log(
-    'connectinggit =========================================',
+    // 'connecting =========================================',
     socket.user._id
   );
   app.connectedUsers[socket.user._id] = socket;
 
   socket.on('client_to_server', async (data) => {
-    console.log('data ==========================================', data);
+    // console.log('data ==========================================', data);
 
     let userSessions, teamSessions, chats, chatSession, messages, currentUser;
 
@@ -113,16 +113,20 @@ io.on('connection', async (socket) => {
         data.status || 'all'
       );
     }
-    if (data.chatsType === 'team') {
+    if (data.chatsType === 'team' && data.teamsIDs) {
       chats = await socketController.getAllteamChats(
         socket.user,
-        data.status || 'all'
+        data.status || 'all',
+        data.teamsIDs
       );
 
-      console.log('chats.length', chats.length);
+      // console.log('chats.length', chats.length);
     }
-    if (data.sessions === true) {
-      let sessions = await socketController.getAllSessions(socket.user);
+    if (data.sessions === true && data.teamsIDs) {
+      let sessions = await socketController.getAllSessions(
+        socket.user,
+        data.teamsIDs
+      );
       userSessions = sessions.userSessions;
       teamSessions = sessions.teamSessions;
     }
@@ -138,10 +142,10 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(
-      'disconnect =========================================',
-      socket.user._id
-    );
+    // console.log(
+    //   'disconnect =========================================',
+    //   socket.user._id
+    // );
     delete app.connectedUsers[socket.user._id];
   });
 });

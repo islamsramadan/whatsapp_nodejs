@@ -1,4 +1,5 @@
 const Session = require('../models/sessionModel');
+const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 exports.getAllSessions = catchAsync(async (req, res, next) => {
@@ -17,8 +18,25 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
     open: userSessions.filter((session) => session.status === 'open').length,
   };
 
+  const teamsIDs = req.params.teamsIDs?.split(',');
+  if (teamsIDs.length === 0) {
+    return next(new AppError('Teams IDs are required!', 400));
+  }
+
+  if (
+    (teamsIDs.length > 1 ||
+      (teamsIDs.length === 1 && !req.user.team.equals(teamsIDs[0]))) &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+  // console.log('teamsIDs', teamsIDs);
+
   const teamSessions = await Session.find({
-    team: req.user.team,
+    team: { $in: teamsIDs },
+    // team: req.user.team,
     status: { $ne: 'finished' },
   });
   const teamSessionsfilters = {

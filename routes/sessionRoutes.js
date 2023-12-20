@@ -4,6 +4,8 @@ const authController = require('./../controllers/authController');
 
 const router = express.Router();
 
-router.route('/').get(authController.protect, sessionController.getAllSessions);
+router
+  .route('/:teamsIDs')
+  .get(authController.protect, sessionController.getAllSessions);
 
 module.exports = router;

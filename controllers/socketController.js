@@ -62,7 +62,7 @@ exports.protectSocket = async (socket, next) => {
   next();
 };
 
-exports.getAllSessions = async (user) => {
+exports.getAllSessions = async (user, teamsIDs) => {
   const userSessions = await Session.find({
     user: user._id,
     status: { $ne: 'finished' },
@@ -79,7 +79,8 @@ exports.getAllSessions = async (user) => {
   };
 
   const teamSessions = await Session.find({
-    team: user.team,
+    team: { $in: teamsIDs },
+    // team: user.team,
     status: { $ne: 'finished' },
   });
   const teamSessionsfilters = {
@@ -115,13 +116,16 @@ exports.getAllUserChats = async (user, status) => {
   return chats;
 };
 
-exports.getAllteamChats = async (user, status) => {
+exports.getAllteamChats = async (user, status, teamsIDs) => {
   let statuses = status.split(',');
   if (statuses.includes('all')) {
     statuses = ['open', 'onTime', 'danger', 'tooLate'];
   }
 
-  let chats = await Chat.find({ team: user.team })
+  let chats = await Chat.find({
+    team: { $in: teamsIDs },
+    // team: user.team,
+  })
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status');
