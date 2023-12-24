@@ -11,6 +11,7 @@ const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const Service = require('../models/serviceModel');
 const messageController = require('./messageController');
+const interactiveMessages = require('../utils/interactiveMessages');
 
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
@@ -204,6 +205,7 @@ const mediaHandler = async (req, newMessageData) => {
 
 const receiveMessageHandler = async (req, res, next) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
+  // console.log('selectedMessage', selectedMessage);
 
   const phoneNumberID =
     req.body.entry[0].changes[0].value.metadata.phone_number_id;
@@ -218,21 +220,12 @@ const receiveMessageHandler = async (req, res, next) => {
 
   let newChat;
   if (!chat) {
-    const defaultTeam = await Team.findOne({ default: true });
-
-    //Selecting chat current user
-    let teamUsers = await Promise.all(
-      defaultTeam.users.map(async function (user) {
-        let teamUser = await User.findById(user);
-        return teamUser;
-      })
-    );
-    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    const botTeam = await Team.findOne({ bot: true });
 
     newChat = await Chat.create({
       client: from,
-      team: defaultTeam._id,
-      currentUser: teamUsers[0]._id,
+      team: botTeam._id,
+      currentUser: botTeam.supervisor,
     });
   }
 
@@ -241,36 +234,28 @@ const receiveMessageHandler = async (req, res, next) => {
 
   let newSession;
   if (!session) {
-    //Selecting session user
-    const defaultTeam = await Team.findOne({ default: true });
-    let teamUsers = await Promise.all(
-      defaultTeam.users.map(async function (user) {
-        let teamUser = await User.findById(user);
-        return teamUser;
-      })
-    );
-    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    const botTeam = await Team.findOne({ bot: true });
 
     newSession = await Session.create({
       chat: selectedChat._id,
-      user: teamUsers[0]._id,
-      team: defaultTeam._id,
+      user: botTeam.supervisor,
+      team: botTeam._id,
       status: 'onTime',
     });
 
     selectedChat.lastSession = newSession._id;
-    selectedChat.team = defaultTeam._id;
-    selectedChat.currentUser = teamUsers[0]._id;
+    selectedChat.team = botTeam._id;
+    selectedChat.currentUser = botTeam.supervisor;
     await selectedChat.save();
 
     // Adding the selected chat to the user chats
-    if (!teamUsers[0].chats.includes(selectedChat._id)) {
-      await User.findByIdAndUpdate(
-        teamUsers[0]._id,
-        { $push: { chats: selectedChat._id } },
-        { new: true, runValidators: true }
-      );
-    }
+    // if (!teamUsers[0].chats.includes(selectedChat._id)) {
+    //   await User.findByIdAndUpdate(
+    //     teamUsers[0]._id,
+    //     { $push: { chats: selectedChat._id } },
+    //     { new: true, runValidators: true }
+    //   );
+    // }
   }
   const selectedSession = session || newSession;
 
@@ -298,6 +283,8 @@ const receiveMessageHandler = async (req, res, next) => {
     req.app.io.emit('updating');
 
     res.status(200).json({ reactedMessage });
+
+    // other messages types
   } else {
     const newMessageData = {
       chat: selectedChat._id,
@@ -360,8 +347,15 @@ const receiveMessageHandler = async (req, res, next) => {
       await mediaHandler(req, newMessageData);
     }
 
+    if (msgType === 'interactive') {
+      const interactive =
+        req.body.entry[0].changes[0].value.messages[0].interactive;
+      newMessageData.interactive = interactive;
+    }
+
     const newMessage = await Message.create(newMessageData);
 
+    // **************** Fetching name from RD app ***************************
     let contact;
     if (!selectedChat.contactName) {
       let contactResponse;
@@ -407,7 +401,7 @@ const receiveMessageHandler = async (req, res, next) => {
     }
     await selectedChat.save();
 
-    //Updating session status
+    // ***************** Updating session status ******************
     if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
       const team = await Team.findById(selectedSession.team);
       const serviceHours = await Service.findById(team.serviceHours);
@@ -442,50 +436,44 @@ const receiveMessageHandler = async (req, res, next) => {
     //updating event in socket io
     req.app.io.emit('updating');
 
+    // ************************* Chat Bot messages *****************************
+    // if there is no session and new session created
     if (!session) {
-      const user = await User.findById(selectedChat.currentUser);
-      const team = await Team.findById(selectedChat.team)
-        .populate('conversation')
-        .populate('serviceHours', 'durations');
-
-      let autoReplyText = 'still checking';
-
-      if (user.status === 'Online') {
-        // console.log('online');
-        autoReplyText = team.conversation.bodyOn;
-      } else if (user.status === 'Service hours') {
-        // console.log(
-        //   'service hours',
-        //   checkInsideServiceHours(team.serviceHours.durations)
-        // );
-        autoReplyText = checkInsideServiceHours.checkInsideServiceHours(
-          team.serviceHours.durations
-        )
-          ? team.conversation.bodyOn
-          : team.conversation.bodyOff;
-      } else {
-        // console.log('offline');
-        autoReplyText = team.conversation.bodyOff;
-      }
+      const interactive = interactiveMessages[0]; // from test data
 
       const newMessageObj = {
         user: selectedChat.currentUser,
         chat: selectedChat._id,
         from: process.env.WHATSAPP_PHONE_NUMBER,
-        type: 'text',
-        text: autoReplyText,
+        type: 'interactive',
+        interactive,
       };
 
       const whatsappPayload = {
         messaging_product: 'whatsapp',
         to: selectedChat.client,
-        type: 'text',
+        type: 'interactive',
         recipient_type: 'individual',
-        text: {
-          preview_url: false,
-          body: autoReplyText,
-        },
+        interactive,
       };
+      // const newMessageObj = {
+      //   user: selectedChat.currentUser,
+      //   chat: selectedChat._id,
+      //   from: process.env.WHATSAPP_PHONE_NUMBER,
+      //   type: 'text',
+      //   text: autoReplyText,
+      // };
+
+      // const whatsappPayload = {
+      //   messaging_product: 'whatsapp',
+      //   to: selectedChat.client,
+      //   type: 'text',
+      //   recipient_type: 'individual',
+      //   text: {
+      //     preview_url: false,
+      //     body: autoReplyText,
+      //   },
+      // };
 
       let response;
       try {
@@ -521,31 +509,151 @@ const receiveMessageHandler = async (req, res, next) => {
 
       //updating event in socket io
       req.app.io.emit('updating');
+    }
 
-      // axios({
-      //   method: 'post',
-      //   url: `https://graph.facebook.com/v17.0/${phoneNumberID}/messages`,
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      //   },
-      //   data: JSON.stringify({
-      //     messaging_product: 'whatsapp',
-      //     recipient_type: 'individual',
-      //     to: from,
-      //     type: 'text',
-      //     text: {
-      //       preview_url: false,
-      //       body: "hello it's me and this is your message: " + msgBody,
-      //     },
-      //   }),
-      // })
-      //   .then((response) => {
-      //     console.log('Response ==============', JSON.stringify(response.data));
-      //   })
-      //   .catch((error) => {
-      //     console.log(error);
-      //   });
+    if (msgType === 'interactive') {
+      const interactive =
+        req.body.entry[0].changes[0].value.messages[0].interactive;
+
+      const replyMessage = await Message.findOne({
+        whatsappID: selectedMessage.context.id,
+      });
+
+      if (interactive.type === 'button_reply') {
+        const replyButtons = replyMessage.interactive.action.buttons;
+        // console.log('replyButtons', replyButtons);
+        const button = replyButtons.filter(
+          (btn) => btn.reply.id === interactive.button_reply.id
+        )[0];
+        // console.log('button', button);
+
+        const testReply = `سيتم تحويلك الي قسم ${button.reply.title}`;
+        const newMessageObj = {
+          user: selectedChat.currentUser,
+          chat: selectedChat._id,
+          from: process.env.WHATSAPP_PHONE_NUMBER,
+          type: 'text',
+          text: testReply,
+        };
+
+        const whatsappPayload = {
+          messaging_product: 'whatsapp',
+          to: selectedChat.client,
+          type: 'text',
+          recipient_type: 'individual',
+          text: {
+            preview_url: false,
+            body: testReply,
+          },
+        };
+
+        let response;
+        try {
+          response = await axios.request({
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            },
+            data: JSON.stringify(whatsappPayload),
+          });
+        } catch (err) {
+          console.log('err', err);
+        }
+
+        const newMessage = await Message.create({
+          ...newMessageObj,
+          whatsappID: response.data.messages[0].id,
+        });
+
+        // Adding the sent message as last message in the chat and update chat status
+        selectedChat.lastMessage = newMessage._id;
+        selectedChat.status = 'open';
+        await selectedChat.save();
+
+        // Updating session to new status ((open))
+        selectedSession.status = 'open';
+        selectedSession.timer = undefined;
+        await selectedSession.save();
+
+        //updating event in socket io
+        req.app.io.emit('updating');
+      } else if (interactive.type === 'list_reply') {
+        const listOptions = [];
+        replyMessage.interactive.action.sections.map((section) => {
+          section.rows.map((row) => {
+            listOptions.push({
+              id: row.id,
+              title: row.title,
+              description: row.description,
+            });
+          });
+        });
+        // console.log('listOptions', listOptions);
+
+        const selectedOption = listOptions.filter(
+          (option) => option.id === interactive.list_reply.id
+        )[0];
+        // console.log('selectedOption', selectedOption);
+
+        const testReply = `لقد قمت باختيار ${selectedOption.title}`;
+        const newMessageObj = {
+          user: selectedChat.currentUser,
+          chat: selectedChat._id,
+          from: process.env.WHATSAPP_PHONE_NUMBER,
+          type: 'text',
+          text: testReply,
+        };
+
+        const whatsappPayload = {
+          messaging_product: 'whatsapp',
+          to: selectedChat.client,
+          type: 'text',
+          recipient_type: 'individual',
+          text: {
+            preview_url: false,
+            body: testReply,
+          },
+        };
+
+        // console.log('whatsappPayload==============', whatsappPayload);
+
+        let response;
+        try {
+          response = await axios.request({
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            },
+            data: JSON.stringify(whatsappPayload),
+          });
+        } catch (err) {
+          console.log('err', err);
+        }
+
+        const newMessage = await Message.create({
+          ...newMessageObj,
+          whatsappID: response.data.messages[0].id,
+        });
+
+        // Adding the sent message as last message in the chat and update chat status
+        selectedChat.lastMessage = newMessage._id;
+        selectedChat.status = 'open';
+        await selectedChat.save();
+
+        // Updating session to new status ((open))
+        selectedSession.status = 'open';
+        selectedSession.timer = undefined;
+        await selectedSession.save();
+
+        //updating event in socket io
+        req.app.io.emit('updating');
+      }
     }
 
     res.status(200).json({ newMessage });
@@ -573,3 +681,5 @@ const updateMessageStatusHandler = async (req, res, next) => {
 
   res.status(200).json({ msgToUpdate });
 };
+
+const checkListHandler = () => {};

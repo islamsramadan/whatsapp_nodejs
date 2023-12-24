@@ -45,6 +45,7 @@ const messageSchema = new mongoose.Schema(
         'location',
         'sticker',
         'contacts',
+        'interactive',
         'unsupported',
       ],
       required: [true, 'Message must have a type!'],
@@ -312,6 +313,74 @@ const messageSchema = new mongoose.Schema(
         },
       },
     ],
+
+    interactive: {
+      type: {
+        type: String,
+        enum: ['list', 'button', 'list_reply', 'button_reply'],
+        required: function () {
+          if (this.type === 'interactive') {
+            return [true, 'Interactive type is required!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      header: {
+        type: {
+          type: String,
+          enum: ['text', 'image', 'video', 'document'],
+        },
+        text: String,
+        // image: String,
+        // video: String,
+        // document: String,
+      },
+      body: {
+        text: String, // max 1024 characteres
+      },
+      footer: {
+        text: String, // max 60 characteres
+      },
+      action: {
+        button: {
+          type: String, // max 20 characters
+        },
+        sections: [
+          {
+            title: String,
+            rows: [
+              {
+                id: String,
+                title: String,
+                description: String,
+              },
+            ],
+          },
+        ],
+        buttons: [
+          {
+            type: {
+              type: String,
+              enum: ['reply'],
+            },
+            reply: {
+              id: String,
+              title: String,
+            },
+          },
+        ],
+      },
+      list_reply: {
+        id: String,
+        title: String,
+        description: String,
+      },
+      button_reply: {
+        id: String,
+        title: String,
+      },
+    },
 
     reply: {
       type: mongoose.Schema.ObjectId,
