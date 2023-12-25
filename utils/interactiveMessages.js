@@ -1,15 +1,16 @@
 module.exports = [
   {
+    id: 'CPV',
     type: 'list',
     header: {
       type: 'text',
-      text: 'Testing List Message',
+      text: 'شركة CPV العربية ترحب بكم!',
     },
     body: {
-      text: 'This is a test to check sending list messages',
+      text: 'كيف يمكنني مساعدتك اليوم؟',
     },
     footer: {
-      text: 'choose from the list below',
+      text: 'قم باختيار احد الخيارات التالية',
     },
     action: {
       button: 'list options',
@@ -29,24 +30,42 @@ module.exports = [
             },
           ],
         },
-        {
-          title: 'Time',
-          rows: [
-            {
-              id: 'Morning',
-              title: 'Morning',
-              description: 'To be sent in the mornning',
-            },
-            {
-              id: 'Evening',
-              title: 'Evening',
-              description: 'To be sent in the evening',
-            },
-          ],
-        },
       ],
     },
   },
+  // {
+  //   type: 'list',
+  //   header: {
+  //     type: 'text',
+  //     text: 'Testing List Message',
+  //   },
+  //   body: {
+  //     text: 'This is a test to check sending list messages',
+  //   },
+  //   footer: {
+  //     text: 'choose from the list below',
+  //   },
+  //   action: {
+  //     button: 'list options',
+  //     sections: [
+  //       {
+  //         title: 'Agree or Refuse',
+  //         rows: [
+  //           {
+  //             id: 'Agree',
+  //             title: 'Agree',
+  //             description: 'This is to agree testing',
+  //           },
+  //           {
+  //             id: 'Refuse',
+  //             title: 'Refuse',
+  //             description: 'This is to refuse testing',
+  //           },
+  //         ],
+  //       },
+  //     ],
+  //   },
+  // },
   {
     type: 'button',
     header: {
