@@ -92,7 +92,10 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide chat number!', 400));
   }
 
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
+    'contactName',
+    'name'
+  );
   // console.log('chat', chat);
 
   if (!chat) {
@@ -127,6 +130,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     results: messages.length,
     data: {
       session: chat.session,
+      contactName: chat.contactName,
       currentUser: chat.currentUser,
       messages,
     },

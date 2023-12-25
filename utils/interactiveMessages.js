@@ -13,20 +13,20 @@ module.exports = [
       text: 'قم باختيار احد الخيارات التالية',
     },
     action: {
-      button: 'list options',
+      button: 'الاختيارات', // max 20 characters
       sections: [
         {
-          title: 'Agree or Refuse',
+          // title: 'Agree or Refuse', // max 24 characters
           rows: [
             {
               id: 'Agree',
-              title: 'Agree',
-              description: 'This is to agree testing',
+              title: 'Agree', // max 24 characters
+              // description: 'This is to agree testing', // max 72 characters
             },
             {
               id: 'Refuse',
               title: 'Refuse',
-              description: 'This is to refuse testing',
+              // description: 'This is to refuse testing',
             },
           ],
         },

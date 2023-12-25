@@ -440,6 +440,8 @@ const receiveMessageHandler = async (req, res, next) => {
     // if there is no session and new session created
     if (!session) {
       const interactive = interactiveMessages[0]; // from test data
+      delete interactive.id;
+      console.log('interactive', interactive);
 
       const newMessageObj = {
         user: selectedChat.currentUser,
