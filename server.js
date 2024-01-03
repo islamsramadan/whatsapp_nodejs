@@ -99,13 +99,20 @@ io.on('connection', async (socket) => {
   socket.on('client_to_server', async (data) => {
     // console.log('data ==========================================', data);
 
-    let userSessions, teamSessions, chats, chatSession, messages, currentUser;
+    let userSessions,
+      teamSessions,
+      chats,
+      session,
+      messages,
+      contactName,
+      currentUser;
 
     if (data.chatNumber) {
       let chatData = await socketController.getAllChatMessages(data.chatNumber);
       messages = chatData.messages;
-      chatSession = chatData.chatSession;
+      session = chatData.chatSession;
       chatStatus = chatData.chatStatus;
+      contactName = chatData.contactName;
       currentUser = chatData.currentUser;
     }
     if (data.chatsType === 'user') {
@@ -137,8 +144,9 @@ io.on('connection', async (socket) => {
       teamSessions,
       chats,
       messages,
-      chatSession,
+      session,
       chatStatus,
+      contactName,
       currentUser,
     });
   });
