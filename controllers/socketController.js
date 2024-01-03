@@ -145,8 +145,8 @@ exports.getAllChatMessages = async (chatNumber) => {
     .populate('reply');
 
   const chatSession = chat.session;
-
+  const chatStatus = chat.status;
   const currentUser = chat.currentUser;
 
-  return { messages, chatSession, currentUser };
+  return { messages, chatSession, chatStatus, currentUser };
 };

@@ -42,6 +42,7 @@ const messageSchema = new mongoose.Schema(
         'video',
         'audio',
         'document',
+        'docLink',
         'location',
         'sticker',
         'contacts',
@@ -196,10 +197,25 @@ const messageSchema = new mongoose.Schema(
     },
 
     document: {
+      type: {
+        type: String,
+        enum: ['file', 'link'],
+        default: 'file',
+      },
       file: {
         type: String,
         required: function () {
-          if (this.type === 'document') {
+          if (this.type === 'document' && this.document.type === 'file') {
+            return [true, 'Document message must have a document!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      link: {
+        type: String,
+        required: function () {
+          if (this.type === 'document' && this.document.type === 'link') {
             return [true, 'Document message must have a document!'];
           } else {
             return false;

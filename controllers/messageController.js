@@ -132,6 +132,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       session: chat.session,
       contactName: chat.contactName,
       currentUser: chat.currentUser,
+      chatStatus: chat.status,
       messages,
     },
   });
@@ -858,14 +859,3 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
-
-// const user = {
-//   name: 'islam mansour',
-//   phones: [201016817590, 971567161712],
-//   emails: ['islam@gamil.com', 'islam@outlook.com'],
-//   org: {
-//     company: 'CPV',
-//     title: 'Eng',
-//     department: 'Inspection',
-//   },
-// };
