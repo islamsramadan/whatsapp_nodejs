@@ -39,6 +39,10 @@ const sessionSchema = new mongoose.Schema(
       default: 'normal',
     },
 
+    botTimer: {
+      type: Date,
+    },
+
     lastBotMessage: {
       type: mongoose.Schema.ObjectId,
       ref: 'Message',

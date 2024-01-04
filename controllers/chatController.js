@@ -144,6 +144,10 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    if (chat.status === 'archived') {
+      return next(new AppError('The chat is already archived!', 400));
+    }
+
     if (!chat.currentUser.equals(req.user._id)) {
       return next(
         new AppError("You don't have permission to perform this action!", 403)

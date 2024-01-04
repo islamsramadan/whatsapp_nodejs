@@ -14,6 +14,7 @@ const messageController = require('./messageController');
 const interactiveMessages = require('../utils/interactiveMessages');
 
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
+const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
 const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
 const Contact = require('../models/contactModel');
 
@@ -249,14 +250,15 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.currentUser = botTeam.supervisor;
     await selectedChat.save();
 
-    // Adding the selected chat to the user chats
-    // if (!teamUsers[0].chats.includes(selectedChat._id)) {
-    //   await User.findByIdAndUpdate(
-    //     teamUsers[0]._id,
-    //     { $push: { chats: selectedChat._id } },
-    //     { new: true, runValidators: true }
-    //   );
-    // }
+    // =======> Adding the selected chat to the bot user chats
+    const botUser = await User.findById(botTeam.supervisor);
+    if (!botUser.chats.includes(selectedChat._id)) {
+      await User.findByIdAndUpdate(
+        botUser._id,
+        { $push: { chats: selectedChat._id } },
+        { new: true, runValidators: true }
+      );
+    }
   }
   const selectedSession = session || newSession;
 
@@ -421,12 +423,13 @@ const receiveMessageHandler = async (req, res, next) => {
       );
     }
 
-    //updating event in socket io
-    req.app.io.emit('updating');
-
     // *************************************************************************
     // ************************* Chat Bot Handlers *****************************
     if (selectedSession.type === 'bot') {
+      // ============> remove bot timer when client reply
+      selectedSession.botTimer = undefined;
+      await selectedSession.save();
+
       await chatBotHandler(
         req,
         from,
@@ -437,6 +440,9 @@ const receiveMessageHandler = async (req, res, next) => {
         msgType
       );
     }
+
+    //updating event in socket io
+    req.app.io.emit('updating');
 
     res.status(200).json({ newMessage });
   }
@@ -574,8 +580,10 @@ const checkInteractiveHandler = async (
     } else {
       delete interactive.id;
 
-      replyMessage.type = 'interactive';
-      replyMessage.interactive = interactive;
+      replyMessage = {
+        type: 'interactive',
+        interactive,
+      };
     }
   } else if (option.id === 'ref') {
     replyMessage = {
@@ -612,7 +620,7 @@ const checkInteractiveHandler = async (
         org: contactResponse.org,
       };
 
-      // // console.log('contact ==========', contact);
+      // console.log('contact ==========', contact);
 
       replyMessage = {
         type: 'contacts',
@@ -628,9 +636,10 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://whatsapp-production.onrender.com/docs/client-201016817590-1704206389354.pdf',
+        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
         filename: 'Visits reports',
       },
+      caption: 'هذا هو تقرير الزيارات الخاص بمشروعكم',
     };
   } else if (option.id === 'project_tickets') {
     const response = await RDAppHandler({
@@ -696,38 +705,42 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://whatsapp-production.onrender.com/docs/client-201016817590-1704206389354.pdf',
+        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
         filename: 'Contractor instructions',
       },
+      caption: 'هذا هو الملف الخاص بتعليمات المقاول',
     };
   } else if (option.id === 'inspection_stages') {
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://whatsapp-production.onrender.com/docs/client-201016817590-1704206389354.pdf',
+        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
         filename: 'Inspection stages',
       },
+      caption: 'هذا هو الملف الخاص بمراحل الفحص الفني',
     };
   } else if (option.id === 'common_questions') {
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://whatsapp-production.onrender.com/docs/client-201016817590-1704206389354.pdf',
+        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
         filename: 'Common questions',
       },
+      caption: 'هذا هو الملف الخاص بالاسئلة الشائعة',
     };
   } else if (option.id === 'complete_building') {
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://whatsapp-production.onrender.com/docs/client-201016817590-1704206389354.pdf',
+        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
         filename: 'Complete building',
       },
+      caption: 'هذا هو الملف الخاص باجراءات المباني المكتملة',
     };
   } else if (option.id === 'work_hours') {
     replyMessage = {
       type: 'text',
-      text: 'اوقات العمل : من الاحد الى الخميس من الساعة 09:00 صباحا الى الساعة 05:00 مساء. نسعد بخدمتكم',
+      text: 'اوقات العمل : \n من الاحد الى الخميس من الساعة 09:00 صباحا الى الساعة 05:00 مساء. \n نسعد بخدمتكم',
     };
   } else if (option.id === 'customer_service') {
     replyMessage = {
@@ -744,10 +757,11 @@ const checkInteractiveHandler = async (
       type: 'text',
       text: 'شكرا لتواصلكم مع شركة CPV العربية \n نأمل أن تحوزخدماتنا علي رضاكم',
     };
-  } else {
-    replyMessage.type = 'text';
-    replyMessage.text = `لقد قمت باختيار ${option.title}`;
   }
+  // else {
+  //   replyMessage.type = 'text';
+  //   replyMessage.text = `لقد قمت باختيار ${option.title}`;
+  // }
 
   return replyMessage;
 };
@@ -931,6 +945,23 @@ const chatBotHandler = async (
           selectedChat
         );
 
+        //===========> Sending an intro message
+        if (
+          msgOption.id === 'inspector_phone' &&
+          msgToBeSent.type === 'contacts'
+        ) {
+          const introMsg = {
+            type: 'text',
+            text: 'هذا هو رقم االفاحص الفني الخاص بمشروعكم',
+          };
+          await sendMessageHandler(
+            req,
+            introMsg,
+            selectedChat,
+            selectedSession
+          );
+        }
+
         //===========> Sending first reply message
         await sendMessageHandler(
           req,
@@ -970,6 +1001,7 @@ const chatBotHandler = async (
         }
 
         //===========> Following action (archive, transfer, ...)
+        // ***** Archive
         if (['end'].includes(msgOption.id)) {
           // Add end date to the session and remove it from chat
           selectedSession.end = Date.now();
@@ -983,12 +1015,61 @@ const chatBotHandler = async (
           selectedChat.lastSession = undefined;
           await selectedChat.save();
 
-          // // Removing chat from user open chats
-          // await User.findByIdAndUpdate(
-          //   req.user._id,
-          //   { $pull: { chats: chat._id } },
-          //   { new: true, runValidators: true }
-          // );
+          // Removing chat from bot user chats
+          await User.findByIdAndUpdate(
+            selectedSession.user,
+            { $pull: { chats: selectedChat._id } },
+            { new: true, runValidators: true }
+          );
+        }
+
+        // ***** Transfer
+        if (['inquiries', 'customer_service']) {
+          // ========> Finishing bot session
+          selectedSession.end = Date.now();
+          selectedSession.status = 'finished';
+          await selectedSession.save();
+
+          // =========> Selecting team and user
+          const selectedTeam = await Team.findOne({ default: true });
+
+          let teamUsers = await Promise.all(
+            selectedTeam.users.map(async function (user) {
+              let teamUser = await User.findById(user);
+              return teamUser;
+            })
+          );
+          teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+
+          // ==========> Creating new session
+          const newSession = await Session.create({
+            chat: selectedChat._id,
+            user: teamUsers[0]._id,
+            team: selectedTeam._id,
+            status: 'onTime',
+          });
+
+          // ==========> Updating chat
+          selectedChat.lastSession = newSession._id;
+          selectedChat.team = selectedTeam._id;
+          selectedChat.currentUser = teamUsers[0]._id;
+          await selectedChat.save();
+
+          // Adding the selected chat to the user chats
+          if (!teamUsers[0].chats.includes(selectedChat._id)) {
+            await User.findByIdAndUpdate(
+              teamUsers[0]._id,
+              { $push: { chats: selectedChat._id } },
+              { new: true, runValidators: true }
+            );
+          }
+
+          // Removing chat from bot user chats
+          await User.findByIdAndUpdate(
+            selectedSession.user,
+            { $pull: { chats: selectedChat._id } },
+            { new: true, runValidators: true }
+          );
         }
 
         // ************** the client doesn't reply to the last bot message
@@ -1060,6 +1141,35 @@ const chatBotHandler = async (
       );
     }
   }
+
+  // ************* Updating session botTimer **************
+  // const delayMins = 2;
+  const delayMins = process.env.BOT_EXPIRE_TIME;
+  let botTimer = new Date();
+  botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
+
+  selectedSession.botTimer = botTimer;
+  await selectedSession.save();
+
+  const sessions = await Session.find({
+    status: 'open',
+    botTimer: {
+      $exists: true,
+      $ne: '',
+    },
+  });
+
+  await chatBotTimerUpdate.scheduleDocumentUpdateTask(
+    sessions,
+    req,
+    //from config.env
+    delayMins,
+    responseDangerTime,
+    process.env.WHATSAPP_VERSION,
+    process.env.WHATSAPP_PHONE_ID,
+    process.env.WHATSAPP_TOKEN,
+    process.env.WHATSAPP_PHONE_NUMBER
+  );
 };
 
 const RDAppHandler = async (data) => {
@@ -1074,7 +1184,7 @@ const RDAppHandler = async (data) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      data: JSON.stringify({ Token: 'OKRJ_R85rkn9nrgg', ...data }),
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
     });
   } catch (err) {
     console.log('err', err);
