@@ -1024,7 +1024,7 @@ const chatBotHandler = async (
         }
 
         // ***** Transfer
-        if (['inquiries', 'customer_service']) {
+        if (['inquiries', 'customer_service'].includes(msgOption.id)) {
           // ========> Finishing bot session
           selectedSession.end = Date.now();
           selectedSession.status = 'finished';
