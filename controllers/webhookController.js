@@ -1039,8 +1039,31 @@ const chatBotHandler = async (
               return teamUser;
             })
           );
-          teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+          // console.log('teamUsers', teamUsers);
 
+          // status sorting order
+          const statusSortingOrder = [
+            'Online',
+            'Service hours',
+            'Offline',
+            'Away',
+          ];
+
+          // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+          teamUsers = teamUsers.sort((a, b) => {
+            const orderA = statusSortingOrder.indexOf(a.status);
+            const orderB = statusSortingOrder.indexOf(b.status);
+
+            // If 'status' is the same, then sort by chats length
+            if (orderA === orderB) {
+              return a.chats.length - b.chats.length;
+            }
+
+            // Otherwise, sort by 'status'
+            return orderA - orderB;
+          });
+
+          // console.log('teamUsers', teamUsers);
           // ==========> Creating new session
           const newSession = await Session.create({
             chat: selectedChat._id,

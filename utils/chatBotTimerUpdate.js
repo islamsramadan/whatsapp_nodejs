@@ -214,8 +214,8 @@ exports.scheduleDocumentUpdateTask = async (
           session.botTimer - delayArray[i] * (1 - responseDangerTime)
         );
 
-        console.log('lateTimer', lateTimer);
-        console.log('dangerTimer', dangerTimer);
+        // console.log('lateTimer', lateTimer);
+        // console.log('dangerTimer', dangerTimer);
 
         // console.log('session', session);
 
