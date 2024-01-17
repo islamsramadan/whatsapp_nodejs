@@ -92,3 +92,5 @@ exports.scheduleDocumentUpdateTask = async (
     }
   }
 };
+
+exports.updatePerfromance = async () => {};

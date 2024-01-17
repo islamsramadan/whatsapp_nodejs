@@ -380,6 +380,12 @@ const receiveMessageHandler = async (req, res, next) => {
       contact = await Contact.create(contactData);
     }
 
+    // ================> updating session performance
+    selectedSession.performance.all += 1;
+    selectedSession.performance.onTime += 1;
+    await selectedSession.save();
+
+    // ================> updating chat
     // Adding the received message as last message in the chat
     selectedChat.lastMessage = newMessage._id;
     // update chat session, notification and status
@@ -1062,8 +1068,8 @@ const chatBotHandler = async (
             // Otherwise, sort by 'status'
             return orderA - orderB;
           });
-
           // console.log('teamUsers', teamUsers);
+
           // ==========> Creating new session
           const newSession = await Session.create({
             chat: selectedChat._id,

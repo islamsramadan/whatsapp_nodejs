@@ -48,6 +48,16 @@ const sessionSchema = new mongoose.Schema(
       ref: 'Message',
     },
 
+    lastUserMessage: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Message',
+    },
+
+    performance: {
+      all: { type: Number, default: 0 },
+      onTime: { type: Number, default: 0 },
+    },
+
     referenceNo: {
       type: String,
     },

@@ -398,6 +398,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // Updating session to new status ((open))
   selectedSession.status = 'open';
   selectedSession.timer = undefined;
+  selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
 
   //updating event in socket io
@@ -844,6 +845,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   // Updating session to new status ((open))
   selectedSession.status = 'open';
   selectedSession.timer = undefined;
+  selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
 
   //updating event in socket io
