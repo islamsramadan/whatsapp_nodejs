@@ -20,6 +20,16 @@ const messageSchema = new mongoose.Schema(
       required: [true, 'Message must belong to a chat!'],
     },
 
+    session: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Session',
+      required: [true, 'Message must belong to a session!'],
+    },
+
+    timer: {
+      type: Date,
+    },
+
     from: {
       type: String,
       required: [true, 'Message must have a sender!'],

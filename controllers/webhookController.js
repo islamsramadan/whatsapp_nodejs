@@ -291,6 +291,7 @@ const receiveMessageHandler = async (req, res, next) => {
   } else {
     const newMessageData = {
       chat: selectedChat._id,
+      session: selectedSession._id,
       from: selectedChat.client,
       type: msgType,
       whatsappID: msgID,
@@ -429,6 +430,28 @@ const receiveMessageHandler = async (req, res, next) => {
       );
     }
 
+    // ***************** Updating session Performance ******************
+    const team = await Team.findById(selectedSession.team);
+    const serviceHours = await Service.findById(team.serviceHours);
+
+    let delay = {
+      hours: serviceHours.responseTime.hours,
+      minutes: serviceHours.responseTime.minutes,
+    };
+
+    let timer = new Date();
+    timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
+    timer.setHours(timer.getHours() + delay.hours * 1);
+
+    newMessage.timer = timer;
+    await newMessage.save();
+
+    await sessionTimerUpdate.schedulePerformance(
+      req,
+      newMessage,
+      selectedSession
+    );
+
     // *************************************************************************
     // ************************* Chat Bot Handlers *****************************
     if (selectedSession.type === 'bot') {
@@ -485,6 +508,7 @@ const sendMessageHandler = async (
   const newMessageObj = {
     user: selectedChat.currentUser,
     chat: selectedChat._id,
+    session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: msgToBeSent.type,
   };
