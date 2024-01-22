@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const Session = require('../models/sessionModel');
+const Message = require('../models/messageModel');
 
 const getCronExpression = (timer) => {
   const timerExpression = {
@@ -91,4 +92,72 @@ exports.scheduleDocumentUpdateTask = async (
       }
     }
   }
+};
+
+const updatePerfromance = (req, message) => {
+  const cronExpression = getCronExpression(message.timer);
+  // console.log('cronExpression', cronExpression);
+
+  cron.schedule(cronExpression, async () => {
+    console.log('message ===========', message);
+
+    const session = await Session.findById(message.session);
+    let lastUserMessage;
+
+    if (session.lastUserMessage) {
+      lastUserMessage = await Message.findById(session.lastUserMessage);
+
+      console.log(
+        message.createdAt,
+        lastUserMessage.createdAt,
+        message.createdAt > lastUserMessage.createdAt
+      );
+    }
+
+    if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
+      const updatedSession = await Session.findById(session._id);
+      const testSession = await Session.findByIdAndUpdate(
+        session._id,
+        {
+          $set: { 'performance.onTime': updatedSession.performance.onTime - 1 },
+        },
+        { new: true, runValidators: true }
+      );
+      console.log('testSession ===========', testSession);
+    }
+  });
+};
+
+exports.schedulePerformance = async (req, message, session) => {
+  const currentTime = new Date();
+
+  const delay = message.timer - currentTime;
+
+  console.log('delay', delay);
+  console.log('currentTime', currentTime);
+  console.log('message.timer', message.timer);
+  updatePerfromance(req, message, session);
+
+  // if (delay > 0) {
+  // }
+
+  // if (selectedMessage.createdAt)
+  //   for (let i = 0; i < delayArray.length; i++) {
+  //     if (delayArray[i] > 0) {
+  //       let session = await Session.findById(sessions[i]._id);
+
+  //       if (session.timer) {
+  //         let lateTimer = session.timer;
+
+  //         updateTask(
+  //           req,
+  //           lateTimer,
+  //           sessions[i]._id,
+  //           'tooLate',
+  //           delayArray[i],
+  //           responseDangerTime
+  //         );
+  //       }
+  //     }
+  //   }
 };

@@ -144,6 +144,10 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
     }
 
+    if (chat.status === 'archived') {
+      return next(new AppError('The chat is already archived!', 400));
+    }
+
     if (!chat.currentUser.equals(req.user._id)) {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
@@ -326,7 +330,24 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       let teamUser = await User.findById(team.users[i]);
       teamUsers = [...teamUsers, teamUser];
     }
-    teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+
+    // status sorting order
+    const statusSortingOrder = ['Online', 'Service hours', 'Offline', 'Away'];
+
+    // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    teamUsers = teamUsers.sort((a, b) => {
+      const orderA = statusSortingOrder.indexOf(a.status);
+      const orderB = statusSortingOrder.indexOf(b.status);
+
+      // If 'status' is the same, then sort by chats length
+      if (orderA === orderB) {
+        return a.chats.length - b.chats.length;
+      }
+
+      // Otherwise, sort by 'status'
+      return orderA - orderB;
+    });
+
     // console.log('teamUsers=============', teamUsers);
 
     // Add end date to the session and creat new one

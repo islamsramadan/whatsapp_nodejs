@@ -132,6 +132,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       session: chat.session,
       contactName: chat.contactName,
       currentUser: chat.currentUser,
+      chatStatus: chat.status,
       messages,
     },
   });
@@ -229,6 +230,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   const newMessageObj = {
     user: req.user._id,
     chat: selectedChat._id,
+    session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: req.body.type,
   };
@@ -397,6 +399,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // Updating session to new status ((open))
   selectedSession.status = 'open';
   selectedSession.timer = undefined;
+  selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
 
   //updating event in socket io
@@ -411,134 +414,134 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.sendFailedMessage = catchAsync(async (req, res, next) => {
-  const failedMessage = await Message.findById(req.params.messageID);
-  if (!failedMessage) {
-    return next(new AppError('No message found with that ID!', 400));
-  }
+// exports.sendFailedMessage = catchAsync(async (req, res, next) => {
+//   const failedMessage = await Message.findById(req.params.messageID);
+//   if (!failedMessage) {
+//     return next(new AppError('No message found with that ID!', 400));
+//   }
 
-  const chat = await Chat.findById(failedMessage.chat);
+//   const chat = await Chat.findById(failedMessage.chat);
 
-  // updating chat notification to false
-  chat.notification = false;
-  await chat.save();
+//   // updating chat notification to false
+//   chat.notification = false;
+//   await chat.save();
 
-  // Handling whatsapp session (24hours from the last message the client send)
-  if (!chat.session) {
-    return next(
-      new AppError(
-        'You can only send template message until the end user reply!',
-        400
-      )
-    );
-  }
+//   // Handling whatsapp session (24hours from the last message the client send)
+//   if (!chat.session) {
+//     return next(
+//       new AppError(
+//         'You can only send template message until the end user reply!',
+//         400
+//       )
+//     );
+//   }
 
-  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
+//   const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
 
-  if (availableSession >= 24 * 60) {
-    return next(
-      new AppError(
-        'Your session is expired, You can only send template message!',
-        400
-      )
-    );
-  }
-  // console.log('availableSession', availableSession);
+//   if (availableSession >= 24 * 60) {
+//     return next(
+//       new AppError(
+//         'Your session is expired, You can only send template message!',
+//         400
+//       )
+//     );
+//   }
+//   // console.log('availableSession', availableSession);
 
-  const whatsappPayload = {
-    messaging_product: 'whatsapp',
-    to: failedMessage.to,
-    type: failedMessage.type,
-    recipient_type: 'individual',
-  };
+//   const whatsappPayload = {
+//     messaging_product: 'whatsapp',
+//     to: failedMessage.to,
+//     type: failedMessage.type,
+//     recipient_type: 'individual',
+//   };
 
-  if (failedMessage.reply) {
-    const replyMessage = await Message.findById(failedMessage.reply);
+//   if (failedMessage.reply) {
+//     const replyMessage = await Message.findById(failedMessage.reply);
 
-    whatsappPayload.context = {
-      message_id: replyMessage.whatsappID,
-    };
-  }
+//     whatsappPayload.context = {
+//       message_id: replyMessage.whatsappID,
+//     };
+//   }
 
-  // Template Message
-  // if (failedMessage.type === 'template') {
-  //   whatsappPayload.template = {
-  //     name: 'hello_world',
-  //     language: {
-  //       code: 'en_US',
-  //     },
-  //   };
-  // }
+//   // Template Message
+//   // if (failedMessage.type === 'template') {
+//   //   whatsappPayload.template = {
+//   //     name: 'hello_world',
+//   //     language: {
+//   //       code: 'en_US',
+//   //     },
+//   //   };
+//   // }
 
-  // Text Message
-  if (failedMessage.type === 'text') {
-    whatsappPayload.text = {
-      preview_url: false,
-      body: failedMessage.text,
-    };
-  }
+//   // Text Message
+//   if (failedMessage.type === 'text') {
+//     whatsappPayload.text = {
+//       preview_url: false,
+//       body: failedMessage.text,
+//     };
+//   }
 
-  // Image Message
-  if (failedMessage.type === 'image') {
-    whatsappPayload.image = {
-      link: `${productionLink}/img/${failedMessage.image.file}`,
-      caption: failedMessage.image.caption,
-    };
-  }
+//   // Image Message
+//   if (failedMessage.type === 'image') {
+//     whatsappPayload.image = {
+//       link: `${productionLink}/img/${failedMessage.image.file}`,
+//       caption: failedMessage.image.caption,
+//     };
+//   }
 
-  // Video Message
-  if (failedMessage.type === 'video') {
-    whatsappPayload.video = {
-      link: `${productionLink}/videos/${failedMessage.video.file}`,
-      caption: failedMessage.video.caption,
-    };
-  }
+//   // Video Message
+//   if (failedMessage.type === 'video') {
+//     whatsappPayload.video = {
+//       link: `${productionLink}/videos/${failedMessage.video.file}`,
+//       caption: failedMessage.video.caption,
+//     };
+//   }
 
-  // Audio Message
-  if (failedMessage.type === 'audio') {
-    whatsappPayload.audio = {
-      link: `${productionLink}/audios/${failedMessage.audio.file}`,
-    };
-  }
+//   // Audio Message
+//   if (failedMessage.type === 'audio') {
+//     whatsappPayload.audio = {
+//       link: `${productionLink}/audios/${failedMessage.audio.file}`,
+//     };
+//   }
 
-  // Document Message
-  if (failedMessage.type === 'document') {
-    whatsappPayload.document = {
-      link: `${productionLink}/docs/${failedMessage.document.file}`,
-      filename: failedMessage.document.filename,
-      caption: failedMessage.document.caption,
-    };
-  }
+//   // Document Message
+//   if (failedMessage.type === 'document') {
+//     whatsappPayload.document = {
+//       link: `${productionLink}/docs/${failedMessage.document.file}`,
+//       filename: failedMessage.document.filename,
+//       caption: failedMessage.document.caption,
+//     };
+//   }
 
-  // console.log('whatsappPayload', whatsappPayload);
+//   // console.log('whatsappPayload', whatsappPayload);
 
-  const response = await axios.request({
-    method: 'post',
-    maxBodyLength: Infinity,
-    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-    },
-    data: JSON.stringify(whatsappPayload),
-  });
+//   const response = await axios.request({
+//     method: 'post',
+//     maxBodyLength: Infinity,
+//     url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+//     },
+//     data: JSON.stringify(whatsappPayload),
+//   });
 
-  // updating failed message status in database
-  failedMessage.status = 'pending';
-  failedMessage.whatsappID = response.data.messages[0].id;
-  await failedMessage.save();
+//   // updating failed message status in database
+//   failedMessage.status = 'pending';
+//   failedMessage.whatsappID = response.data.messages[0].id;
+//   await failedMessage.save();
 
-  //updating event in socket io
-  req.app.io.emit('updating');
+//   //updating event in socket io
+//   req.app.io.emit('updating');
 
-  res.status(200).json({
-    status: 'success',
-    // wahtsappResponse: response.data,
-    data: {
-      message: failedMessage,
-    },
-  });
-});
+//   res.status(200).json({
+//     status: 'success',
+//     // wahtsappResponse: response.data,
+//     data: {
+//       message: failedMessage,
+//     },
+//   });
+// });
 
 exports.reactMessage = catchAsync(async (req, res, next) => {
   const reactedMessage = await Message.findById(req.params.messageID);
@@ -749,6 +752,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   const newMessageObj = {
     user: req.user.id,
     chat: selectedChat.id,
+    session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: 'template',
     template: {
@@ -843,6 +847,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   // Updating session to new status ((open))
   selectedSession.status = 'open';
   selectedSession.timer = undefined;
+  selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
 
   //updating event in socket io
@@ -858,14 +863,3 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
-
-// const user = {
-//   name: 'islam mansour',
-//   phones: [201016817590, 971567161712],
-//   emails: ['islam@gamil.com', 'islam@outlook.com'],
-//   org: {
-//     company: 'CPV',
-//     title: 'Eng',
-//     department: 'Inspection',
-//   },
-// };

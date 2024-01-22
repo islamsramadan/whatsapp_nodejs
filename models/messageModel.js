@@ -20,6 +20,16 @@ const messageSchema = new mongoose.Schema(
       required: [true, 'Message must belong to a chat!'],
     },
 
+    session: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Session',
+      required: [true, 'Message must belong to a session!'],
+    },
+
+    timer: {
+      type: Date,
+    },
+
     from: {
       type: String,
       required: [true, 'Message must have a sender!'],
@@ -42,9 +52,11 @@ const messageSchema = new mongoose.Schema(
         'video',
         'audio',
         'document',
+        'docLink',
         'location',
         'sticker',
         'contacts',
+        'interactive',
         'unsupported',
       ],
       required: [true, 'Message must have a type!'],
@@ -195,10 +207,25 @@ const messageSchema = new mongoose.Schema(
     },
 
     document: {
+      type: {
+        type: String,
+        enum: ['file', 'link'],
+        default: 'file',
+      },
       file: {
         type: String,
         required: function () {
-          if (this.type === 'document') {
+          if (this.type === 'document' && this.document.type === 'file') {
+            return [true, 'Document message must have a document!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      link: {
+        type: String,
+        required: function () {
+          if (this.type === 'document' && this.document.type === 'link') {
             return [true, 'Document message must have a document!'];
           } else {
             return false;
@@ -312,6 +339,74 @@ const messageSchema = new mongoose.Schema(
         },
       },
     ],
+
+    interactive: {
+      type: {
+        type: String,
+        enum: ['list', 'button', 'list_reply', 'button_reply'],
+        required: function () {
+          if (this.type === 'interactive') {
+            return [true, 'Interactive type is required!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      header: {
+        type: {
+          type: String,
+          enum: ['text', 'image', 'video', 'document'],
+        },
+        text: String,
+        // image: String,
+        // video: String,
+        // document: String,
+      },
+      body: {
+        text: String, // max 1024 characteres
+      },
+      footer: {
+        text: String, // max 60 characteres
+      },
+      action: {
+        button: {
+          type: String, // max 20 characters
+        },
+        sections: [
+          {
+            title: String,
+            rows: [
+              {
+                id: String,
+                title: String,
+                description: String,
+              },
+            ],
+          },
+        ],
+        buttons: [
+          {
+            type: {
+              type: String,
+              enum: ['reply'],
+            },
+            reply: {
+              id: String,
+              title: String,
+            },
+          },
+        ],
+      },
+      list_reply: {
+        id: String,
+        title: String,
+        description: String,
+      },
+      button_reply: {
+        id: String,
+        title: String,
+      },
+    },
 
     reply: {
       type: mongoose.Schema.ObjectId,

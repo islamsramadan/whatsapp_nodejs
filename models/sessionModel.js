@@ -25,17 +25,45 @@ const sessionSchema = new mongoose.Schema(
       enum: ['open', 'onTime', 'tooLate', 'danger', 'finished'],
     },
 
-    // start: {
-    //   type: Date,
-    //   required: [true, 'Session start date is required!'],
-    // },
-
     end: {
       type: Date,
     },
 
     timer: {
       type: Date,
+    },
+
+    type: {
+      type: String,
+      enum: ['bot', 'normal'],
+      default: 'normal',
+    },
+
+    botTimer: {
+      type: Date,
+    },
+
+    lastBotMessage: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Message',
+    },
+
+    lastUserMessage: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Message',
+    },
+
+    performance: {
+      all: { type: Number, default: 0 },
+      onTime: { type: Number, default: 0 },
+    },
+
+    referenceNo: {
+      type: String,
+    },
+    refRequired: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

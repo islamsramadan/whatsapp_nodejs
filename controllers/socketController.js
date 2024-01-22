@@ -137,7 +137,10 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
 };
 
 exports.getAllChatMessages = async (chatNumber) => {
-  const chat = await Chat.findOne({ client: chatNumber });
+  const chat = await Chat.findOne({ client: chatNumber }).populate(
+    'contactName',
+    'name'
+  );
 
   const messages = await Message.find({ chat: chat._id })
     .sort('createdAt')
@@ -145,8 +148,9 @@ exports.getAllChatMessages = async (chatNumber) => {
     .populate('reply');
 
   const chatSession = chat.session;
-
+  const chatStatus = chat.status;
+  const contactName = chat.contactName;
   const currentUser = chat.currentUser;
 
-  return { messages, chatSession, currentUser };
+  return { messages, chatSession, chatStatus, contactName, currentUser };
 };
