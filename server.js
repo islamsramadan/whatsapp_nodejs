@@ -103,6 +103,7 @@ io.on('connection', async (socket) => {
       teamSessions,
       chats,
       session,
+      chatStatus,
       messages,
       contactName,
       currentUser;
