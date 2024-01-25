@@ -99,7 +99,7 @@ const updatePerfromance = (req, message) => {
   // console.log('cronExpression', cronExpression);
 
   cron.schedule(cronExpression, async () => {
-    console.log('message ===========', message);
+    // console.log('message ===========', message);
 
     const session = await Session.findById(message.session);
     let lastUserMessage;
@@ -123,7 +123,7 @@ const updatePerfromance = (req, message) => {
         },
         { new: true, runValidators: true }
       );
-      console.log('testSession ===========', testSession);
+      // console.log('testSession ===========', testSession);
     }
   });
 };
@@ -133,31 +133,8 @@ exports.schedulePerformance = async (req, message, session) => {
 
   const delay = message.timer - currentTime;
 
-  console.log('delay', delay);
-  console.log('currentTime', currentTime);
-  console.log('message.timer', message.timer);
+  // console.log('delay', delay);
+  // console.log('currentTime', currentTime);
+  // console.log('message.timer', message.timer);
   updatePerfromance(req, message, session);
-
-  // if (delay > 0) {
-  // }
-
-  // if (selectedMessage.createdAt)
-  //   for (let i = 0; i < delayArray.length; i++) {
-  //     if (delayArray[i] > 0) {
-  //       let session = await Session.findById(sessions[i]._id);
-
-  //       if (session.timer) {
-  //         let lateTimer = session.timer;
-
-  //         updateTask(
-  //           req,
-  //           lateTimer,
-  //           sessions[i]._id,
-  //           'tooLate',
-  //           delayArray[i],
-  //           responseDangerTime
-  //         );
-  //       }
-  //     }
-  //   }
 };
