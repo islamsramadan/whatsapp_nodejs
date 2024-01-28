@@ -41,7 +41,7 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const filteredBody = {};
+  const filteredBody = { bot: { $ne: true } };
   let select = '-passwordChangedAt -createdAt -updatedAt';
   let populate = { path: 'team', select: 'name' };
 
@@ -69,7 +69,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     populate = '';
   }
 
-  console.log('filteredBody', filteredBody);
+  // console.log('filteredBody', filteredBody);
   const users = await User.find(filteredBody).select(select).populate(populate);
 
   res.status(200).json({
@@ -88,6 +88,10 @@ exports.getUser = catchAsync(async (req, res, next) => {
 
   if (!user) {
     return next(new AppError('There is no user with that ID!', 404));
+  }
+
+  if (user.bot === true) {
+    return next(new AppError('Bot User!', 400));
   }
 
   res.status(200).json({
@@ -153,6 +157,10 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.userID);
   if (!user) {
     return next(new AppError('No user found with that ID!', 404));
+  }
+
+  if (user.bot === true) {
+    return next(new AppError("Couldn't update bot user!", 404));
   }
 
   // 1) Create error if user post password data
@@ -287,6 +295,10 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.userID);
   if (!user) {
     return next(new AppError('No user found with that ID', 404));
+  }
+
+  if (user.bot === true) {
+    return next(new AppError("Couldn't delete bot user!", 404));
   }
 
   if (user.team && user.supervisor === true) {

@@ -42,7 +42,7 @@ const upload = multer({
 exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
-  const filteredBody = {};
+  const filteredBody = { bot: { $ne: true } };
   if (req.query.type === 'chatTransfer') {
     filteredBody._id = { $ne: req.user.team };
   }
@@ -171,7 +171,11 @@ exports.getTeam = catchAsync(async (req, res, next) => {
     .populate('conversation');
 
   if (!team) {
-    return next(new AppError('No team found with that ID!'));
+    return next(new AppError('No team found with that ID!', 404));
+  }
+
+  if (team.bot === true) {
+    return next(new AppError('Bot team!', 400));
   }
 
   res.status(200).json({
@@ -186,6 +190,10 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
   const team = await Team.findById(req.params.id);
   if (!team) {
     return next(new AppError('No team found with that ID!', 404));
+  }
+
+  if (team.bot === true) {
+    return next(new AppError("Couldn't update bot team!", 400));
   }
 
   if (
@@ -386,6 +394,10 @@ exports.deleteTeam = catchAsync(async (req, res, next) => {
 
   if (team.default === true) {
     return next(new AppError("Couldn't delete default team!", 400));
+  }
+
+  if (team.bot === true) {
+    return next(new AppError("Couldn't delete bot team!", 400));
   }
 
   const users = team.users;
