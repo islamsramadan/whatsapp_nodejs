@@ -180,7 +180,7 @@ const mediaHandler = async (req, newMessageData) => {
         })
         .then((imageResponse) => {
           fs.writeFile(
-            `${__dirname}/../public/${
+            `/opt/render/project/src/public/${
               msgType === 'image'
                 ? 'img'
                 : msgType === 'video'
@@ -197,6 +197,24 @@ const mediaHandler = async (req, newMessageData) => {
               console.log(`${msgType} downloaded successfully!`);
             }
           );
+          // fs.writeFile(
+          //   `${__dirname}/../public/${
+          //     msgType === 'image'
+          //       ? 'img'
+          //       : msgType === 'video'
+          //       ? 'videos'
+          //       : msgType === 'audio'
+          //       ? 'audios'
+          //       : msgType === 'sticker'
+          //       ? 'stickers'
+          //       : 'docs'
+          //   }/${fileName}`,
+          //   imageResponse.data,
+          //   (err) => {
+          //     if (err) throw err;
+          //     console.log(`${msgType} downloaded successfully!`);
+          //   }
+          // );
         });
     })
     .catch((error) => {
