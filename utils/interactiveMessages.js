@@ -110,7 +110,7 @@ module.exports = [
             {
               id: 'project_tickets',
               title: 'ملاحظات المشروع',
-              description: 'لمعرفةالملاحظات الموجودة علي المشروع الخاص بكم',
+              description: 'لمعرفة الملاحظات الخاصة بمشروعكم',
             },
             {
               id: 'missing_data',

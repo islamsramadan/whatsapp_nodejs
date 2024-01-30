@@ -41,16 +41,17 @@ const convertDate = (timestamp) => {
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     console.log('file==============', file);
-    cb(
-      null,
-      file.mimetype.split('/')[0] === 'image'
-        ? 'public/img'
-        : file.mimetype.split('/')[0] === 'video'
-        ? 'public/videos'
-        : file.mimetype.split('/')[0] === 'audio'
-        ? 'public/audios'
-        : 'public/docs'
-    );
+    // cb(
+    //   null,
+    //   file.mimetype.split('/')[0] === 'image'
+    //     ? 'public/img'
+    //     : file.mimetype.split('/')[0] === 'video'
+    //     ? 'public/videos'
+    //     : file.mimetype.split('/')[0] === 'audio'
+    //     ? 'public/audios'
+    //     : 'public/docs'
+    // );
+    cb(null, 'public');
   },
   filename: (req, file, cb) => {
     const ext =

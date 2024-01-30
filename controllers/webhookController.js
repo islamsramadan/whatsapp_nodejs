@@ -743,7 +743,7 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
+        link: 'https://cpvarabia.com/Documents/ContractorGuidelinesAR.pdf',
         filename: 'Contractor instructions',
       },
       caption: 'هذا هو الملف الخاص بتعليمات المقاول',
@@ -752,7 +752,7 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
+        link: 'https://cpvarabia.com/Documents/InspectionStagesAR.pdf',
         filename: 'Inspection stages',
       },
       caption: 'هذا هو الملف الخاص بمراحل الفحص الفني',
@@ -761,7 +761,7 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
+        link: 'https://cpvarabia.com/Documents/FqaAR.pdf',
         filename: 'Common questions',
       },
       caption: 'هذا هو الملف الخاص بالاسئلة الشائعة',
@@ -770,7 +770,7 @@ const checkInteractiveHandler = async (
     replyMessage = {
       type: 'document',
       document: {
-        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
+        link: 'https://cpvarabia.com/Documents/RD7AR.pdf',
         filename: 'Complete building',
       },
       caption: 'هذا هو الملف الخاص باجراءات المباني المكتملة',
@@ -1234,7 +1234,7 @@ const chatBotHandler = async (
 };
 
 const RDAppHandler = async (data) => {
-  console.log('data ===========', data);
+  // console.log('data ===========', data);
 
   let response;
   try {

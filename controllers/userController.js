@@ -16,7 +16,8 @@ const filterObj = (obj, ...allowedFields) => {
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     // console.log('file==============', file);
-    cb(null, 'public/img');
+    // cb(null, 'public/img');
+    cb(null, 'public');
   },
   filename: (req, file, cb) => {
     const ext = file.mimetype.split('/')[1];
