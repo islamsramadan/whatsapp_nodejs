@@ -316,7 +316,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.image = {
-      link: `${productionLink}/img/${req.file.filename}`,
+      link: `${productionLink}/${req.file.filename}`,
       caption: req.body.caption,
     };
 
@@ -330,7 +330,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.video = {
-      link: `${productionLink}/videos/${req.file.filename}`,
+      link: `${productionLink}/${req.file.filename}`,
       caption: req.body.caption,
     };
 
@@ -344,7 +344,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'audio') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.audio = {
-      link: `${productionLink}/audios/${req.file.filename}`,
+      link: `${productionLink}/${req.file.filename}`,
     };
 
     newMessageObj.audio = {
@@ -357,7 +357,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `${productionLink}/docs/${req.file.filename}`,
+      link: `${productionLink}/${req.file.filename}`,
       filename: req.file.originalname,
       caption: req.body.caption,
     };
@@ -485,7 +485,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 //   // Image Message
 //   if (failedMessage.type === 'image') {
 //     whatsappPayload.image = {
-//       link: `${productionLink}/img/${failedMessage.image.file}`,
+//       link: `${productionLink}/${failedMessage.image.file}`,
 //       caption: failedMessage.image.caption,
 //     };
 //   }
@@ -493,7 +493,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 //   // Video Message
 //   if (failedMessage.type === 'video') {
 //     whatsappPayload.video = {
-//       link: `${productionLink}/videos/${failedMessage.video.file}`,
+//       link: `${productionLink}/${failedMessage.video.file}`,
 //       caption: failedMessage.video.caption,
 //     };
 //   }
@@ -501,14 +501,14 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 //   // Audio Message
 //   if (failedMessage.type === 'audio') {
 //     whatsappPayload.audio = {
-//       link: `${productionLink}/audios/${failedMessage.audio.file}`,
+//       link: `${productionLink}/${failedMessage.audio.file}`,
 //     };
 //   }
 
 //   // Document Message
 //   if (failedMessage.type === 'document') {
 //     whatsappPayload.document = {
-//       link: `${productionLink}/docs/${failedMessage.document.file}`,
+//       link: `${productionLink}/${failedMessage.document.file}`,
 //       filename: failedMessage.document.filename,
 //       caption: failedMessage.document.caption,
 //     };
