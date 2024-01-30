@@ -179,8 +179,16 @@ const mediaHandler = async (req, newMessageData) => {
           },
         })
         .then((imageResponse) => {
+          fs.writeFile(
+            `${__dirname}/../public/${fileName}`,
+            imageResponse.data,
+            (err) => {
+              if (err) throw err;
+              console.log(`${msgType} downloaded successfully!`);
+            }
+          );
           // fs.writeFile(
-          //   `../public/${
+          //   `${__dirname}/../public/${
           //     msgType === 'image'
           //       ? 'img'
           //       : msgType === 'video'
@@ -197,24 +205,6 @@ const mediaHandler = async (req, newMessageData) => {
           //     console.log(`${msgType} downloaded successfully!`);
           //   }
           // );
-          fs.writeFile(
-            `${__dirname}/../public/${
-              msgType === 'image'
-                ? 'img'
-                : msgType === 'video'
-                ? 'videos'
-                : msgType === 'audio'
-                ? 'audios'
-                : msgType === 'sticker'
-                ? 'stickers'
-                : 'docs'
-            }/${fileName}`,
-            imageResponse.data,
-            (err) => {
-              if (err) throw err;
-              console.log(`${msgType} downloaded successfully!`);
-            }
-          );
         });
     })
     .catch((error) => {
