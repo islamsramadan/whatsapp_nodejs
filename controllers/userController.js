@@ -278,7 +278,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // 4) Update user document
-  const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+  const updatedUser = await User.findByIdAndUpdate(req.user._id, filteredBody, {
     new: true,
     runValidators: true,
   }).select('-passwordChangedAt');

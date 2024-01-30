@@ -15,6 +15,8 @@ const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 const productionLink = process.env.PRODUCTION_LINK;
 
+const mountedPath = process.env.MOUNTED_PATH;
+
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1);
 
@@ -44,12 +46,12 @@ const multerStorage = multer.diskStorage({
     cb(
       null,
       file.mimetype.split('/')[0] === 'image'
-        ? 'public/img'
+        ? `${mountedPath}/img`
         : file.mimetype.split('/')[0] === 'video'
-        ? 'public/videos'
+        ? `${mountedPath}/videos`
         : file.mimetype.split('/')[0] === 'audio'
-        ? 'public/audios'
-        : 'public/docs'
+        ? `${mountedPath}/audios`
+        : `${mountedPath}/docs`
     );
   },
   filename: (req, file, cb) => {
@@ -63,6 +65,31 @@ const multerStorage = multer.diskStorage({
     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
   },
 });
+// const multerStorage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     console.log('file==============', file);
+//     cb(
+//       null,
+//       file.mimetype.split('/')[0] === 'image'
+//         ? 'public/img'
+//         : file.mimetype.split('/')[0] === 'video'
+//         ? 'public/videos'
+//         : file.mimetype.split('/')[0] === 'audio'
+//         ? 'public/audios'
+//         : 'public/docs'
+//     );
+//   },
+//   filename: (req, file, cb) => {
+//     const ext =
+//       file.mimetype.split('/')[0] === 'image' ||
+//       file.mimetype.split('/')[0] === 'video' ||
+//       file.mimetype.split('/')[0] === 'audio'
+//         ? file.mimetype.split('/')[1]
+//         : file.originalname.split('.')[file.originalname.split('.').length - 1];
+
+//     cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
+//   },
+// });
 
 const multerFilter = (req, file, cb) => {
   // if (file.mimetype.startsWith('image')) {
