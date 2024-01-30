@@ -706,8 +706,12 @@ const checkInteractiveHandler = async (
       Phone: selectedChat.client,
       ReferenceNo: selectedSession.referenceNo,
     });
-    const visitsLink = response?.Project_Tickets;
 
+    let visitsLink;
+    if (response) {
+      array = Object.values(response);
+      visitsLink = array[0].Link;
+    }
     if (visitsLink) {
       replyMessage = {
         type: 'text',
