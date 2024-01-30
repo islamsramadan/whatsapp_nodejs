@@ -180,7 +180,7 @@ const mediaHandler = async (req, newMessageData) => {
         })
         .then((imageResponse) => {
           fs.writeFile(
-            `../../../../public/${
+            `../public/${
               msgType === 'image'
                 ? 'img'
                 : msgType === 'video'
