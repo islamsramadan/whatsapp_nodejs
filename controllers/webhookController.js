@@ -783,12 +783,12 @@ const checkInteractiveHandler = async (
   } else if (option.id === 'customer_service') {
     replyMessage = {
       type: 'text',
-      text: 'سيتم تحويلك الي قسم خدمة العملاء',
+      text: 'الرجاء الانتظار .. جاري تحويلكم لممثل خدمة العملاء',
     };
   } else if (option.id === 'inquiries') {
     replyMessage = {
       type: 'text',
-      text: 'سيتم تحويلك الي قسم الشكاوي',
+      text: 'الرجاء الانتظار .. جاري تحويلكم للقسم المختص',
     };
   } else if (option.id === 'end') {
     replyMessage = {
