@@ -241,6 +241,25 @@ const receiveMessageHandler = async (req, res, next) => {
   const selectedChat = chat || newChat;
   const session = await Session.findById(selectedChat.lastSession);
 
+  const newMessageChecker = async (selectedMessage) => {
+    const messagesWithSameID = await Message.find({
+      whatsappID: selectedMessage.id,
+    });
+    if (messagesWithSameID.length === 0) {
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  const newMessageNotRepeated = await newMessageChecker(selectedMessage);
+  // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
+
+  if (!newMessageNotRepeated) {
+    return res.status(200).json({ message: 'Message not found!' });
+  } // to avoid create new session and make error
+  // if (!newMessageNotRepeated) return; // to avoid create new session and make error
+
   let newSession;
   if (!session) {
     const botTeam = await Team.findOne({ bot: true });
@@ -252,6 +271,8 @@ const receiveMessageHandler = async (req, res, next) => {
       status: 'onTime',
       type: 'bot',
     });
+
+    // console.log('newSession 256 =============', newSession);
 
     selectedChat.lastSession = newSession._id;
     selectedChat.team = botTeam._id;

@@ -3,6 +3,7 @@ const Session = require('../models/sessionModel');
 const Chat = require('../models/chatModel');
 const { default: axios } = require('axios');
 const User = require('../models/userModel');
+const Message = require('../models/messageModel');
 
 const getCronExpression = (timer) => {
   const timerExpression = {
@@ -30,6 +31,7 @@ const sendMessageHandler = async (
   const newMessageObj = {
     user: chat.currentUser,
     chat: chat._id,
+    session: session,
     from: whatsappNumber,
     type: msgToBeSent.type,
   };
@@ -80,7 +82,6 @@ const sendMessageHandler = async (
     console.log('err', err);
   }
 
-  // console.log('response.data----------------', response.data);
   const newMessage = await Message.create({
     ...newMessageObj,
     whatsappID: response.data.messages[0].id,

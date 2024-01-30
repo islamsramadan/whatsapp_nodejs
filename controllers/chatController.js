@@ -138,17 +138,17 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //**********Archive chat
   } else if (type === 'archive') {
-    if (chat.notification === true) {
-      return next(
-        new AppError("Couldn't archive chat with unread messages", 400)
-      );
-    }
+    // if (chat.notification === true) {
+    //   return next(
+    //     new AppError("Couldn't archive chat with unread messages", 400)
+    //   );
+    // }
 
     if (chat.status === 'archived') {
       return next(new AppError('The chat is already archived!', 400));
     }
 
-    if (!chat.currentUser.equals(req.user._id)) {
+    if (!chat.currentUser.equals(req.user._id) && req.user.role !== 'admin') {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );

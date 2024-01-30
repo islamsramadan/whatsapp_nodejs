@@ -18,7 +18,7 @@ module.exports = [
       sections: [
         {
           rows: [
-            { id: 'inspection', title: 'خدمات الفاحص الفني' },
+            { id: 'inspection', title: 'خدمات الفاحص الفنى' },
             { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
             { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
@@ -62,7 +62,7 @@ module.exports = [
       sections: [
         {
           rows: [
-            { id: 'inspection', title: 'خدمات الفاحص الفني' },
+            { id: 'inspection', title: 'خدمات الفاحص الفنى' },
             { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
             { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
@@ -99,7 +99,7 @@ module.exports = [
           rows: [
             {
               id: 'inspector_phone',
-              title: 'رقم الفاحص الفني',
+              title: 'رقم الفاحص الفنى',
               description: 'لطلب رقم الفاحص الفنى الخاص بمشروعكم',
             },
             {
@@ -140,7 +140,7 @@ module.exports = [
         {
           rows: [
             { id: 'contractor_instructions', title: 'تعليمات المقاول' },
-            { id: 'inspection_stages', title: 'مراحل الفحص الفني' },
+            { id: 'inspection_stages', title: 'مراحل الفحص الفنى' },
             { id: 'common_questions', title: 'الاسئلة الشائعة' },
             { id: 'complete_building', title: 'اجراءات المبانى المكتملة' },
             { id: 'work_hours', title: 'أوقات العمل الرسمية' },
