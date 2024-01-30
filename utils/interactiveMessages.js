@@ -8,7 +8,7 @@ module.exports = [
       text: 'شركة CPV العربية ترحب بكم',
     },
     body: {
-      text: 'كيف يمكنني مساعدتك اليوم؟',
+      text: 'كيف يمكننى مساعدتك اليوم؟',
     },
     footer: {
       text: 'قم باختيار احد الخيارات التالية',
@@ -142,7 +142,7 @@ module.exports = [
             { id: 'contractor_instructions', title: 'تعليمات المقاول' },
             { id: 'inspection_stages', title: 'مراحل الفحص الفني' },
             { id: 'common_questions', title: 'الاسئلة الشائعة' },
-            { id: 'complete_building', title: 'اجراءات المباني المكتملة' },
+            { id: 'complete_building', title: 'اجراءات المبانى المكتملة' },
             { id: 'work_hours', title: 'أوقات العمل الرسمية' },
             { id: 'main', title: 'القائمة السابقة' },
           ],
