@@ -5,7 +5,7 @@ module.exports = [
     type: 'list',
     header: {
       type: 'text',
-      text: 'شركة CPV العربية ترحب بكم!',
+      text: 'شركة CPV العربية ترحب بكم',
     },
     body: {
       text: 'كيف يمكنني مساعدتك اليوم؟',
@@ -77,7 +77,7 @@ module.exports = [
     id: 'ref_error',
     type: 'button',
     body: {
-      text: 'عفوا هذا الرقم المرجعي غير موجود بالنظام. هل تريد المحاولة باستخدام رقم مرجعي اخر',
+      text: 'عفوا هذا الرقم المرجعى غير موجود بالنظام. هل تريد المحاولة باستخدام رقم مرجعى اخر',
     },
     action: {
       buttons: [
@@ -91,7 +91,7 @@ module.exports = [
   {
     id: 'inspection',
     type: 'list',
-    body: { text: 'للاختيار من خدمات الفاحص الفني' },
+    body: { text: 'للاختيار من خدمات الفاحص الفنى' },
     action: {
       button: 'الاختيارات',
       sections: [
@@ -100,7 +100,7 @@ module.exports = [
             {
               id: 'inspector_phone',
               title: 'رقم الفاحص الفني',
-              description: 'لطلب رقم الفاحص الفني الخاص بمشروعكم',
+              description: 'لطلب رقم الفاحص الفنى الخاص بمشروعكم',
             },
             {
               id: 'visits_reports',
@@ -156,7 +156,7 @@ module.exports = [
     id: 'check',
     type: 'button',
     body: {
-      text: 'هل تمت الاجابة علي استفسارك؟',
+      text: 'هل تمت الاجابة على استفسارك؟',
     },
     action: {
       buttons: [

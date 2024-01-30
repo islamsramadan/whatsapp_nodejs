@@ -793,7 +793,7 @@ const checkInteractiveHandler = async (
   } else if (option.id === 'end') {
     replyMessage = {
       type: 'text',
-      text: 'شكرا لتواصلكم مع شركة CPV العربية \n نأمل أن تحوزخدماتنا علي رضاكم',
+      text: 'شكرا لتواصلكم مع شركة CPV العربية \n نأمل أن تحوز خدماتنا على رضاكم',
     };
   }
   // else {
