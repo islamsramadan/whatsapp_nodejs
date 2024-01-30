@@ -692,14 +692,33 @@ const checkInteractiveHandler = async (
       };
     }
   } else if (option.id === 'visits_reports') {
-    replyMessage = {
-      type: 'document',
-      document: {
-        link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
-        filename: 'Visits reports',
-      },
-      caption: 'هذا هو تقرير الزيارات الخاص بمشروعكم',
-    };
+    // replyMessage = {
+    //   type: 'document',
+    //   document: {
+    //     link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
+    //     filename: 'Visits reports',
+    //   },
+    //   caption: 'هذا هو تقرير الزيارات الخاص بمشروعكم',
+    // };
+
+    const response = await RDAppHandler({
+      Action: '5', // to fetch project tickets page link
+      Phone: selectedChat.client,
+      ReferenceNo: selectedSession.referenceNo,
+    });
+    const visitsLink = response?.Project_Tickets;
+
+    if (visitsLink) {
+      replyMessage = {
+        type: 'text',
+        text: `رابط الزيارات الخاصة بمشروعكم \n\n ${visitsLink}`,
+      };
+    } else {
+      replyMessage = {
+        type: 'text',
+        text: 'لم يتم العثور على رابط الزيارات الخاصة بمشروعكم',
+      };
+    }
   } else if (option.id === 'project_tickets') {
     const response = await RDAppHandler({
       Action: '2', // to fetch project tickets page link
