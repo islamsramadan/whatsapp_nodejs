@@ -667,7 +667,7 @@ const checkInteractiveHandler = async (
     } else {
       replyMessage = {
         type: 'text',
-        text: 'عفوا لم يتم العثور علي رقم الفاحص الفني!',
+        text: 'عفوا لم يتم العثور على رقم الفاحص الفني!',
       };
     }
   } else if (option.id === 'visits_reports') {
@@ -695,7 +695,7 @@ const checkInteractiveHandler = async (
     } else {
       replyMessage = {
         type: 'text',
-        text: 'لم يتم العثور علي رابط الملاحظات الخاصة بمشروعكم',
+        text: 'لم يتم العثور على رابط الملاحظات الخاصة بمشروعكم',
       };
     }
   } else if (option.id === 'missing_data') {
@@ -714,7 +714,7 @@ const checkInteractiveHandler = async (
     } else {
       replyMessage = {
         type: 'text',
-        text: 'لم يتم العثور علي رابط البيانات المطلوبة الخاصة بمشروعكم',
+        text: 'لم يتم العثور على رابط البيانات المطلوبة الخاصة بمشروعكم',
       };
     }
   } else if (option.id === 'payment_status') {
@@ -729,14 +729,14 @@ const checkInteractiveHandler = async (
       replyMessage.type = 'text';
       replyMessage.text =
         paymentStatus === 'Paid'
-          ? 'عزيزي العميل لقد تم الدفع'
+          ? 'عزيزى العميل لقد تم الدفع'
           : paymentStatus === 'NotPaid'
-          ? 'عزيزي العميل لم يتم الدفع حتي الان'
-          : 'لم يتم العثور علي حالة السداد الخاصة بهذا المشروع';
+          ? 'عزيزى العميل لم يتم الدفع حتى الان'
+          : 'لم يتم العثور على حالة السداد الخاصة بهذا المشروع';
     } else {
       replyMessage = {
         type: 'text',
-        text: 'لم يتم العثور علي حالة السداد الخاصة بهذا المشروع',
+        text: 'لم يتم العثور على حالة السداد الخاصة بهذا المشروع',
       };
     }
   } else if (option.id === 'contractor_instructions') {
@@ -773,7 +773,7 @@ const checkInteractiveHandler = async (
         link: 'https://cpvarabia.com/Documents/RD7AR.pdf',
         filename: 'Complete building',
       },
-      caption: 'هذا هو الملف الخاص باجراءات المباني المكتملة',
+      caption: 'هذا هو الملف الخاص باجراءات المبانى المكتملة',
     };
   } else if (option.id === 'work_hours') {
     replyMessage = {
@@ -783,12 +783,12 @@ const checkInteractiveHandler = async (
   } else if (option.id === 'customer_service') {
     replyMessage = {
       type: 'text',
-      text: 'الرجاء الانتظار .. جاري تحويلكم لممثل خدمة العملاء',
+      text: 'الرجاء الانتظار .. جارى تحويلكم لممثل خدمة العملاء',
     };
   } else if (option.id === 'inquiries') {
     replyMessage = {
       type: 'text',
-      text: 'الرجاء الانتظار .. جاري تحويلكم للقسم المختص',
+      text: 'الرجاء الانتظار .. جارى تحويلكم للقسم المختص',
     };
   } else if (option.id === 'end') {
     replyMessage = {
@@ -903,7 +903,7 @@ const chatBotHandler = async (
       //===========> Sending error text message
       const textErrorMsg = {
         type: 'text',
-        text: 'عفوا لم استطع التعرف علي الرقم المرجعي الخاص بكم.',
+        text: 'عفوا لم استطع التعرف على الرقم المرجعى الخاص بكم.',
       };
       await sendMessageHandler(
         req,
@@ -990,7 +990,7 @@ const chatBotHandler = async (
         ) {
           const introMsg = {
             type: 'text',
-            text: 'هذا هو رقم االفاحص الفني الخاص بمشروعكم',
+            text: 'هذا هو رقم االفاحص الفنى الخاص بمشروعكم',
           };
           await sendMessageHandler(
             req,
@@ -1138,7 +1138,7 @@ const chatBotHandler = async (
         //===========> Sending error text message
         const textErrorMsg = {
           type: 'text',
-          text: 'عفوا لم استطع التعرف علي اختيارك.',
+          text: 'عفوا لم استطع التعرف على اختيارك.',
         };
         await sendMessageHandler(
           req,
@@ -1174,7 +1174,7 @@ const chatBotHandler = async (
       //===========> Sending error text message
       const textErrorMsg = {
         type: 'text',
-        text: 'عفوا لم استطع التعرف علي اختيارك.',
+        text: 'عفوا لم استطع التعرف على اختيارك.',
       };
       await sendMessageHandler(
         req,

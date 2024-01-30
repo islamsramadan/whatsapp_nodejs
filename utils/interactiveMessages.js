@@ -19,7 +19,7 @@ module.exports = [
         {
           rows: [
             { id: 'inspection', title: 'خدمات الفاحص الفني' },
-            { id: 'inquiries', title: 'الاستفسارات والاقراحات' },
+            { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
             { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
           ],
@@ -63,7 +63,7 @@ module.exports = [
         {
           rows: [
             { id: 'inspection', title: 'خدمات الفاحص الفني' },
-            { id: 'inquiries', title: 'الاستفسارات والاقراحات' },
+            { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
             { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
           ],
