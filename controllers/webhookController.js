@@ -86,6 +86,7 @@ exports.listenToWebhook = catchAsync(async (req, res, next) => {
 
 const mediaHandler = async (req, newMessageData) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
+  console.log('selectedMessage ================= 89', selectedMessage);
 
   const msgType = selectedMessage.type;
   const from = selectedMessage.from;
@@ -214,7 +215,7 @@ const mediaHandler = async (req, newMessageData) => {
 
 const receiveMessageHandler = async (req, res, next) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
-  // console.log('selectedMessage', selectedMessage);
+  console.log('selectedMessage =========== 218 ', selectedMessage);
 
   const phoneNumberID =
     req.body.entry[0].changes[0].value.metadata.phone_number_id;
@@ -253,7 +254,7 @@ const receiveMessageHandler = async (req, res, next) => {
   };
 
   const newMessageNotRepeated = await newMessageChecker(selectedMessage);
-  // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
+  console.log('newMessageNotRepeated =======', newMessageNotRepeated);
 
   if (!newMessageNotRepeated) {
     return res.status(200).json({ message: 'Message not found!' });
@@ -272,7 +273,7 @@ const receiveMessageHandler = async (req, res, next) => {
       type: 'bot',
     });
 
-    // console.log('newSession 256 =============', newSession);
+    console.log('newSession 256 =============', newSession);
 
     selectedChat.lastSession = newSession._id;
     selectedChat.team = botTeam._id;
@@ -692,15 +693,6 @@ const checkInteractiveHandler = async (
       };
     }
   } else if (option.id === 'visits_reports') {
-    // replyMessage = {
-    //   type: 'document',
-    //   document: {
-    //     link: 'https://test.cpvarabia.com/uploads/reports/RD7_Quotation/quotation.php?RD7T=1e86ab99db06a0ff5f05',
-    //     filename: 'Visits reports',
-    //   },
-    //   caption: 'هذا هو تقرير الزيارات الخاص بمشروعكم',
-    // };
-
     const response = await RDAppHandler({
       Action: '5', // to fetch project tickets page link
       Phone: selectedChat.client,
@@ -1160,6 +1152,69 @@ const chatBotHandler = async (
           selectedChat.currentUser = teamUsers[0]._id;
           await selectedChat.save();
 
+          //  ******************************************* ////////////////////////////////////////////////////////////////
+          //  ******************************************* ////////////////////////////////////////////////////////////////
+          //  ******************************************* ////////////////////////////////////////////////////////////////
+          // ************ where to send another message depending on service hours
+
+          const selectedTeamServiceHours = await Service.findById(
+            selectedTeam.serviceHours
+          );
+          // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
+          const selectedTeamConversation = await Conversation.findById(
+            selectedTeam.conversation
+          );
+          console.log('selectedTeamConversation', selectedTeamConversation);
+
+          // const insideOutsideServiceHours = (serviceHours) => {
+          //   const daysIDs = [
+          //     { id: 0, day: 'Sunday' },
+          //     { id: 1, day: 'Monday' },
+          //     { id: 2, day: 'Tuesday' },
+          //     { id: 3, day: 'Wednesday' },
+          //     { id: 4, day: 'Thursday' },
+          //     { id: 5, day: 'Friday' },
+          //     { id: 6, day: 'Saturday' },
+          //   ];
+          //   const date = new Date();
+          //   console.log('date.getDay()', date.getDay());
+          //   const day = daysIDs.filter(
+          //     (dayObj) => dayObj.id === date.getDay()
+          //   )[0].day;
+          //   const hour = date.getHours();
+          //   const min = date.getMinutes();
+          //   console.log('day =========', day);
+          //   console.log('hour =========', hour);
+          //   console.log('min =========', min);
+
+          //   const selectedDay = serviceHours.durations.filter(
+          //     (item) => item.day === day
+          //   );
+
+          //   console.log('selectedDay ==========', selectedDay);
+          //   if (selectedDay.length === 0) {
+          //     return false;
+          //   } else {
+          //   }
+          // };
+
+          // insideOutsideServiceHours(selectedTeamServiceHours);
+          console.log(
+            'checkInsideServiceHours()',
+            checkInsideServiceHours(selectedTeamServiceHours.durations)
+          );
+          const msgText = checkInsideServiceHours(
+            selectedTeamServiceHours.durations
+          )
+            ? selectedTeamConversation.bodyOn
+            : selectedTeamConversation.bodyOff;
+          const msgToBeSent = {
+            type: 'text',
+            text: msgText,
+          };
+          await sendMessageHandler(req, msgToBeSent, selectedChat, newSession);
+          //  *******************************************
+
           // Adding the selected chat to the user chats
           if (!teamUsers[0].chats.includes(selectedChat._id)) {
             await User.findByIdAndUpdate(
@@ -1295,7 +1350,7 @@ const RDAppHandler = async (data) => {
     console.log('err', err);
   }
 
-  console.log('response.data', response.data);
+  // console.log('response.data', response.data);
 
   return response.data;
 };

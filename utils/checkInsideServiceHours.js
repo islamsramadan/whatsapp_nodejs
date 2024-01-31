@@ -1,14 +1,26 @@
-exports.checkInsideServiceHours = (durations) => {
+const checkInsideServiceHours = (durations) => {
+  // const normalDurations = [
+  //   { id: 1, day: 'Monday' },
+  //   { id: 2, day: 'Tuesday' },
+  //   { id: 3, day: 'Wednesday' },
+  //   { id: 4, day: 'Thursday' },
+  //   { id: 5, day: 'Friday' },
+  //   { id: 6, day: 'Saturday' },
+  //   { id: 7, day: 'Sunday' },
+  // ];
+
   const normalDurations = [
+    { id: 0, day: 'Sunday' },
     { id: 1, day: 'Monday' },
     { id: 2, day: 'Tuesday' },
     { id: 3, day: 'Wednesday' },
     { id: 4, day: 'Thursday' },
     { id: 5, day: 'Friday' },
     { id: 6, day: 'Saturday' },
-    { id: 7, day: 'Sunday' },
   ];
   let currentTime = new Date();
+  console.log('currentTime', currentTime);
+  console.log('currentTime.getDay()', currentTime.getDay());
 
   const curDay = normalDurations.filter(
     (day) => currentTime.getDay() === day.id
@@ -17,6 +29,7 @@ exports.checkInsideServiceHours = (durations) => {
   const selectedDay = durations.filter(
     (duration) => duration.day === curDay.day
   )[0];
+  console.log('selectedDay', selectedDay);
 
   if (!selectedDay) {
     return false;
@@ -24,11 +37,21 @@ exports.checkInsideServiceHours = (durations) => {
 
   const curHours = currentTime.getHours();
 
+  console.log(
+    'curHours , selectedDay.from.hours',
+    curHours,
+    selectedDay.from.hours
+  );
   if (curHours < selectedDay.from.hours || curHours > selectedDay.to.hours) {
     return false;
   }
 
   const curMin = currentTime.getMinutes();
+  console.log(
+    'curHours === selectedDay.from.hours',
+    curHours,
+    selectedDay.from.hours
+  );
   if (
     (curHours === selectedDay.from.hours &&
       curMin < selectedDay.from.minutes) ||
@@ -39,3 +62,5 @@ exports.checkInsideServiceHours = (durations) => {
 
   return true;
 };
+
+module.exports = checkInsideServiceHours;

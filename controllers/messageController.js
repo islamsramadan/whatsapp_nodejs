@@ -288,7 +288,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // Contacts Message
   if (req.body.type === 'contacts') {
     // To get the list of contacts
-    // https://test.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
+    // https://rd0.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
     if (!req.body.contacts || req.body.contacts.length === 0) {
       return next(new AppError('Contacts are required!', 400));
     }
