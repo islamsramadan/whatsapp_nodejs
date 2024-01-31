@@ -1,12 +1,14 @@
 const axios = require('axios');
 const multer = require('multer');
 
-const Message = require('../models/messageModel');
-const Chat = require('../models/chatModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+
+const Message = require('../models/messageModel');
+const Chat = require('../models/chatModel');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
+const User = require('../models/userModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -203,6 +205,15 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // updating chat notification to false
   selectedChat.notification = false;
   await selectedChat.save();
+
+  // updating user chats
+  if (!req.user.chats.includes(selectedChat._id)) {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $push: { chats: selectedChat._id } },
+      { new: true, runValidators: true }
+    );
+  }
 
   // Handling whatsapp session (24hours from the last message the client send)
   if (!selectedChat.session) {
