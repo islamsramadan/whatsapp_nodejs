@@ -5,7 +5,8 @@ const catchAsync = require('../utils/catchAsync');
 exports.getAllSessions = catchAsync(async (req, res, next) => {
   const userSessions = await Session.find({
     user: req.user._id,
-    status: { $ne: 'finished' },
+    // status: { $ne: 'finished' },
+    end: { $exists: false },
   });
   const userSessionsfilters = {
     all: userSessions.length,
@@ -37,7 +38,8 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
   const teamSessions = await Session.find({
     team: { $in: teamsIDs },
     // team: req.user.team,
-    status: { $ne: 'finished' },
+    // status: { $ne: 'finished' },
+    end: { $exists: false },
   });
   const teamSessionsfilters = {
     all: teamSessions.length,

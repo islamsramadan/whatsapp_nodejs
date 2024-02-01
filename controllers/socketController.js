@@ -65,7 +65,8 @@ exports.protectSocket = async (socket, next) => {
 exports.getAllSessions = async (user, teamsIDs) => {
   const userSessions = await Session.find({
     user: user._id,
-    status: { $ne: 'finished' },
+    // status: { $ne: 'finished' },
+    end: { $exists: false },
   });
   const userSessionsfilters = {
     all: userSessions.length,
@@ -81,7 +82,8 @@ exports.getAllSessions = async (user, teamsIDs) => {
   const teamSessions = await Session.find({
     team: { $in: teamsIDs },
     // team: user.team,
-    status: { $ne: 'finished' },
+    // status: { $ne: 'finished' },
+    end: { $exists: false },
   });
   const teamSessionsfilters = {
     all: teamSessions.length,
