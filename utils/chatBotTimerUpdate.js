@@ -140,8 +140,14 @@ const updateTask = (
       //   session.status = status;
       //   await session.save();
 
-      if (status === 'danger') {
+      if (status === 'danger' && session.reminder === true) {
         // console.log('danger ====================');
+
+        //========> Remove session reminder
+        session.reminder = false;
+        await session.save();
+
+        //========> Send reminder message
         const msgToBeSent = {
           type: 'text',
           text: 'ستنتهي المحادثة قريبًا. يرجى الاستمرار.',

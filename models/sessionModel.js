@@ -43,6 +43,10 @@ const sessionSchema = new mongoose.Schema(
       type: Date,
     },
 
+    reminder: {
+      type: Boolean,
+    },
+
     lastBotMessage: {
       type: mongoose.Schema.ObjectId,
       ref: 'Message',

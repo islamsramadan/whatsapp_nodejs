@@ -86,7 +86,7 @@ exports.listenToWebhook = catchAsync(async (req, res, next) => {
 
 const mediaHandler = async (req, newMessageData) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
-  console.log('selectedMessage ================= 89', selectedMessage);
+  // console.log('selectedMessage ================= 89', selectedMessage);
 
   const msgType = selectedMessage.type;
   const from = selectedMessage.from;
@@ -215,7 +215,7 @@ const mediaHandler = async (req, newMessageData) => {
 
 const receiveMessageHandler = async (req, res, next) => {
   const selectedMessage = req.body.entry[0].changes[0].value.messages[0];
-  console.log('selectedMessage =========== 218 ', selectedMessage);
+  // console.log('selectedMessage =========== 218 ', selectedMessage);
 
   const phoneNumberID =
     req.body.entry[0].changes[0].value.metadata.phone_number_id;
@@ -254,12 +254,11 @@ const receiveMessageHandler = async (req, res, next) => {
   };
 
   const newMessageNotRepeated = await newMessageChecker(selectedMessage);
-  console.log('newMessageNotRepeated =======', newMessageNotRepeated);
+  // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
 
   if (!newMessageNotRepeated) {
     return res.status(200).json({ message: 'Message not found!' });
   } // to avoid create new session and make error
-  // if (!newMessageNotRepeated) return; // to avoid create new session and make error
 
   let newSession;
   if (!session) {
@@ -273,7 +272,7 @@ const receiveMessageHandler = async (req, res, next) => {
       type: 'bot',
     });
 
-    console.log('newSession 256 =============', newSession);
+    // console.log('newSession 256 =============', newSession);
 
     selectedChat.lastSession = newSession._id;
     selectedChat.team = botTeam._id;
@@ -487,6 +486,7 @@ const receiveMessageHandler = async (req, res, next) => {
     if (selectedSession.type === 'bot') {
       // ============> remove bot timer when client reply
       selectedSession.botTimer = undefined;
+      selectedSession.reminder = undefined;
       await selectedSession.save();
 
       await chatBotHandler(
@@ -630,7 +630,8 @@ const checkInteractiveHandler = async (
     // Reference required
     if (interactive.id === 'inspection') {
       replyMessage.type = 'text';
-      replyMessage.text = 'الرجاء تزويدنا برقم المرجع';
+      replyMessage.text =
+        'الرجاء تزويدنا برقم المرجع لوثيقة التأمين على العيوب الخفية';
 
       selectedSession.refRequired = true;
       selectedSession.referenceNo = undefined;
@@ -648,7 +649,7 @@ const checkInteractiveHandler = async (
   } else if (option.id === 'ref') {
     replyMessage = {
       type: 'text',
-      text: 'الرجاء تزويدنا برقم المرجع',
+      text: 'الرجاء تزويدنا برقم المرجع لوثيقة التأمين على العيوب الخفية',
     };
 
     selectedSession.refRequired = true;
@@ -765,9 +766,9 @@ const checkInteractiveHandler = async (
       replyMessage.type = 'text';
       replyMessage.text =
         paymentStatus === 'Paid'
-          ? 'عزيزى العميل لقد تم الدفع'
+          ? 'عميلنا العزيز لقد تم الدفع'
           : paymentStatus === 'NotPaid'
-          ? 'عزيزى العميل لم يتم الدفع حتى الان'
+          ? 'عميلنا العزيز لم يتم الدفع حتى الان'
           : 'لم يتم العثور على حالة السداد الخاصة بهذا المشروع';
     } else {
       replyMessage = {
@@ -814,12 +815,12 @@ const checkInteractiveHandler = async (
   } else if (option.id === 'work_hours') {
     replyMessage = {
       type: 'text',
-      text: 'اوقات العمل : \n من الاحد الى الخميس من الساعة 09:00 صباحا الى الساعة 05:00 مساء. \n نسعد بخدمتكم',
+      text: 'اوقات العمل : \n من الاحد الى الخميس من الساعة 09:00 صباحا وحتي الساعة 05:00 مساء. \n نسعد بخدمتكم',
     };
   } else if (option.id === 'customer_service') {
     replyMessage = {
       type: 'text',
-      text: 'الرجاء الانتظار .. جارى تحويلكم لممثل خدمة العملاء',
+      text: 'الرجاء الانتظار .. جارى تحويلكم لأحد ممثلي خدمة العملاء',
     };
   } else if (option.id === 'inquiries') {
     replyMessage = {
@@ -867,7 +868,7 @@ const chatBotHandler = async (
     if (msgType === 'text') {
       const textWaitingMsg = {
         type: 'text',
-        text: 'برجاء الانتظار لحين التأكد من رقم المرجع لوثيقة التأمين بالنظام',
+        text: 'برجاء الانتظار',
       };
       await sendMessageHandler(
         req,
@@ -939,7 +940,7 @@ const chatBotHandler = async (
       //===========> Sending error text message
       const textErrorMsg = {
         type: 'text',
-        text: 'عفوا لم استطع التعرف على الرقم المرجعى الخاص بكم.',
+        text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
       };
       await sendMessageHandler(
         req,
@@ -1026,7 +1027,7 @@ const chatBotHandler = async (
         ) {
           const introMsg = {
             type: 'text',
-            text: 'هذا هو رقم االفاحص الفنى الخاص بمشروعكم',
+            text: 'رقم الفاحص الفني الخاص بمشروعكم',
           };
           await sendMessageHandler(
             req,
@@ -1043,6 +1044,23 @@ const chatBotHandler = async (
           selectedChat,
           selectedSession
         );
+
+        //===========> Sending a footer message
+        if (
+          msgOption.id === 'inspector_phone' &&
+          msgToBeSent.type === 'contacts'
+        ) {
+          const footerMsg = {
+            type: 'text',
+            text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
+          };
+          await sendMessageHandler(
+            req,
+            footerMsg,
+            selectedChat,
+            selectedSession
+          );
+        }
 
         //===========> Sending second reply message
         if (
@@ -1309,6 +1327,7 @@ const chatBotHandler = async (
   botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
 
   selectedSession.botTimer = botTimer;
+  selectedSession.reminder = true;
   await selectedSession.save();
 
   const sessions = await Session.find({

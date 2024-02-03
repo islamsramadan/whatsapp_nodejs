@@ -18,10 +18,10 @@ module.exports = [
       sections: [
         {
           rows: [
-            { id: 'inspection', title: 'خدمات الفاحص الفنى' },
-            { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
+            { id: 'inspection', title: 'خدمات الفاحص الفني' },
+            { id: 'inquiries', title: 'للاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
-            { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
+            { id: 'customer_service', title: 'للتواصل مع خدمة العملاء' },
           ],
         },
       ],
@@ -41,9 +41,9 @@ module.exports = [
         {
           rows: [
             { id: 'inspection', title: 'خدمات الفاحص الفني' },
-            { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
+            { id: 'inquiries', title: 'للاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
-            { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
+            { id: 'customer_service', title: 'للتواصل مع خدمة العملاء' },
           ],
         },
       ],
@@ -62,10 +62,10 @@ module.exports = [
       sections: [
         {
           rows: [
-            { id: 'inspection', title: 'خدمات الفاحص الفنى' },
-            { id: 'inquiries', title: 'الاستفسارات والاقتراحات' },
+            { id: 'inspection', title: 'خدمات الفاحص الفني' },
+            { id: 'inquiries', title: 'للاستفسارات والاقتراحات' },
             { id: 'questions', title: 'الأسئلة الشائعة' },
-            { id: 'customer_service', title: 'التواصل مع خدمة العملاء' },
+            { id: 'customer_service', title: 'للتواصل مع خدمة العملاء' },
           ],
         },
       ],
@@ -77,7 +77,7 @@ module.exports = [
     id: 'ref_error',
     type: 'button',
     body: {
-      text: 'عفوا هذا الرقم المرجعى غير موجود بالنظام. هل تريد المحاولة باستخدام رقم مرجعى اخر',
+      text: 'عفوا هذا الرقم المرجعي غير موجود بالنظام. هل تريد المحاولة باستخدام رقم مرجعي اخر',
     },
     action: {
       buttons: [
@@ -91,7 +91,7 @@ module.exports = [
   {
     id: 'inspection',
     type: 'list',
-    body: { text: 'للاختيار من خدمات الفاحص الفنى' },
+    body: { text: 'للاختيار من خدمات الفاحص الفني' },
     action: {
       button: 'الاختيارات',
       sections: [
@@ -99,8 +99,8 @@ module.exports = [
           rows: [
             {
               id: 'inspector_phone',
-              title: 'رقم الفاحص الفنى',
-              description: 'لطلب رقم الفاحص الفنى الخاص بمشروعكم',
+              title: 'رقم الفاحص الفني',
+              description: 'لطلب رقم الفاحص الفني الخاص بمشروعكم',
             },
             {
               id: 'visits_reports',
@@ -140,7 +140,7 @@ module.exports = [
         {
           rows: [
             { id: 'contractor_instructions', title: 'تعليمات المقاول' },
-            { id: 'inspection_stages', title: 'مراحل الفحص الفنى' },
+            { id: 'inspection_stages', title: 'مراحل الفحص الفني' },
             { id: 'common_questions', title: 'الاسئلة الشائعة' },
             { id: 'complete_building', title: 'اجراءات المبانى المكتملة' },
             { id: 'work_hours', title: 'أوقات العمل الرسمية' },
