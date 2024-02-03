@@ -111,6 +111,7 @@ exports.getAllUserChats = async (user, status) => {
   let chats = await Chat.find({ currentUser: user._id })
     .sort('-updatedAt')
     .populate('lastMessage')
+    .populate('contactName', 'name')
     .populate('lastSession', 'status');
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
@@ -130,6 +131,7 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
   })
     .sort('-updatedAt')
     .populate('lastMessage')
+    .populate('contactName', 'name')
     .populate('lastSession', 'status');
   // console.log('chats', chats.length);
 
