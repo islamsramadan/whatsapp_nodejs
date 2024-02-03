@@ -777,40 +777,66 @@ const checkInteractiveHandler = async (
       };
     }
   } else if (option.id === 'contractor_instructions') {
+    // replyMessage = {
+    //   type: 'document',
+    //   document: {
+    //     link: 'https://cpvarabia.com/Documents/ContractorGuidelinesAR.pdf',
+    //     filename: 'Contractor instructions',
+    //   },
+    //   caption: 'هذا هو الملف الخاص بتعليمات المقاول',
+    // };
+
+    const contractorFile =
+      'https://cpvarabia.com/Documents/ContractorGuidelinesAR.pdf';
     replyMessage = {
-      type: 'document',
-      document: {
-        link: 'https://cpvarabia.com/Documents/ContractorGuidelinesAR.pdf',
-        filename: 'Contractor instructions',
-      },
-      caption: 'هذا هو الملف الخاص بتعليمات المقاول',
+      type: 'text',
+      text: `رابط الملف الخاص بتعليمات المقاول \n\n ${contractorFile}`,
     };
   } else if (option.id === 'inspection_stages') {
+    // replyMessage = {
+    //   type: 'document',
+    //   document: {
+    //     link: 'https://cpvarabia.com/Documents/InspectionStagesAR.pdf',
+    //     filename: 'Inspection stages',
+    //   },
+    //   caption: 'هذا هو الملف الخاص بمراحل الفحص الفني',
+    // };
+
+    const inspectionStagesFile =
+      'https://cpvarabia.com/Documents/InspectionStagesAR.pdf';
     replyMessage = {
-      type: 'document',
-      document: {
-        link: 'https://cpvarabia.com/Documents/InspectionStagesAR.pdf',
-        filename: 'Inspection stages',
-      },
-      caption: 'هذا هو الملف الخاص بمراحل الفحص الفني',
+      type: 'text',
+      text: `رابط الملف الخاص بمراحل الفحص الفني \n\n ${inspectionStagesFile}`,
     };
   } else if (option.id === 'common_questions') {
+    // replyMessage = {
+    //   type: 'document',
+    //   document: {
+    //     link: 'https://cpvarabia.com/Documents/FqaAR.pdf',
+    //     filename: 'Common questions',
+    //   },
+    //   caption: 'هذا هو الملف الخاص بالاسئلة الشائعة',
+    // };
+
+    const commonQuestionsFile = 'https://cpvarabia.com/Documents/FqaAR.pdf';
     replyMessage = {
-      type: 'document',
-      document: {
-        link: 'https://cpvarabia.com/Documents/FqaAR.pdf',
-        filename: 'Common questions',
-      },
-      caption: 'هذا هو الملف الخاص بالاسئلة الشائعة',
+      type: 'text',
+      text: `رابط الملف الخاص بالأسئلة الشائعة \n\n ${commonQuestionsFile}`,
     };
   } else if (option.id === 'complete_building') {
+    // replyMessage = {
+    //   type: 'document',
+    //   document: {
+    //     link: 'https://cpvarabia.com/Documents/RD7AR.pdf',
+    //     filename: 'Complete building',
+    //   },
+    //   caption: 'هذا هو الملف الخاص باجراءات المبانى المكتملة',
+    // };
+
+    const completeBuildingFile = 'https://cpvarabia.com/Documents/RD7AR.pdf';
     replyMessage = {
-      type: 'document',
-      document: {
-        link: 'https://cpvarabia.com/Documents/RD7AR.pdf',
-        filename: 'Complete building',
-      },
-      caption: 'هذا هو الملف الخاص باجراءات المبانى المكتملة',
+      type: 'text',
+      text: `رابط الملف الخاص باجراءات المباني المكتملة \n\n ${completeBuildingFile}`,
     };
   } else if (option.id === 'work_hours') {
     replyMessage = {
