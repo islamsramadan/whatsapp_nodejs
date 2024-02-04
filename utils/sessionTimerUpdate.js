@@ -184,5 +184,5 @@ exports.schedulePerformance = async (req, message, session) => {
     updatePerfromance('tooLate', lateTimer, req, message, session);
   }
 
-  updatePerfromance(req, message, session);
+  // updatePerfromance(req, message, session);
 };
