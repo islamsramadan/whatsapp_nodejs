@@ -94,8 +94,8 @@ exports.scheduleDocumentUpdateTask = async (
   }
 };
 
-const updatePerfromance = (req, message) => {
-  const cronExpression = getCronExpression(message.timer);
+const updatePerfromance = (status, timer, req, message) => {
+  const cronExpression = getCronExpression(timer);
   // console.log('cronExpression', cronExpression);
 
   cron.schedule(cronExpression, async () => {
@@ -106,35 +106,83 @@ const updatePerfromance = (req, message) => {
 
     if (session.lastUserMessage) {
       lastUserMessage = await Message.findById(session.lastUserMessage);
-
-      console.log(
-        message.createdAt,
-        lastUserMessage.createdAt,
-        message.createdAt > lastUserMessage.createdAt
-      );
     }
 
     if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
       const updatedSession = await Session.findById(session._id);
-      const testSession = await Session.findByIdAndUpdate(
-        session._id,
-        {
-          $set: { 'performance.onTime': updatedSession.performance.onTime - 1 },
-        },
-        { new: true, runValidators: true }
-      );
-      // console.log('testSession ===========', testSession);
+      if (status === 'danger') {
+        const dangerSession = await Session.findByIdAndUpdate(
+          session._id,
+          {
+            $set: {
+              'performance.onTime': updatedSession.performance.onTime - 1,
+              'performance.danger': updatedSession.performance.danger + 1,
+            },
+          },
+          { new: true, runValidators: true }
+        );
+        // console.log('dangerSession ===========', dangerSession);
+      } else if (status === 'tooLate') {
+        const tooLateSession = await Session.findByIdAndUpdate(
+          session._id,
+          {
+            $set: {
+              'performance.danger': updatedSession.performance.danger - 1,
+              'performance.tooLate': updatedSession.performance.tooLate + 1,
+            },
+          },
+          { new: true, runValidators: true }
+        );
+        // console.log('tooLateSession ===========', tooLateSession);
+      }
     }
   });
 };
+// const updatePerfromance = (req, message) => {
+//   const cronExpression = getCronExpression(message.timer);
+//   // console.log('cronExpression', cronExpression);
+
+//   cron.schedule(cronExpression, async () => {
+//     // console.log('message ===========', message);
+
+//     const session = await Session.findById(message.session);
+//     let lastUserMessage;
+
+//     if (session.lastUserMessage) {
+//       lastUserMessage = await Message.findById(session.lastUserMessage);
+//     }
+
+//     if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
+//       const updatedSession = await Session.findById(session._id);
+//       const testSession = await Session.findByIdAndUpdate(
+//         session._id,
+//         {
+//           $set: { 'performance.onTime': updatedSession.performance.onTime - 1 },
+//         },
+//         { new: true, runValidators: true }
+//       );
+//       // console.log('testSession ===========', testSession);
+//     }
+//   });
+// };
 
 exports.schedulePerformance = async (req, message, session) => {
   const currentTime = new Date();
 
   const delay = message.timer - currentTime;
 
-  // console.log('delay', delay);
-  // console.log('currentTime', currentTime);
-  // console.log('message.timer', message.timer);
+  if (delay > 0) {
+    let lateTimer = session.timer;
+    let dangerTimer = new Date(
+      session.timer - delay * (1 - responseDangerTime)
+    );
+
+    console.log('lateTimer ============', lateTimer);
+    console.log('dangerTimer ============', dangerTimer);
+
+    updatePerfromance('danger', dangerTimer, req, message, session);
+    updatePerfromance('tooLate', lateTimer, req, message, session);
+  }
+
   updatePerfromance(req, message, session);
 };
