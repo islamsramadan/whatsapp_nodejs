@@ -23,7 +23,7 @@ const messageSchema = new mongoose.Schema(
     session: {
       type: mongoose.Schema.ObjectId,
       ref: 'Session',
-      required: [true, 'Message must belong to a session!'],
+      // required: [true, 'Message must belong to a session!'], Remove it for the multi template end point
     },
 
     timer: {

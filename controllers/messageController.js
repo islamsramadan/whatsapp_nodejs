@@ -875,3 +875,188 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
+  const { templateName } = req.body;
+  if (!templateName) {
+    return next(new AppError('Template name is required!', 400));
+  }
+
+  const response = await axios.request({
+    method: 'get',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${whatsappToken}`,
+    },
+  });
+  const template = response.data.data[0];
+  // console.log('template', template);
+
+  if (!template) {
+    return next(new AppError('There is no template with that name!', 404));
+  }
+
+  if (template.status !== 'APPROVED') {
+    return next(
+      new AppError('You can only send templates with status (APPROVED)!', 400)
+    );
+  }
+
+  // selecting chat that the message belongs to
+  const chat = await Chat.findOne({ client: req.params.chatNumber });
+
+  let newChat;
+  if (!chat) {
+    newChat = await Chat.create({
+      client: req.params.chatNumber,
+      // currentUser: req.user._id,
+      // users: [req.user._id],
+      // team: req.user.team,
+    });
+  }
+  // console.log('chat', chat);
+
+  const selectedChat = chat || newChat;
+
+  //********************************************************************************* */
+  // Preparing template for whatsapp payload
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: selectedChat.client,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: template.language,
+      },
+      components: [],
+    },
+  };
+
+  template.components.map((component) => {
+    if (component.example) {
+      let paramaters =
+        component.example[
+          `${component.type.toLowerCase()}_${
+            component.format ? component.format.toLowerCase() : 'text'
+          }`
+        ];
+      paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
+      // console.log('paramaters', paramaters);
+
+      whatsappPayload.template.components.push({
+        type: component.type,
+        parameters: paramaters.map((el) => ({
+          type: component.format ? component.format.toLowerCase() : 'text',
+          text: req.body[`${el}`],
+        })),
+      });
+    }
+  });
+
+  //********************************************************************************* */
+  // Preparing template for data base
+  const newMessageObj = {
+    user: req.user.id,
+    chat: selectedChat._id,
+    // session: selectedSession._id, // no session to provide
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: template.language,
+      category: template.category,
+      components: [],
+    },
+  };
+
+  template.components.map((component) => {
+    const templateComponent = { type: component.type };
+
+    if (component.type === 'HEADER') {
+      templateComponent.format = component.format;
+      templateComponent[`${component.format.toLowerCase()}`] =
+        component[`${component.format.toLowerCase()}`];
+      if (component.example) {
+        const headerParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'HEADER'
+        )[0].parameters;
+        // console.log('headerParameters', headerParameters);
+        for (let i = 0; i < headerParameters.length; i++) {
+          templateComponent[`${component.format.toLowerCase()}`] =
+            templateComponent[`${component.format.toLowerCase()}`].replace(
+              `{{${i + 1}}}`,
+              headerParameters[i][`${component.format.toLowerCase()}`]
+            );
+        }
+      }
+    } else if (component.type === 'BODY') {
+      templateComponent.text = component.text;
+      if (component.example) {
+        const bodyParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'BODY'
+        )[0].parameters;
+        // console.log('bodyParameters', bodyParameters);
+        for (let i = 0; i < bodyParameters.length; i++) {
+          templateComponent.text = templateComponent.text.replace(
+            `{{${i + 1}}}`,
+            bodyParameters[i].text
+          );
+        }
+      }
+    } else if (component.type === 'BUTTONS') {
+      templateComponent.buttons = component.buttons;
+    } else {
+      templateComponent.text = component.text;
+    }
+
+    newMessageObj.template.components.push(templateComponent);
+  });
+
+  // Sending the template message to the client via whatsapp api
+  let sendTemplateResponse;
+  try {
+    sendTemplateResponse = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  if (!sendTemplateResponse) {
+    return next(
+      new AppError(
+        "Template couldn't be sent, Try again with all the variables required!",
+        400
+      )
+    );
+  }
+
+  // Adding the template message to database
+  const newMessage = await Message.create({
+    ...newMessageObj,
+    whatsappID: sendTemplateResponse.data.messages[0].id,
+  });
+
+  //********************************************************************************* */
+  //updating event in socket io
+  req.app.io.emit('updating');
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      // template,
+      // whatsappPayload,
+      // wahtsappResponse: sendTemplateResponse?.data,
+      message: newMessage,
+    },
+  });
+});
