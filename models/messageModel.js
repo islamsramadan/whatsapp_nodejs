@@ -23,7 +23,7 @@ const messageSchema = new mongoose.Schema(
     session: {
       type: mongoose.Schema.ObjectId,
       ref: 'Session',
-      required: [true, 'Message must belong to a session!'],
+      // required: [true, 'Message must belong to a session!'], Remove it for the multi template end point
     },
 
     timer: {
@@ -104,7 +104,7 @@ const messageSchema = new mongoose.Schema(
           },
           format: {
             type: String,
-            enum: ['TEXT'],
+            enum: ['TEXT', 'DOCUMENT'],
             required: function () {
               if (this.type === 'template') {
                 this.template.components.map((comp) => {
@@ -124,6 +124,10 @@ const messageSchema = new mongoose.Schema(
           },
           text: {
             type: String,
+          },
+          document: {
+            link: { type: String },
+            filename: { type: String },
           },
           buttons: [
             {

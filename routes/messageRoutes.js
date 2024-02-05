@@ -20,6 +20,10 @@ router.route('/templates').post(
   messageController.sendTemplateMessage
 );
 
+router
+  .route('/multi-templates')
+  .post(authController.protect, messageController.sendMultiTemplateMessage);
+
 // router
 //   .route('/:messageID/failedMessage')
 //   .patch(authController.protect, messageController.sendFailedMessage);
