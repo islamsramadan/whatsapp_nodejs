@@ -937,20 +937,48 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   template.components.map((component) => {
     if (component.example) {
       let paramaters =
-        component.example[
-          `${component.type.toLowerCase()}_${
-            component.format ? component.format.toLowerCase() : 'text'
-          }`
-        ];
+        component.format === 'DOCUMENT'
+          ? 'link'
+          : component.example[
+              `${component.type.toLowerCase()}_${
+                component.format ? component.format.toLowerCase() : 'text'
+              }`
+            ];
       paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
       // console.log('paramaters', paramaters);
 
       whatsappPayload.template.components.push({
         type: component.type,
-        parameters: paramaters.map((el) => ({
-          type: component.format ? component.format.toLowerCase() : 'text',
-          text: req.body[`${el}`],
-        })),
+        parameters:
+          component.format === 'DOCUMENT'
+            ? [
+                {
+                  type: 'document',
+                  document: {
+                    link: req.body.link,
+                    filename: req.body.filename,
+                  },
+                },
+              ]
+            : paramaters.map((el) => {
+                let object = {
+                  type: component.format
+                    ? component.format.toLowerCase()
+                    : 'text',
+                };
+                if (component.format) {
+                  object[component.format.toLowerCase()] = {
+                    link: req.body.link,
+                  };
+                } else {
+                  object.text = req.body[`${el}`];
+                }
+                // return {
+                //   type: component.format ? component.format.toLowerCase() : 'text',
+                //   text: req.body[`${el}`],
+                // };
+                return object;
+              }),
       });
     }
   });
@@ -976,19 +1004,27 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
     if (component.type === 'HEADER') {
       templateComponent.format = component.format;
-      templateComponent[`${component.format.toLowerCase()}`] =
-        component[`${component.format.toLowerCase()}`];
+
       if (component.example) {
-        const headerParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'HEADER'
-        )[0].parameters;
-        // console.log('headerParameters', headerParameters);
-        for (let i = 0; i < headerParameters.length; i++) {
+        if (component.format === 'DOCUMENT') {
+          templateComponent.document = { link: req.body.link };
+          if (req.body.filename)
+            templateComponent.document.filename = req.body.filename;
+        } else {
           templateComponent[`${component.format.toLowerCase()}`] =
-            templateComponent[`${component.format.toLowerCase()}`].replace(
-              `{{${i + 1}}}`,
-              headerParameters[i][`${component.format.toLowerCase()}`]
-            );
+            component[`${component.format.toLowerCase()}`];
+
+          const headerParameters = whatsappPayload.template.components.filter(
+            (comp) => comp.type === 'HEADER'
+          )[0].parameters;
+          // console.log('headerParameters', headerParameters);
+          for (let i = 0; i < headerParameters.length; i++) {
+            templateComponent[`${component.format.toLowerCase()}`] =
+              templateComponent[`${component.format.toLowerCase()}`].replace(
+                `{{${i + 1}}}`,
+                headerParameters[i][`${component.format.toLowerCase()}`]
+              );
+          }
         }
       }
     } else if (component.type === 'BODY') {
@@ -1011,6 +1047,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
       templateComponent.text = component.text;
     }
 
+    // console.log('templateComponent', templateComponent);
     newMessageObj.template.components.push(templateComponent);
   });
 
@@ -1031,6 +1068,8 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
     console.log('err', err);
   }
 
+  // console.log('sendTemplateResponse', sendTemplateResponse);
+
   if (!sendTemplateResponse) {
     return next(
       new AppError(
@@ -1040,11 +1079,13 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
     );
   }
 
+  // console.log('newMessageObj ==========================', newMessageObj);
   // Adding the template message to database
   const newMessage = await Message.create({
     ...newMessageObj,
     whatsappID: sendTemplateResponse.data.messages[0].id,
   });
+  // console.log('newMessage ===================', newMessage);
 
   //********************************************************************************* */
   //updating event in socket io
