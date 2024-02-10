@@ -175,7 +175,8 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     'firstName',
     'lastName',
     'email',
-    'role'
+    'role',
+    'status'
     // 'team'
   );
 

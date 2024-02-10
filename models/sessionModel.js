@@ -60,6 +60,8 @@ const sessionSchema = new mongoose.Schema(
     performance: {
       all: { type: Number, default: 0 },
       onTime: { type: Number, default: 0 },
+      danger: { type: Number, default: 0 },
+      tooLate: { type: Number, default: 0 },
     },
 
     referenceNo: {
