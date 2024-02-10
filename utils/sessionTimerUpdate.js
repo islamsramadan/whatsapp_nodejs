@@ -115,7 +115,10 @@ const updatePerfromance = (status, timer, req, message) => {
           session._id,
           {
             $set: {
-              'performance.onTime': updatedSession.performance.onTime - 1,
+              'performance.onTime':
+                updatedSession.performance.onTime > 0
+                  ? updatedSession.performance.onTime - 1
+                  : 0,
               'performance.danger': updatedSession.performance.danger + 1,
             },
           },
@@ -127,7 +130,10 @@ const updatePerfromance = (status, timer, req, message) => {
           session._id,
           {
             $set: {
-              'performance.danger': updatedSession.performance.danger - 1,
+              'performance.danger':
+                updatedSession.performance.danger > 0
+                  ? updatedSession.performance.danger - 1
+                  : 0,
               'performance.tooLate': updatedSession.performance.tooLate + 1,
             },
           },
@@ -166,22 +172,23 @@ const updatePerfromance = (status, timer, req, message) => {
 //   });
 // };
 
-exports.schedulePerformance = async (req, message, session) => {
+exports.schedulePerformance = async (req, message, responseDangerTime) => {
   const currentTime = new Date();
 
   const delay = message.timer - currentTime;
 
   if (delay > 0) {
-    let lateTimer = session.timer;
+    let lateTimer = message.timer;
     let dangerTimer = new Date(
-      session.timer - delay * (1 - responseDangerTime)
+      message.timer - delay * (1 - responseDangerTime)
     );
 
+    // console.log('session', session);
     console.log('lateTimer ============', lateTimer);
     console.log('dangerTimer ============', dangerTimer);
 
-    updatePerfromance('danger', dangerTimer, req, message, session);
-    updatePerfromance('tooLate', lateTimer, req, message, session);
+    updatePerfromance('danger', dangerTimer, req, message);
+    updatePerfromance('tooLate', lateTimer, req, message);
   }
 
   // updatePerfromance(req, message, session);

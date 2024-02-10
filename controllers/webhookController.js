@@ -478,7 +478,8 @@ const receiveMessageHandler = async (req, res, next) => {
     await sessionTimerUpdate.schedulePerformance(
       req,
       newMessage,
-      selectedSession
+      //from config.env
+      responseDangerTime
     );
 
     // *************************************************************************
