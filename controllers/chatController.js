@@ -77,6 +77,27 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
+  // const statuses = ['open', 'onTime', 'danger', 'tooLate'];
+
+  const chats = await Chat.find({ currentUser: req.params.userID })
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
+
+  // console.log('statuses', statuses);
+  // chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  res.status(200).json({
+    status: 'success',
+    results: chats.length,
+    data: {
+      chats,
+    },
+  });
+});
+
 exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
   const chats = await Chat.find({ status: 'archived' })
     .sort('-updatedAt')

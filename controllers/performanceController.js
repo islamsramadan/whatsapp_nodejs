@@ -66,18 +66,24 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
   const sessions = await Session.find({
     type: 'normal',
     'performance.all': { $gt: 0 },
-  });
+  }).populate('user', 'firstName lastName');
 
-  const performance = sessions.map((session) => ({
+  const performanceSessions = sessions.map((session) => ({
+    _id: session._id,
+    user: session.user,
     all: session.performance.all,
     onTime: session.performance.onTime,
-    tooLate: session.performance.all - session.performance.onTime,
+    danger: session.performance.danger,
+    tooLate: session.performance.tooLate,
+    createdAt: session.createdAt,
+    status: session.status,
   }));
+
   res.status(200).json({
     status: 'success',
     results: sessions.length,
     data: {
-      performance,
+      sessions: performanceSessions,
     },
   });
 });

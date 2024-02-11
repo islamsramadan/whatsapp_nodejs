@@ -28,6 +28,12 @@ router.get(
 );
 
 router.get(
+  '/teamUserChats/:userID',
+  authController.protect,
+  chatController.getAllTeamUserChats
+);
+
+router.get(
   '/archivedChats',
   authController.protect,
   chatController.getAllArchivedChats
