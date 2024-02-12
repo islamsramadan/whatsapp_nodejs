@@ -14,11 +14,13 @@ router
     messageController.sendMessage
   );
 
-router.route('/templates').post(
-  authController.protect,
-  // messageController.uploadMessageImage,
-  messageController.sendTemplateMessage
-);
+router
+  .route('/templates')
+  .post(
+    authController.protect,
+    messageController.uploadMessageImage,
+    messageController.sendTemplateMessage
+  );
 
 router
   .route('/multi-templates')

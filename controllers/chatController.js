@@ -198,11 +198,11 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //**********the user in chat team take the ownership
   } else if (type === 'takeOwnership') {
-    if (chat.notification === true) {
-      return next(
-        new AppError("Couldn't transfer chat with unread messages", 400)
-      );
-    }
+    // if (chat.notification === true) {
+    //   return next(
+    //     new AppError("Couldn't transfer chat with unread messages", 400)
+    //   );
+    // }
 
     // console.log('chat.team', chat.team);
     if (
@@ -256,11 +256,11 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //**********Transfer to another user in the same team
   } else if (type === 'transferToUser') {
-    if (chat.notification === true) {
-      return next(
-        new AppError("Couldn't transfer chat with unread messages", 400)
-      );
-    }
+    // if (chat.notification === true) {
+    //   return next(
+    //     new AppError("Couldn't transfer chat with unread messages", 400)
+    //   );
+    // }
 
     if (!chat.team.equals(req.user.team)) {
       return next(
@@ -321,11 +321,11 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
     //********** Transfer the chat to another team and remove the current user
   } else if (type === 'transferToTeam') {
-    if (chat.notification === true) {
-      return next(
-        new AppError("Couldn't transfer chat with unread messages", 400)
-      );
-    }
+    // if (chat.notification === true) {
+    //   return next(
+    //     new AppError("Couldn't transfer chat with unread messages", 400)
+    //   );
+    // }
 
     if (!chat.team.equals(req.user.team)) {
       return next(
