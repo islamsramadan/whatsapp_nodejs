@@ -104,7 +104,7 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getTeamUsersSessions = async (req, res, next) => {
+exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
   const teamsIDs = req.params.teamsIDs?.split(',');
   if (teamsIDs.length === 0) {
     return next(new AppError('Teams IDs are required!', 400));
@@ -132,7 +132,9 @@ exports.getTeamUsersSessions = async (req, res, next) => {
             user: userID,
             // status: { $ne: 'finished' },
             end: { $exists: false },
+            'chat.currentUser': { $exists: true },
           });
+
           const userSessionsfilters = {
             all: userSessions.length,
             onTime: userSessions.filter(
@@ -169,4 +171,4 @@ exports.getTeamUsersSessions = async (req, res, next) => {
       teams,
     },
   });
-};
+});
