@@ -134,6 +134,9 @@ io.on('connection', async (socket) => {
 
         // console.log('chats.length', chats.length);
       }
+      if (data.chatsType === 'archived') {
+        chats = await socketController.getAllArchivedChats();
+      }
       if (data.sessions === true && data.teamsIDs) {
         let sessions = await socketController.getAllSessions(
           socket.user,

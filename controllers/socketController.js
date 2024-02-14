@@ -140,6 +140,16 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
   return chats;
 };
 
+exports.getAllArchivedChats = async () => {
+  const chats = await Chat.find({ status: 'archived' })
+    .sort('-updatedAt')
+    .populate('lastMessage')
+    .populate('lastSession', 'status')
+    .populate('contactName', 'name');
+
+  return chats;
+};
+
 exports.getAllChatMessages = async (chatNumber) => {
   const chat = await Chat.findOne({ client: chatNumber }).populate(
     'contactName',
