@@ -97,7 +97,7 @@ io.on('connection', async (socket) => {
   app.connectedUsers[socket.user._id] = socket;
 
   socket.on('client_to_server', async (data) => {
-    console.log('data ==========================================', data);
+    // console.log('data ==========================================', data);
 
     if (data) {
       let userSessions,

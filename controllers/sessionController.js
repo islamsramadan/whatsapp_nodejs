@@ -5,11 +5,15 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 exports.getAllSessions = catchAsync(async (req, res, next) => {
-  const userSessions = await Session.find({
+  let userSessions = await Session.find({
     user: req.user._id,
     // status: { $ne: 'finished' },
     end: { $exists: false },
-  });
+  }).populate('chat');
+  userSessions = userSessions.filter((session) =>
+    session._id.equals(session.chat.lastSession)
+  );
+
   const userSessionsfilters = {
     all: userSessions.length,
     onTime: userSessions.filter((session) => session.status === 'onTime')
@@ -37,12 +41,16 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
   }
   // console.log('teamsIDs', teamsIDs);
 
-  const teamSessions = await Session.find({
+  let teamSessions = await Session.find({
     team: { $in: teamsIDs },
     // team: req.user.team,
     // status: { $ne: 'finished' },
     end: { $exists: false },
-  });
+  }).populate('chat');
+
+  teamSessions = teamSessions.filter((session) =>
+    session._id.equals(session.chat.lastSession)
+  );
   const teamSessionsfilters = {
     all: teamSessions.length,
     onTime: teamSessions.filter((session) => session.status === 'onTime')
@@ -110,17 +118,6 @@ exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
     return next(new AppError('Teams IDs are required!', 400));
   }
 
-  if (
-    (teamsIDs.length > 1 ||
-      (teamsIDs.length === 1 && !req.user.team.equals(teamsIDs[0]))) &&
-    req.user.role !== 'admin'
-  ) {
-    return next(
-      new AppError("You don't have permission to perform this action!", 403)
-    );
-  }
-  // console.log('teamsIDs', teamsIDs);
-
   const teams = await Promise.all(
     teamsIDs.map(async (teamID) => {
       const team = await Team.findById(teamID);
@@ -128,12 +125,18 @@ exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
       const teamUsers = await Promise.all(
         team.users.map(async (userID) => {
           const user = await User.findById(userID);
-          const userSessions = await Session.find({
+          let userSessions = await Session.find({
             user: userID,
             // status: { $ne: 'finished' },
             end: { $exists: false },
-            'chat.currentUser': { $exists: true },
-          });
+          }).populate('chat');
+
+          userSessions = userSessions.filter(
+            (session) =>
+              session._id.equals(session.chat.lastSession) &&
+              session.chat.currentUser &&
+              session.chat.currentUser.equals(userID)
+          );
 
           const userSessionsfilters = {
             all: userSessions.length,

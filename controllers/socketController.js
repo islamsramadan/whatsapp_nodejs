@@ -63,11 +63,14 @@ exports.protectSocket = async (socket, next) => {
 };
 
 exports.getAllSessions = async (user, teamsIDs) => {
-  const userSessions = await Session.find({
-    user: user._id,
+  let userSessions = await Session.find({
+    user: req.user._id,
     // status: { $ne: 'finished' },
     end: { $exists: false },
-  });
+  }).populate('chat');
+  userSessions = userSessions.filter((session) =>
+    session._id.equals(session.chat.lastSession)
+  );
   const userSessionsfilters = {
     all: userSessions.length,
     onTime: userSessions.filter((session) => session.status === 'onTime')
@@ -79,12 +82,16 @@ exports.getAllSessions = async (user, teamsIDs) => {
     open: userSessions.filter((session) => session.status === 'open').length,
   };
 
-  const teamSessions = await Session.find({
+  let teamSessions = await Session.find({
     team: { $in: teamsIDs },
-    // team: user.team,
+    // team: req.user.team,
     // status: { $ne: 'finished' },
     end: { $exists: false },
-  });
+  }).populate('chat');
+
+  teamSessions = teamSessions.filter((session) =>
+    session._id.equals(session.chat.lastSession)
+  );
   const teamSessionsfilters = {
     all: teamSessions.length,
     onTime: teamSessions.filter((session) => session.status === 'onTime')

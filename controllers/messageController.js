@@ -642,6 +642,7 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   });
 });
 
+//with uploaded file
 exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   console.log('req.body', req.body);
   console.log('req.file', req.file);
@@ -879,6 +880,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   });
 });
 
+//without uploaded file
 // exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 //   const { templateName } = req.body;
 //   if (!templateName) {
