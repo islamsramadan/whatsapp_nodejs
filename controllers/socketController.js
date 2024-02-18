@@ -5,6 +5,7 @@ const User = require('../models/userModel');
 const Chat = require('../models/chatModel');
 const Message = require('../models/messageModel');
 const Session = require('../models/sessionModel');
+const Team = require('../models/teamModel');
 
 exports.protectSocket = async (socket, next) => {
   // 1) Getting token and check if it is there
@@ -107,6 +108,60 @@ exports.getAllSessions = async (user, teamsIDs) => {
     userSessions: userSessionsfilters,
     teamSessions: teamSessionsfilters,
   };
+};
+
+exports.getAllTeamUsersSessions = async (teamsIDs) => {
+  const teams = await Promise.all(
+    teamsIDs.map(async (teamID) => {
+      const team = await Team.findById(teamID);
+
+      const teamUsers = await Promise.all(
+        team.users.map(async (userID) => {
+          const user = await User.findById(userID);
+          let userSessions = await Session.find({
+            user: userID,
+            // status: { $ne: 'finished' },
+            end: { $exists: false },
+          }).populate('chat');
+
+          userSessions = userSessions.filter(
+            (session) =>
+              session._id.equals(session.chat.lastSession) &&
+              session.chat.currentUser &&
+              session.chat.currentUser.equals(userID)
+          );
+
+          const userSessionsfilters = {
+            all: userSessions.length,
+            onTime: userSessions.filter(
+              (session) => session.status === 'onTime'
+            ).length,
+            danger: userSessions.filter(
+              (session) => session.status === 'danger'
+            ).length,
+            tooLate: userSessions.filter(
+              (session) => session.status === 'tooLate'
+            ).length,
+            open: userSessions.filter((session) => session.status === 'open')
+              .length,
+          };
+
+          return {
+            _id: userID,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            photo: user.photo,
+            status: user.status,
+            sessions: userSessionsfilters,
+          };
+        })
+      );
+
+      return { _id: teamID, teamName: team.name, users: teamUsers };
+    })
+  );
+
+  return teams;
 };
 
 exports.getAllUserChats = async (user, status) => {

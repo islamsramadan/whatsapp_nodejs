@@ -157,13 +157,14 @@ exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
             _id: userID,
             firstName: user.firstName,
             lastName: user.lastName,
+            photo: user.photo,
             status: user.status,
             sessions: userSessionsfilters,
           };
         })
       );
 
-      return { _id: teamID, team: team.name, users: teamUsers };
+      return { _id: teamID, teamName: team.name, users: teamUsers };
     })
   );
 

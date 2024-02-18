@@ -102,6 +102,7 @@ io.on('connection', async (socket) => {
     if (data) {
       let userSessions,
         teamSessions,
+        teamUsersSessions,
         chats,
         session,
         chatStatus,
@@ -134,9 +135,13 @@ io.on('connection', async (socket) => {
 
         // console.log('chats.length', chats.length);
       }
+
+      // ==============> Archived Chats
       if (data.chatsType === 'archived') {
         chats = await socketController.getAllArchivedChats();
       }
+
+      // ==============> Team & users sessions
       if (data.sessions === true && data.teamsIDs) {
         let sessions = await socketController.getAllSessions(
           socket.user,
@@ -145,10 +150,18 @@ io.on('connection', async (socket) => {
         userSessions = sessions.userSessions;
         teamSessions = sessions.teamSessions;
       }
+      // ==============> Team users sessions
+      if (data.teamUsersSessions === true && data.teamsIDs) {
+        teamUsersSessions = await socketController.getAllTeamUsersSessions(
+          data.teamsIDs
+        );
+      }
+
       // Emit a response event back to the client
       socket.emit('server_to_client', {
         userSessions,
         teamSessions,
+        teamUsersSessions,
         chats,
         messages,
         session,
