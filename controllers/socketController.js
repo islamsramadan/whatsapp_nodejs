@@ -65,7 +65,7 @@ exports.protectSocket = async (socket, next) => {
 
 exports.getAllSessions = async (user, teamsIDs) => {
   let userSessions = await Session.find({
-    user: req.user._id,
+    user: user._id,
     // status: { $ne: 'finished' },
     end: { $exists: false },
   }).populate('chat');
@@ -85,7 +85,6 @@ exports.getAllSessions = async (user, teamsIDs) => {
 
   let teamSessions = await Session.find({
     team: { $in: teamsIDs },
-    // team: req.user.team,
     // status: { $ne: 'finished' },
     end: { $exists: false },
   }).populate('chat');
