@@ -997,7 +997,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       template,
-      // whatsappPayload,
+      whatsappPayload,
       wahtsappResponse: sendTemplateResponse?.data,
       // message: newMessage,
     },
