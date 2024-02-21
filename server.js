@@ -141,6 +141,11 @@ io.on('connection', async (socket) => {
         chats = await socketController.getAllArchivedChats();
       }
 
+      // ==============> Team User Chats
+      if (data.chatsType === 'teamUser' && data.teamUserID) {
+        chats = await socketController.getAllTeamUserChats(data.teamUserID);
+      }
+
       // ==============> Team & users sessions
       if (data.sessions === true && data.teamsIDs) {
         let sessions = await socketController.getAllSessions(

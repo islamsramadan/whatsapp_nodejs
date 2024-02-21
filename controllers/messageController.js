@@ -728,6 +728,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   await selectedChat.save();
 
   //********************************************************************************* */
+  //********************************************************************************* */
   // Preparing template for whatsapp payload
   const whatsappPayload = {
     messaging_product: 'whatsapp',
@@ -741,86 +742,209 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       components: [],
     },
   };
+  // link: `${productionLink}/${req.file.filename}`,
+  // console.log(
+  //   '`${productionLink}/${req.file.filename}`',
+  //   `${productionLink}/${req.file.filename}`
+  // );
+
+  console.log('template.components =============', template);
+
+  // template.components.map((component) => {
+  //   console.log('component.example', component.example);
+  // });
+
+  // template.components.map((component) => {
+  //   if (component.example) {
+  //     if (component.type === 'HEADER') {
+  //       whatsappPayload.template.components.push({
+  //         type: component.type,
+  //         // parameters: parameters.map((el) => ({
+  //         //   type: component.format ? component.format.toLowerCase() : 'text',
+  //         //   text: req.body[`${el}`],
+  //         // })),
+  //         parameters: [
+  //           {
+  //             type: component.format.toLowerCase(),
+  //           },
+  //         ],
+  //       });
+  //     }
+  //     //////////////////////////////////////////
+
+  //     let parameters =
+  //       component.example[
+  //         `${component.type.toLowerCase()}_${
+  //           component.format ? component.format.toLowerCase() : 'text'
+  //         }`
+  //       ];
+  //     parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
+  //     // console.log('parameters', parameters);
+
+  //     whatsappPayload.template.components.push({
+  //       type: component.type,
+  //       parameters: parameters.map((el) => ({
+  //         type: component.format ? component.format.toLowerCase() : 'text',
+  //         text: req.body[`${el}`],
+  //       })),
+  //     });
+  //   }
+  // });
 
   template.components.map((component) => {
     if (component.example) {
-      let paramaters =
-        component.example[
-          `${component.type.toLowerCase()}_${
-            component.format ? component.format.toLowerCase() : 'text'
-          }`
-        ];
-      paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
-      // console.log('paramaters', paramaters);
+      let parameters;
+      if (component.type === 'HEADER') {
+        // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+        if (component.format !== 'TEXT') {
+          parameters = [{ type: component.format.toLowerCase() }];
+          parameters[0][component.format.toLowerCase()] = {
+            link: `${productionLink}/${req.file.filename}`,
+          };
+        } else {
+          // parameters = [{ type: 'text' }];
+          // parameters[0].text = Array.isArray(component.example.header_text[0])
+          //   ? component.example.header_text[0]
+          //   : component.example.header_text;
+          parameters = [];
+          let parametersValues =
+            component.example[`${component.type.toLowerCase()}_text`];
+          parametersValues = Array.isArray(parametersValues[0])
+            ? parametersValues[0]
+            : parametersValues;
+
+          parametersValues.map((el) => {
+            parameters.push({ type: 'text', text: req.body[el][0] });
+          });
+
+          parameters = parametersValues.map((el) => ({
+            type: 'text',
+            text: req.body[el],
+          }));
+        }
+      } else {
+        parameters = [];
+        let parametersValues =
+          component.example[`${component.type.toLowerCase()}_text`];
+        parametersValues = Array.isArray(parametersValues[0])
+          ? parametersValues[0]
+          : parametersValues;
+
+        parametersValues.map((el) => {
+          parameters.push({
+            type: 'text',
+            text: Array.isArray(req.body[el]) ? req.body[el][0] : req.body[el],
+          });
+        });
+
+        parameters = parametersValues.map((el) => ({
+          type: 'text',
+          text: req.body[el],
+        }));
+      }
 
       whatsappPayload.template.components.push({
-        type: component.type,
-        parameters: paramaters.map((el) => ({
-          type: component.format ? component.format.toLowerCase() : 'text',
-          text: req.body[`${el}`],
-        })),
+        type: component.type.toLowerCase(),
+        parameters: parameters,
       });
+
+      // whatsappPayload.template.components.push({
+      //   type: component.type,
+      //   parameters:
+      //     component.format === 'DOCUMENT'
+      //       ? [
+      //           {
+      //             type: 'document',
+      //             document: {
+      //               link: req.body.link,
+      //               filename: req.body.filename,
+      //             },
+      //           },
+      //         ]
+      //       : parameters.map((el) => {
+      //           let object = {
+      //             type: component.format
+      //               ? component.format.toLowerCase()
+      //               : 'text',
+      //           };
+      //           if (component.format) {
+      //             object[component.format.toLowerCase()] = {
+      //               link: req.body.link,
+      //             };
+      //           } else {
+      //             object.text = req.body[`${el}`];
+      //           }
+      //           // return {
+      //           //   type: component.format ? component.format.toLowerCase() : 'text',
+      //           //   text: req.body[`${el}`],
+      //           // };
+      //           return object;
+      //         }),
+      // });
     }
   });
 
   //********************************************************************************* */
   // Preparing template for data base
-  const newMessageObj = {
-    user: req.user.id,
-    chat: selectedChat.id,
-    session: selectedSession._id,
-    from: process.env.WHATSAPP_PHONE_NUMBER,
-    type: 'template',
-    template: {
-      name: templateName,
-      language: template.language,
-      category: template.category,
-      components: [],
-    },
-  };
+  // const newMessageObj = {
+  //   user: req.user.id,
+  //   chat: selectedChat.id,
+  //   session: selectedSession._id,
+  //   from: process.env.WHATSAPP_PHONE_NUMBER,
+  //   type: 'template',
+  //   template: {
+  //     name: templateName,
+  //     language: template.language,
+  //     category: template.category,
+  //     components: [],
+  //   },
+  // };
 
-  template.components.map((component) => {
-    const templateComponent = { type: component.type };
+  // template.components.map((component) => {
+  //   const templateComponent = { type: component.type };
 
-    if (component.type === 'HEADER') {
-      templateComponent.format = component.format;
-      templateComponent[`${component.format.toLowerCase()}`] =
-        component[`${component.format.toLowerCase()}`];
-      if (component.example) {
-        const headerParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'HEADER'
-        )[0].parameters;
-        // console.log('headerParameters', headerParameters);
-        for (let i = 0; i < headerParameters.length; i++) {
-          templateComponent[`${component.format.toLowerCase()}`] =
-            templateComponent[`${component.format.toLowerCase()}`].replace(
-              `{{${i + 1}}}`,
-              headerParameters[i][`${component.format.toLowerCase()}`]
-            );
-        }
-      }
-    } else if (component.type === 'BODY') {
-      templateComponent.text = component.text;
-      if (component.example) {
-        const bodyParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'BODY'
-        )[0].parameters;
-        // console.log('bodyParameters', bodyParameters);
-        for (let i = 0; i < bodyParameters.length; i++) {
-          templateComponent.text = templateComponent.text.replace(
-            `{{${i + 1}}}`,
-            bodyParameters[i].text
-          );
-        }
-      }
-    } else if (component.type === 'BUTTONS') {
-      templateComponent.buttons = component.buttons;
-    } else {
-      templateComponent.text = component.text;
-    }
+  //   if (component.type === 'HEADER') {
+  //     templateComponent.format = component.format;
+  //     templateComponent[`${component.format.toLowerCase()}`] =
+  //       component[`${component.format.toLowerCase()}`];
+  //     if (component.example) {
+  //       const headerParameters = whatsappPayload.template.components.filter(
+  //         (comp) => comp.type === 'HEADER'
+  //       )[0].parameters;
+  //       // console.log('headerParameters', headerParameters);
+  //       for (let i = 0; i < headerParameters.length; i++) {
+  //         templateComponent[`${component.format.toLowerCase()}`] =
+  //           templateComponent[`${component.format.toLowerCase()}`].replace(
+  //             `{{${i + 1}}}`,
+  //             headerParameters[i][`${component.format.toLowerCase()}`]
+  //           );
+  //       }
+  //     }
+  //   } else if (component.type === 'BODY') {
+  //     templateComponent.text = component.text;
+  //     if (component.example) {
+  //       const bodyParameters = whatsappPayload.template.components.filter(
+  //         (comp) => comp.type === 'BODY'
+  //       )[0].parameters;
+  //       // console.log('bodyParameters', bodyParameters);
+  //       for (let i = 0; i < bodyParameters.length; i++) {
+  //         templateComponent.text = templateComponent.text.replace(
+  //           `{{${i + 1}}}`,
+  //           bodyParameters[i].text
+  //         );
+  //       }
+  //     }
+  //   } else if (component.type === 'BUTTONS') {
+  //     templateComponent.buttons = component.buttons;
+  //   } else {
+  //     templateComponent.text = component.text;
+  //   }
 
-    newMessageObj.template.components.push(templateComponent);
-  });
+  //   newMessageObj.template.components.push(templateComponent);
+  // });
+
+  // console.log('whatsappPayload', whatsappPayload);
+  // whatsappPayload.template.components.map((com) => console.log('com', com));
 
   // Sending the template message to the client via whatsapp api
   let sendTemplateResponse;
@@ -848,34 +972,34 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Adding the template message to database
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: sendTemplateResponse.data.messages[0].id,
-  });
+  // // Adding the template message to database
+  // const newMessage = await Message.create({
+  //   ...newMessageObj,
+  //   whatsappID: sendTemplateResponse.data.messages[0].id,
+  // });
 
-  //********************************************************************************* */
-  // Adding the sent message as last message in the chat and update chat status
-  selectedChat.lastMessage = newMessage._id;
-  selectedChat.status = 'open';
-  await selectedChat.save();
+  // //********************************************************************************* */
+  // // Adding the sent message as last message in the chat and update chat status
+  // selectedChat.lastMessage = newMessage._id;
+  // selectedChat.status = 'open';
+  // await selectedChat.save();
 
-  // Updating session to new status ((open))
-  selectedSession.status = 'open';
-  selectedSession.timer = undefined;
-  selectedSession.lastUserMessage = newMessage._id;
-  await selectedSession.save();
+  // // Updating session to new status ((open))
+  // selectedSession.status = 'open';
+  // selectedSession.timer = undefined;
+  // selectedSession.lastUserMessage = newMessage._id;
+  // await selectedSession.save();
 
-  //updating event in socket io
-  req.app.io.emit('updating');
+  // //updating event in socket io
+  // req.app.io.emit('updating');
 
   res.status(201).json({
     status: 'success',
     data: {
-      // template,
+      template,
       // whatsappPayload,
-      // wahtsappResponse: sendTemplateResponse?.data,
-      message: newMessage,
+      wahtsappResponse: sendTemplateResponse?.data,
+      // message: newMessage,
     },
   });
 });
@@ -979,18 +1103,18 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
 //   template.components.map((component) => {
 //     if (component.example) {
-//       let paramaters =
+//       let parameters =
 //         component.example[
 //           `${component.type.toLowerCase()}_${
 //             component.format ? component.format.toLowerCase() : 'text'
 //           }`
 //         ];
-//       paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
-//       // console.log('paramaters', paramaters);
+//       parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
+//       // console.log('parameters', parameters);
 
 //       whatsappPayload.template.components.push({
 //         type: component.type,
-//         parameters: paramaters.map((el) => ({
+//         parameters: parameters.map((el) => ({
 //           type: component.format ? component.format.toLowerCase() : 'text',
 //           text: req.body[`${el}`],
 //         })),
@@ -1175,7 +1299,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
   template.components.map((component) => {
     if (component.example) {
-      let paramaters =
+      let parameters =
         component.format === 'DOCUMENT'
           ? 'link'
           : component.example[
@@ -1183,8 +1307,8 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
                 component.format ? component.format.toLowerCase() : 'text'
               }`
             ];
-      paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
-      // console.log('paramaters', paramaters);
+      parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
+      // console.log('parameters', parameters);
 
       whatsappPayload.template.components.push({
         type: component.type,
@@ -1199,7 +1323,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
                   },
                 },
               ]
-            : paramaters.map((el) => {
+            : parameters.map((el) => {
                 let object = {
                   type: component.format
                     ? component.format.toLowerCase()
