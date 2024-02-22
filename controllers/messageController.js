@@ -908,7 +908,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
       if (component.example) {
         const headerParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'HEADER'
+          (comp) => comp.type === 'header'
         )[0].parameters;
         // console.log('headerParameters', headerParameters);
 
@@ -934,7 +934,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       templateComponent.text = component.text;
       if (component.example) {
         const bodyParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'BODY'
+          (comp) => comp.type === 'body'
         )[0].parameters;
         // console.log('bodyParameters', bodyParameters);
         for (let i = 0; i < bodyParameters.length; i++) {
