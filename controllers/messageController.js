@@ -82,6 +82,8 @@ const upload = multer({
 });
 
 exports.uploadMessageImage = upload.single('file');
+exports.uploadMultiFiles = upload.array('files');
+// exports.uploadMessageImage = upload.array('file', 2);
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const userTeam = await Team.findById(req.user.team);
@@ -143,7 +145,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
 
 exports.sendMessage = catchAsync(async (req, res, next) => {
   // console.log('req.body', req.body);
-  // console.log('req.file', req.file);
+  // console.log('req.files', req.files);
 
   if (!req.body.type) {
     return next(new AppError('Message type is required!', 400));
@@ -320,33 +322,33 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }));
   }
 
-  // Image Message
-  if (req.body.type === 'image') {
-    if (!req.file) {
-      return next(new AppError('No image found!', 404));
-    }
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.image = {
-      link: `${productionLink}/${req.file.filename}`,
-      caption: req.body.caption,
-    };
+  // // Image Message
+  // if (req.body.type === 'image') {
+  //   if (!req.file) {
+  //     return next(new AppError('No image found!', 404));
+  //   }
+  //   whatsappPayload.recipient_type = 'individual';
+  //   whatsappPayload.image = {
+  //     link: `${productionLink}/${req.file.filename}`,
+  //     caption: req.body.caption,
+  //   };
 
-    newMessageObj.image = {
-      file: req.file.filename,
-      caption: req.body.caption,
-    };
-  }
+  //   newMessageObj.image = {
+  //     file: req.file.filename,
+  //     caption: req.body.caption,
+  //   };
+  // }
 
   // Video Message
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.video = {
-      link: `${productionLink}/${req.file.filename}`,
+      link: `${productionLink}/${req.files[0].filename}`,
       caption: req.body.caption,
     };
 
     newMessageObj.video = {
-      file: req.file.filename,
+      file: req.files[0].filename,
       caption: req.body.caption,
     };
   }
@@ -355,11 +357,11 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'audio') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.audio = {
-      link: `${productionLink}/${req.file.filename}`,
+      link: `${productionLink}/${req.files[0].filename}`,
     };
 
     newMessageObj.audio = {
-      file: req.file.filename,
+      file: req.files[0].filename,
       voice: false,
     };
   }
@@ -368,40 +370,50 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'document') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.document = {
-      link: `${productionLink}/${req.file.filename}`,
-      filename: req.file.originalname,
+      link: `${productionLink}/${req.files[0].filename}`,
+      filename: req.files[0].originalname,
       caption: req.body.caption,
     };
 
     newMessageObj.document = {
-      file: req.file.filename,
-      filename: req.file.originalname,
+      file: req.files[0].filename,
+      filename: req.files[0].originalname,
       caption: req.body.caption,
     };
   }
   // console.log('whatsappPayload', whatsappPayload);
 
-  let response;
-  try {
-    response = await axios.request({
-      method: 'post',
-      maxBodyLength: Infinity,
-      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      },
-      data: JSON.stringify(whatsappPayload),
-    });
-  } catch (err) {
-    console.log('err', err);
-  }
+  let newMessage;
+  if (req.body.type === 'image') {
+    const newMessages = await sendMultiMediaHandler(
+      req,
+      whatsappPayload,
+      newMessageObj
+    );
+    newMessage = newMessages[newMessages.length - 1];
+  } else {
+    let response;
+    try {
+      response = await axios.request({
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        },
+        data: JSON.stringify(whatsappPayload),
+      });
+    } catch (err) {
+      console.log('err', err);
+    }
 
-  // console.log('response.data----------------', JSON.stringify(response.data));
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: response.data.messages[0].id,
-  });
+    // console.log('response.data----------------', JSON.stringify(response.data));
+    newMessage = await Message.create({
+      ...newMessageObj,
+      whatsappID: response.data.messages[0].id,
+    });
+  }
 
   // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
@@ -425,6 +437,351 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+// exports.sendMessage = catchAsync(async (req, res, next) => {
+//   // console.log('req.body', req.body);
+//   // console.log('req.files', req.files);
+
+//   if (!req.body.type) {
+//     return next(new AppError('Message type is required!', 400));
+//   }
+
+//   if (!req.params.chatNumber) {
+//     return next(new AppError('Chat number is required!', 400));
+//   }
+
+//   // selecting chat that the message belongs to
+//   const chat = await Chat.findOne({ client: req.params.chatNumber });
+
+//   let newChat;
+//   if (!chat) {
+//     const userTeam = await Team.findById(req.user.team);
+//     if (!userTeam) {
+//       return next(
+//         new AppError(
+//           'the user sending the messages must belong to an existing team!',
+//           400
+//         )
+//       );
+//     }
+//     newChat = await Chat.create({
+//       client: req.params.chatNumber,
+//       currentUser: req.user._id,
+//       users: [req.user._id],
+//       team: req.user.team,
+//     });
+//   }
+
+//   const selectedChat = chat || newChat;
+
+//   const session = await Session.findById(selectedChat.lastSession);
+
+//   let newSession;
+//   if (!session) {
+//     newSession = await Session.create({
+//       chat: selectedChat._id,
+//       user: req.user._id,
+//       team: req.user.team,
+//       status: 'onTime',
+//     });
+
+//     selectedChat.lastSession = newSession._id;
+//     selectedChat.currentUser = req.user._id;
+//     selectedChat.team = req.user.team;
+//     await selectedChat.save();
+//   }
+//   const selectedSession = session || newSession;
+
+//   // checking if the user is the chat current user
+//   if (!selectedChat.currentUser.equals(req.user._id)) {
+//     return next(
+//       new AppError("You don't have permission to perform this action!", 403)
+//     );
+//   }
+
+//   // updating chat notification to false
+//   selectedChat.notification = false;
+//   await selectedChat.save();
+
+//   // updating user chats
+//   if (!req.user.chats.includes(selectedChat._id)) {
+//     await User.findByIdAndUpdate(
+//       req.user._id,
+//       { $push: { chats: selectedChat._id } },
+//       { new: true, runValidators: true }
+//     );
+//   }
+
+//   // Handling whatsapp session (24hours from the last message the client send)
+//   if (!selectedChat.session) {
+//     return next(
+//       new AppError(
+//         'You can only send template message until the end user reply!',
+//         400
+//       )
+//     );
+//   }
+
+//   const availableSession = Math.ceil(
+//     (new Date() - selectedChat.session) / (1000 * 60)
+//   );
+
+//   if (availableSession >= 24 * 60) {
+//     return next(
+//       new AppError(
+//         'Your session is expired, You can only send template message until the end user reply!',
+//         400
+//       )
+//     );
+//   }
+//   // console.log('availableSession', availableSession);
+
+//   const newMessageObj = {
+//     user: req.user._id,
+//     chat: selectedChat._id,
+//     session: selectedSession._id,
+//     from: process.env.WHATSAPP_PHONE_NUMBER,
+//     type: req.body.type,
+//   };
+
+//   const whatsappPayload = {
+//     messaging_product: 'whatsapp',
+//     to: selectedChat.client,
+//     type: req.body.type,
+//   };
+
+//   // Message Reply
+//   if (req.body.replyMessage) {
+//     const replyMessage = await Message.findById(req.body.replyMessage);
+//     if (!replyMessage) {
+//       return next(new AppError('There is no message to reply!.', 404));
+//     }
+
+//     whatsappPayload.context = {
+//       message_id: replyMessage.whatsappID,
+//     };
+
+//     newMessageObj.reply = req.body.replyMessage;
+//   }
+
+//   // Template Message
+//   if (req.body.type === 'template') {
+//     return next(
+//       new AppError('this end point not for sending template message!', 400)
+//     );
+//   }
+
+//   // Text Message
+//   if (req.body.type === 'text') {
+//     whatsappPayload.recipient_type = 'individual';
+//     whatsappPayload.text = {
+//       preview_url: false,
+//       body: req.body.text,
+//     };
+
+//     newMessageObj.text = req.body.text;
+//   }
+
+//   // Contacts Message
+//   if (req.body.type === 'contacts') {
+//     // To get the list of contacts
+//     // https://rd0.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
+//     if (!req.body.contacts || req.body.contacts.length === 0) {
+//       return next(new AppError('Contacts are required!', 400));
+//     }
+//     const contacts = req.body.contacts.map((contact) => {
+//       if (!contact.name) {
+//         return next(new AppError('contact name is required!', 400));
+//       }
+//       if (!contact.phones || contact.phones.length === 0) {
+//         return next(new AppError('contact phone is required!', 400));
+//       }
+
+//       return {
+//         name: { formatted_name: contact.name, first_name: contact.name },
+//         phones: contact.phones.map((item) => ({
+//           phone: item,
+//           wa_id: item,
+//           type: 'WORK',
+//         })),
+//         emails: contact.emails?.map((item) => ({ email: item, type: 'WORK' })),
+//         org: contact.org,
+//       };
+//     });
+
+//     // console.log('contacts===========', contacts, contacts[0].phones);
+//     whatsappPayload.contacts = contacts;
+//     newMessageObj.contacts = contacts.map((contact) => ({
+//       ...contact,
+//       name: contact.name.formatted_name,
+//     }));
+//   }
+
+//   // Image Message
+//   if (req.body.type === 'image') {
+//     if (!req.file) {
+//       return next(new AppError('No image found!', 404));
+//     }
+//     whatsappPayload.recipient_type = 'individual';
+//     whatsappPayload.image = {
+//       link: `${productionLink}/${req.file.filename}`,
+//       caption: req.body.caption,
+//     };
+
+//     newMessageObj.image = {
+//       file: req.file.filename,
+//       caption: req.body.caption,
+//     };
+//   }
+
+//   // Video Message
+//   if (req.body.type === 'video') {
+//     whatsappPayload.recipient_type = 'individual';
+//     whatsappPayload.video = {
+//       link: `${productionLink}/${req.file.filename}`,
+//       caption: req.body.caption,
+//     };
+
+//     newMessageObj.video = {
+//       file: req.file.filename,
+//       caption: req.body.caption,
+//     };
+//   }
+
+//   // Audio Message
+//   if (req.body.type === 'audio') {
+//     whatsappPayload.recipient_type = 'individual';
+//     whatsappPayload.audio = {
+//       link: `${productionLink}/${req.file.filename}`,
+//     };
+
+//     newMessageObj.audio = {
+//       file: req.file.filename,
+//       voice: false,
+//     };
+//   }
+
+//   // Document Message
+//   if (req.body.type === 'document') {
+//     whatsappPayload.recipient_type = 'individual';
+//     whatsappPayload.document = {
+//       link: `${productionLink}/${req.file.filename}`,
+//       filename: req.file.originalname,
+//       caption: req.body.caption,
+//     };
+
+//     newMessageObj.document = {
+//       file: req.file.filename,
+//       filename: req.file.originalname,
+//       caption: req.body.caption,
+//     };
+//   }
+//   // console.log('whatsappPayload', whatsappPayload);
+
+//   let response;
+//   try {
+//     response = await axios.request({
+//       method: 'post',
+//       maxBodyLength: Infinity,
+//       url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+//       },
+//       data: JSON.stringify(whatsappPayload),
+//     });
+//   } catch (err) {
+//     console.log('err', err);
+//   }
+
+//   // console.log('response.data----------------', JSON.stringify(response.data));
+//   const newMessage = await Message.create({
+//     ...newMessageObj,
+//     whatsappID: response.data.messages[0].id,
+//   });
+
+//   // Adding the sent message as last message in the chat and update chat status
+//   selectedChat.lastMessage = newMessage._id;
+//   selectedChat.status = 'open';
+//   await selectedChat.save();
+
+//   // Updating session to new status ((open))
+//   selectedSession.status = 'open';
+//   selectedSession.timer = undefined;
+//   selectedSession.lastUserMessage = newMessage._id;
+//   await selectedSession.save();
+
+//   //updating event in socket io
+//   req.app.io.emit('updating');
+
+//   res.status(201).json({
+//     status: 'success',
+//     // wahtsappResponse: response.data,
+//     data: {
+//       message: newMessage,
+//     },
+//   });
+// });
+
+const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
+  if (!req.files || req.files.length === 0) {
+    return next(new AppError('No file found!', 404));
+  }
+
+  let preparedMessages = req.files.map((file) => ({
+    file,
+    whatsappPayload,
+    newMessageObj,
+  }));
+
+  // Image Message
+  if (req.body.type === 'image') {
+    for (let i = 0; i < preparedMessages.length; i++) {
+      preparedMessages[i].whatsappPayload.recipient_type = 'individual';
+      preparedMessages[i].whatsappPayload.image = {
+        link: `${productionLink}/${preparedMessages[i].file.filename}`,
+        caption: req.body.caption,
+      };
+
+      preparedMessages[i].newMessageObj.image = {
+        file: preparedMessages[i].file.filename,
+        caption: req.body.caption,
+      };
+    }
+  }
+
+  const newMessages = await Promise.all(
+    preparedMessages.map(async (item) => {
+      let response;
+      try {
+        response = await axios.request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify(item.whatsappPayload),
+        });
+      } catch (err) {
+        console.log('err', err);
+      }
+
+      // console.log('response.data----------------', JSON.stringify(response.data));
+      const newMessage = await Message.create({
+        ...item.newMessageObj,
+        whatsappID: response.data.messages[0].id,
+      });
+
+      return newMessage;
+    })
+  );
+
+  console.log('preparedMessages ===========================', preparedMessages);
+  console.log('newMessages', newMessages);
+  return newMessages;
+};
 
 // exports.sendFailedMessage = catchAsync(async (req, res, next) => {
 //   const failedMessage = await Message.findById(req.params.messageID);
@@ -742,54 +1099,8 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       components: [],
     },
   };
-  // link: `${productionLink}/${req.file.filename}`,
-  // console.log(
-  //   '`${productionLink}/${req.file.filename}`',
-  //   `${productionLink}/${req.file.filename}`
-  // );
 
-  console.log('template.components =============', template);
-
-  // template.components.map((component) => {
-  //   console.log('component.example', component.example);
-  // });
-
-  // template.components.map((component) => {
-  //   if (component.example) {
-  //     if (component.type === 'HEADER') {
-  //       whatsappPayload.template.components.push({
-  //         type: component.type,
-  //         // parameters: parameters.map((el) => ({
-  //         //   type: component.format ? component.format.toLowerCase() : 'text',
-  //         //   text: req.body[`${el}`],
-  //         // })),
-  //         parameters: [
-  //           {
-  //             type: component.format.toLowerCase(),
-  //           },
-  //         ],
-  //       });
-  //     }
-  //     //////////////////////////////////////////
-
-  //     let parameters =
-  //       component.example[
-  //         `${component.type.toLowerCase()}_${
-  //           component.format ? component.format.toLowerCase() : 'text'
-  //         }`
-  //       ];
-  //     parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
-  //     // console.log('parameters', parameters);
-
-  //     whatsappPayload.template.components.push({
-  //       type: component.type,
-  //       parameters: parameters.map((el) => ({
-  //         type: component.format ? component.format.toLowerCase() : 'text',
-  //         text: req.body[`${el}`],
-  //       })),
-  //     });
-  //   }
-  // });
+  // console.log('template.components =============', template);
 
   template.components.map((component) => {
     if (component.example) {
@@ -808,10 +1119,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
             };
           }
         } else {
-          // parameters = [{ type: 'text' }];
-          // parameters[0].text = Array.isArray(component.example.header_text[0])
-          //   ? component.example.header_text[0]
-          //   : component.example.header_text;
           parameters = [];
           let parametersValues =
             component.example[`${component.type.toLowerCase()}_text`];
@@ -853,40 +1160,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         type: component.type.toLowerCase(),
         parameters: parameters,
       });
-
-      // whatsappPayload.template.components.push({
-      //   type: component.type,
-      //   parameters:
-      //     component.format === 'DOCUMENT'
-      //       ? [
-      //           {
-      //             type: 'document',
-      //             document: {
-      //               link: req.body.link,
-      //               filename: req.body.filename,
-      //             },
-      //           },
-      //         ]
-      //       : parameters.map((el) => {
-      //           let object = {
-      //             type: component.format
-      //               ? component.format.toLowerCase()
-      //               : 'text',
-      //           };
-      //           if (component.format) {
-      //             object[component.format.toLowerCase()] = {
-      //               link: req.body.link,
-      //             };
-      //           } else {
-      //             object.text = req.body[`${el}`];
-      //           }
-      //           // return {
-      //           //   type: component.format ? component.format.toLowerCase() : 'text',
-      //           //   text: req.body[`${el}`],
-      //           // };
-      //           return object;
-      //         }),
-      // });
     }
   });
 
@@ -966,7 +1239,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   });
 
   // console.log('whatsappPayload', whatsappPayload);
-  // whatsappPayload.template.components.map((com) => console.log('com', com));
 
   // Sending the template message to the client via whatsapp api
   let sendTemplateResponse;

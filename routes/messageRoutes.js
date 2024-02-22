@@ -10,7 +10,8 @@ router
   .get(authController.protect, messageController.getAllChatMessages)
   .post(
     authController.protect,
-    messageController.uploadMessageImage,
+    messageController.uploadMultiFiles,
+    // messageController.uploadMessageImage,
     messageController.sendMessage
   );
 
