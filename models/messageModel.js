@@ -104,7 +104,7 @@ const messageSchema = new mongoose.Schema(
           },
           format: {
             type: String,
-            enum: ['TEXT', 'DOCUMENT'],
+            enum: ['TEXT', 'DOCUMENT', 'IMAGE', 'VIDEO'],
             required: function () {
               if (this.type === 'template') {
                 this.template.components.map((comp) => {
@@ -128,6 +128,9 @@ const messageSchema = new mongoose.Schema(
           document: {
             link: { type: String },
             filename: { type: String },
+          },
+          image: {
+            link: { type: String },
           },
           buttons: [
             {

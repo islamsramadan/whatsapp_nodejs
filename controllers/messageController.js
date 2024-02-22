@@ -886,62 +886,72 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
   //********************************************************************************* */
   // Preparing template for data base
-  // const newMessageObj = {
-  //   user: req.user.id,
-  //   chat: selectedChat.id,
-  //   session: selectedSession._id,
-  //   from: process.env.WHATSAPP_PHONE_NUMBER,
-  //   type: 'template',
-  //   template: {
-  //     name: templateName,
-  //     language: template.language,
-  //     category: template.category,
-  //     components: [],
-  //   },
-  // };
+  const newMessageObj = {
+    user: req.user.id,
+    chat: selectedChat.id,
+    session: selectedSession._id,
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: template.language,
+      category: template.category,
+      components: [],
+    },
+  };
 
-  // template.components.map((component) => {
-  //   const templateComponent = { type: component.type };
+  template.components.map((component) => {
+    const templateComponent = { type: component.type };
 
-  //   if (component.type === 'HEADER') {
-  //     templateComponent.format = component.format;
-  //     templateComponent[`${component.format.toLowerCase()}`] =
-  //       component[`${component.format.toLowerCase()}`];
-  //     if (component.example) {
-  //       const headerParameters = whatsappPayload.template.components.filter(
-  //         (comp) => comp.type === 'HEADER'
-  //       )[0].parameters;
-  //       // console.log('headerParameters', headerParameters);
-  //       for (let i = 0; i < headerParameters.length; i++) {
-  //         templateComponent[`${component.format.toLowerCase()}`] =
-  //           templateComponent[`${component.format.toLowerCase()}`].replace(
-  //             `{{${i + 1}}}`,
-  //             headerParameters[i][`${component.format.toLowerCase()}`]
-  //           );
-  //       }
-  //     }
-  //   } else if (component.type === 'BODY') {
-  //     templateComponent.text = component.text;
-  //     if (component.example) {
-  //       const bodyParameters = whatsappPayload.template.components.filter(
-  //         (comp) => comp.type === 'BODY'
-  //       )[0].parameters;
-  //       // console.log('bodyParameters', bodyParameters);
-  //       for (let i = 0; i < bodyParameters.length; i++) {
-  //         templateComponent.text = templateComponent.text.replace(
-  //           `{{${i + 1}}}`,
-  //           bodyParameters[i].text
-  //         );
-  //       }
-  //     }
-  //   } else if (component.type === 'BUTTONS') {
-  //     templateComponent.buttons = component.buttons;
-  //   } else {
-  //     templateComponent.text = component.text;
-  //   }
+    if (component.type === 'HEADER') {
+      templateComponent.format = component.format;
 
-  //   newMessageObj.template.components.push(templateComponent);
-  // });
+      if (component.example) {
+        const headerParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'HEADER'
+        )[0].parameters;
+        // console.log('headerParameters', headerParameters);
+
+        if (component.format === 'TEXT') {
+          templateComponent.text = component.text;
+
+          for (let i = 0; i < headerParameters.length; i++) {
+            templateComponent.text = templateComponent.text.replace(
+              `{{${i + 1}}}`,
+              headerParameters[i].text
+            );
+          }
+        } else {
+          templateComponent[`${component.format.toLowerCase()}`] = {
+            link: req.file.filename,
+          };
+        }
+      } else {
+        templateComponent[`${component.format.toLowerCase()}`] =
+          component[`${component.format.toLowerCase()}`];
+      }
+    } else if (component.type === 'BODY') {
+      templateComponent.text = component.text;
+      if (component.example) {
+        const bodyParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'BODY'
+        )[0].parameters;
+        // console.log('bodyParameters', bodyParameters);
+        for (let i = 0; i < bodyParameters.length; i++) {
+          templateComponent.text = templateComponent.text.replace(
+            `{{${i + 1}}}`,
+            bodyParameters[i].text
+          );
+        }
+      }
+    } else if (component.type === 'BUTTONS') {
+      templateComponent.buttons = component.buttons;
+    } else {
+      templateComponent.text = component.text;
+    }
+
+    newMessageObj.template.components.push(templateComponent);
+  });
 
   // console.log('whatsappPayload', whatsappPayload);
   // whatsappPayload.template.components.map((com) => console.log('com', com));
@@ -972,26 +982,26 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     );
   }
 
-  // // Adding the template message to database
-  // const newMessage = await Message.create({
-  //   ...newMessageObj,
-  //   whatsappID: sendTemplateResponse.data.messages[0].id,
-  // });
+  // Adding the template message to database
+  const newMessage = await Message.create({
+    ...newMessageObj,
+    whatsappID: sendTemplateResponse.data.messages[0].id,
+  });
 
-  // //********************************************************************************* */
-  // // Adding the sent message as last message in the chat and update chat status
-  // selectedChat.lastMessage = newMessage._id;
-  // selectedChat.status = 'open';
-  // await selectedChat.save();
+  //********************************************************************************* */
+  // Adding the sent message as last message in the chat and update chat status
+  selectedChat.lastMessage = newMessage._id;
+  selectedChat.status = 'open';
+  await selectedChat.save();
 
-  // // Updating session to new status ((open))
-  // selectedSession.status = 'open';
-  // selectedSession.timer = undefined;
-  // selectedSession.lastUserMessage = newMessage._id;
-  // await selectedSession.save();
+  // Updating session to new status ((open))
+  selectedSession.status = 'open';
+  selectedSession.timer = undefined;
+  selectedSession.lastUserMessage = newMessage._id;
+  await selectedSession.save();
 
-  // //updating event in socket io
-  // req.app.io.emit('updating');
+  //updating event in socket io
+  req.app.io.emit('updating');
 
   res.status(201).json({
     status: 'success',
@@ -999,7 +1009,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       template,
       whatsappPayload,
       wahtsappResponse: sendTemplateResponse?.data,
-      // message: newMessage,
+      message: newMessage,
     },
   });
 });
