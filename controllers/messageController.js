@@ -801,6 +801,12 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
           parameters[0][component.format.toLowerCase()] = {
             link: `${productionLink}/${req.file.filename}`,
           };
+          if (component.format === 'DOCUMENT') {
+            parameters[0].document = {
+              link: `${productionLink}/${req.file.filename}`,
+              filename: req.file.originalname,
+            };
+          }
         } else {
           // parameters = [{ type: 'text' }];
           // parameters[0].text = Array.isArray(component.example.header_text[0])
@@ -925,6 +931,12 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
           templateComponent[`${component.format.toLowerCase()}`] = {
             link: req.file.filename,
           };
+          if (component.format === 'DOCUMENT') {
+            templateComponent.document = {
+              link: req.file.filename,
+              filename: req.file.originalname,
+            };
+          }
         }
       } else {
         templateComponent[`${component.format.toLowerCase()}`] =
