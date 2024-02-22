@@ -736,19 +736,49 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
 
   // Image Message
   if (req.body.type === 'image') {
-    for (let i = 0; i < preparedMessages.length; i++) {
-      preparedMessages[i].whatsappPayload.recipient_type = 'individual';
-      preparedMessages[i].whatsappPayload.image = {
-        link: `${productionLink}/${preparedMessages[i].file.filename}`,
-        caption: req.body.caption,
-      };
+    // for (let i = 0; i < preparedMessages.length; i++) {
+    //   preparedMessages[i].whatsappPayload.recipient_type = 'individual';
+    //   preparedMessages[i].whatsappPayload.image = {
+    //     link: `${productionLink}/${preparedMessages[i].file.filename}------${i}`,
+    //     caption: req.body.caption,
+    //   };
 
-      preparedMessages[i].newMessageObj.image = {
-        file: preparedMessages[i].file.filename,
-        caption: req.body.caption,
-      };
-    }
+    //   console.log(
+    //     'file.filename =========== ' + i,
+    //     preparedMessages[i].whatsappPayload.image
+    //   );
+
+    //   preparedMessages[i].newMessageObj.image = {
+    //     file: preparedMessages[i].file.filename,
+    //     caption: req.body.caption,
+    //   };
+    // }
+
+    preparedMessages = preparedMessages.map((item, i) => ({
+      ...item,
+      whatsappPayload: {
+        ...item.whatsappPayload,
+        recipient_type: 'individual',
+        image: {
+          link: `${productionLink}/${item.file.filename}`,
+          caption: req.body.caption,
+        },
+      },
+      newMessageObj: {
+        ...newMessageObj,
+        image: {
+          file: item.file.filename,
+          caption: req.body.caption,
+        },
+      },
+    }));
   }
+
+  preparedMessages.map((el) => {
+    console.log('el.whatsappPayload', el.whatsappPayload);
+    console.log('el.newMessageObj', el.newMessageObj);
+    console.log('el.file', el.file);
+  });
 
   const newMessages = await Promise.all(
     preparedMessages.map(async (item) => {
