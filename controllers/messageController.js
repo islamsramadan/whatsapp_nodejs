@@ -42,7 +42,7 @@ const convertDate = (timestamp) => {
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    console.log('file==============', file);
+    // console.log('file==============', file);
     // cb(
     //   null,
     //   file.mimetype.split('/')[0] === 'image'
@@ -63,7 +63,12 @@ const multerStorage = multer.diskStorage({
         ? file.mimetype.split('/')[1]
         : file.originalname.split('.')[file.originalname.split('.').length - 1];
 
-    cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
+    cb(
+      null,
+      `user-${req.user.id}-${Date.now()}-${Math.floor(
+        Math.random() * 1000
+      )}.${ext}`
+    );
   },
 });
 
@@ -774,11 +779,11 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
     }));
   }
 
-  preparedMessages.map((el) => {
-    console.log('el.whatsappPayload', el.whatsappPayload);
-    console.log('el.newMessageObj', el.newMessageObj);
-    console.log('el.file', el.file);
-  });
+  // preparedMessages.map((el) => {
+  //   console.log('el.whatsappPayload', el.whatsappPayload);
+  //   console.log('el.newMessageObj', el.newMessageObj);
+  //   console.log('el.file', el.file);
+  // });
 
   const newMessages = await Promise.all(
     preparedMessages.map(async (item) => {
@@ -808,8 +813,8 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
     })
   );
 
-  console.log('preparedMessages ===========================', preparedMessages);
-  console.log('newMessages', newMessages);
+  // console.log('preparedMessages ===========================', preparedMessages);
+  // console.log('newMessages', newMessages);
   return newMessages;
 };
 
