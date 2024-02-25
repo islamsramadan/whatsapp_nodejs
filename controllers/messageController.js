@@ -372,24 +372,24 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   }
 
   // Document Message
-  if (req.body.type === 'document') {
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.document = {
-      link: `${productionLink}/${req.files[0].filename}`,
-      filename: req.files[0].originalname,
-      caption: req.body.caption,
-    };
+  // if (req.body.type === 'document') {
+  //   whatsappPayload.recipient_type = 'individual';
+  //   whatsappPayload.document = {
+  //     link: `${productionLink}/${req.files[0].filename}`,
+  //     filename: req.files[0].originalname,
+  //     caption: req.body.caption,
+  //   };
 
-    newMessageObj.document = {
-      file: req.files[0].filename,
-      filename: req.files[0].originalname,
-      caption: req.body.caption,
-    };
-  }
+  //   newMessageObj.document = {
+  //     file: req.files[0].filename,
+  //     filename: req.files[0].originalname,
+  //     caption: req.body.caption,
+  //   };
+  // }
   // console.log('whatsappPayload', whatsappPayload);
 
   let newMessage;
-  if (req.body.type === 'image') {
+  if (req.body.type === 'image' || req.body.type === 'document') {
     const newMessages = await sendMultiMediaHandler(
       req,
       whatsappPayload,
@@ -773,6 +773,29 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
         ...newMessageObj,
         image: {
           file: item.file.filename,
+          caption: req.body.caption,
+        },
+      },
+    }));
+  }
+
+  if (req.body.type === 'document') {
+    preparedMessages = preparedMessages.map((item, i) => ({
+      ...item,
+      whatsappPayload: {
+        ...item.whatsappPayload,
+        recipient_type: 'individual',
+        document: {
+          link: `${productionLink}/${item.file.filename}`,
+          filename: item.file.originalname,
+          caption: req.body.caption,
+        },
+      },
+      newMessageObj: {
+        ...newMessageObj,
+        document: {
+          file: item.file.filename,
+          filename: item.file.originalname,
           caption: req.body.caption,
         },
       },
