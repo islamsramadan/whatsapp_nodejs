@@ -327,7 +327,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }));
   }
 
-  // // Image Message
+  // // Image Message ===========> changed for multi files
   // if (req.body.type === 'image') {
   //   if (!req.file) {
   //     return next(new AppError('No image found!', 404));
@@ -371,7 +371,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     };
   }
 
-  // Document Message
+  // Document Message =============> changed for multi files
   // if (req.body.type === 'document') {
   //   whatsappPayload.recipient_type = 'individual';
   //   whatsappPayload.document = {
