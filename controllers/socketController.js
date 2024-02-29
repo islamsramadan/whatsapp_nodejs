@@ -211,12 +211,46 @@ exports.getAllTeamUserChats = async (teamUserID) => {
   return chats;
 };
 
-exports.getAllArchivedChats = async () => {
-  const chats = await Chat.find({ status: 'archived' })
-    .sort('-updatedAt')
-    .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+exports.getAllArchivedChats = async (userID, startDate, endDate) => {
+  let chats;
+
+  if (userID) {
+    const sessionFilterObj = {
+      status: 'finished',
+      end: { $exists: true },
+      user: userID,
+    };
+
+    if (startDate) sessionFilterObj.end = { $gt: new Date(startDate) };
+    if (endDate)
+      sessionFilterObj.end = {
+        ...sessionFilterObj.end,
+        $lt: new Date(endDate),
+      };
+
+    const sessions = await Session.find(sessionFilterObj);
+    const chatsIDs = sessions.map((session) => session.chat);
+    chats = await Chat.find({ _id: { $in: chatsIDs } })
+      .sort('-updatedAt')
+      .populate('lastMessage')
+      .populate('lastSession', 'status')
+      .populate('contactName', 'name');
+  } else {
+    const chatFilterObj = { status: 'archived' };
+
+    if (startDate) chatFilterObj.updatedAt = { $gt: new Date(startDate) };
+    if (endDate)
+      chatFilterObj.updatedAt = {
+        ...chatFilterObj.updatedAt,
+        $lt: new Date(endDate),
+      };
+
+    chats = await Chat.find(chatFilterObj)
+      .sort('-updatedAt')
+      .populate('lastMessage')
+      .populate('lastSession', 'status')
+      .populate('contactName', 'name');
+  }
 
   return chats;
 };
