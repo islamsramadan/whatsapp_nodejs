@@ -97,7 +97,7 @@ const sendMessageHandler = async (
   // Updating session to new status ((open))
   session.status = 'open';
   session.timer = undefined;
-  if (session.type === 'bot') session.lastBotMessage = newMessage._id;
+  // if (session.type === 'bot') session.lastBotMessage = newMessage._id;
   await session.save();
 
   //updating event in socket io
@@ -129,6 +129,7 @@ const updateTask = (
     if (
       session.botTimer &&
       session.status === 'open' &&
+      chat.lastSession.equals(sessionID) &&
       ((session.botTimer.getTime() === timer.getTime() &&
         status === 'tooLate') ||
         (new Date(
@@ -136,11 +137,11 @@ const updateTask = (
         ).getTime() === timer.getTime() &&
           status === 'danger'))
     ) {
-      // console.log('status again', status);
-      //   session.status = status;
-      //   await session.save();
-
-      if (status === 'danger' && session.reminder === true) {
+      if (
+        status === 'danger' &&
+        session.reminder === true &&
+        session.lastBotMessage.equals(chat.lastMessage) // the last message must be from chatbot
+      ) {
         // console.log('danger ====================');
 
         //========> Remove session reminder
@@ -167,24 +168,32 @@ const updateTask = (
       if (status === 'tooLate') {
         // console.log('tooLate ====================');
 
-        // Add end date to the session and remove it from chat
-        session.end = Date.now();
-        session.status = 'finished';
-        await session.save();
+        const lastReminderMessage = await Message.findById(chat.lastMessage);
 
-        // Updating chat
-        chat.currentUser = undefined;
-        chat.team = undefined;
-        chat.status = 'archived';
-        chat.lastSession = undefined;
-        await chat.save();
+        if (
+          lastReminderMessage.type === 'text' &&
+          lastReminderMessage.text === 'ستنتهي المحادثة قريبًا. يرجى الاستمرار.'
+          // to make sure the last message is the reminder one
+        ) {
+          // Add end date to the session and remove it from chat
+          session.end = Date.now();
+          session.status = 'finished';
+          await session.save();
 
-        // Removing chat from bot user chats
-        await User.findByIdAndUpdate(
-          session.user,
-          { $pull: { chats: chat._id } },
-          { new: true, runValidators: true }
-        );
+          // Updating chat
+          chat.currentUser = undefined;
+          chat.team = undefined;
+          chat.status = 'archived';
+          chat.lastSession = undefined;
+          await chat.save();
+
+          // Removing chat from bot user chats
+          await User.findByIdAndUpdate(
+            session.user,
+            { $pull: { chats: chat._id } },
+            { new: true, runValidators: true }
+          );
+        }
       }
 
       //updating event in socket io

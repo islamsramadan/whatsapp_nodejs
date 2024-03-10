@@ -54,6 +54,11 @@ const chatSchema = new mongoose.Schema(
     session: {
       type: Date,
     },
+
+    responseType: {
+      type: String,
+      // default: 'welcome',
+    },
   },
   { timestamps: true }
 );

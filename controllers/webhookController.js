@@ -225,72 +225,7 @@ const receiveMessageHandler = async (req, res, next) => {
   const contactName =
     req.body.entry[0].changes[0].value.contacts[0].profile.name;
 
-  const chat = await Chat.findOne({ client: from });
-  // console.log('chat', chat);
-
-  let newChat;
-  if (!chat) {
-    const botTeam = await Team.findOne({ bot: true });
-
-    newChat = await Chat.create({
-      client: from,
-      team: botTeam._id,
-      currentUser: botTeam.supervisor,
-    });
-  }
-
-  const selectedChat = chat || newChat;
-  const session = await Session.findById(selectedChat.lastSession);
-
-  const newMessageChecker = async (selectedMessage) => {
-    const messagesWithSameID = await Message.find({
-      whatsappID: selectedMessage.id,
-    });
-    if (messagesWithSameID.length === 0) {
-      return true;
-    } else {
-      return false;
-    }
-  };
-
-  const newMessageNotRepeated = await newMessageChecker(selectedMessage);
-  // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
-
-  if (!newMessageNotRepeated) {
-    return res.status(200).json({ message: 'Message not found!' });
-  } // to avoid create new session and make error
-
-  let newSession;
-  if (!session) {
-    const botTeam = await Team.findOne({ bot: true });
-
-    newSession = await Session.create({
-      chat: selectedChat._id,
-      user: botTeam.supervisor,
-      team: botTeam._id,
-      status: 'onTime',
-      type: 'bot',
-    });
-
-    // console.log('newSession 256 =============', newSession);
-
-    selectedChat.lastSession = newSession._id;
-    selectedChat.team = botTeam._id;
-    selectedChat.currentUser = botTeam.supervisor;
-    await selectedChat.save();
-
-    // =======> Adding the selected chat to the bot user chats
-    const botUser = await User.findById(botTeam.supervisor);
-    if (!botUser.chats.includes(selectedChat._id)) {
-      await User.findByIdAndUpdate(
-        botUser._id,
-        { $push: { chats: selectedChat._id } },
-        { new: true, runValidators: true }
-      );
-    }
-  }
-  const selectedSession = session || newSession;
-
+  // ===============> For only reaction messages
   if (msgType === 'reaction') {
     const reactionEmoji =
       req.body.entry[0].changes[0].value.messages[0].reaction?.emoji;
@@ -315,9 +250,103 @@ const receiveMessageHandler = async (req, res, next) => {
     req.app.io.emit('updating');
 
     res.status(200).json({ reactedMessage });
-
-    // other messages types
   } else {
+    // ===============> For other messages types
+    const chat = await Chat.findOne({ client: from });
+    // console.log('chat', chat);
+
+    let newChat;
+    if (!chat) {
+      const botTeam = await Team.findOne({ bot: true });
+
+      newChat = await Chat.create({
+        client: from,
+        team: botTeam._id,
+        currentUser: botTeam.supervisor,
+      });
+    }
+
+    const selectedChat = chat || newChat;
+    const session = await Session.findById(selectedChat.lastSession);
+
+    const newMessageChecker = async (selectedMessage) => {
+      const messagesWithSameID = await Message.find({
+        whatsappID: selectedMessage.id,
+      });
+      if (messagesWithSameID.length === 0) {
+        return true;
+      } else {
+        return false;
+      }
+    };
+
+    const newMessageNotRepeated = await newMessageChecker(selectedMessage);
+    // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
+
+    if (!newMessageNotRepeated) {
+      return res.status(200).json({ message: 'Message not found!' });
+    } // to avoid create new session and make error
+
+    let newSession;
+    if (!session) {
+      const botTeam = await Team.findOne({ bot: true });
+
+      newSession = await Session.create({
+        chat: selectedChat._id,
+        user: botTeam.supervisor,
+        team: botTeam._id,
+        status: 'onTime',
+        type: 'bot',
+      });
+
+      // console.log('newSession 256 =============', newSession);
+
+      selectedChat.lastSession = newSession._id;
+      selectedChat.team = botTeam._id;
+      selectedChat.currentUser = botTeam.supervisor;
+      selectedChat.responseType = 'welcome';
+      await selectedChat.save();
+
+      // =======> Adding the selected chat to the bot user chats
+      const botUser = await User.findById(botTeam.supervisor);
+      if (!botUser.chats.includes(selectedChat._id)) {
+        await User.findByIdAndUpdate(
+          botUser._id,
+          { $push: { chats: selectedChat._id } },
+          { new: true, runValidators: true }
+        );
+      }
+    }
+    const selectedSession = session || newSession;
+
+    // if (msgType === 'reaction') {
+    //   const reactionEmoji =
+    //     req.body.entry[0].changes[0].value.messages[0].reaction?.emoji;
+    //   const reactionTime =
+    //     req.body.entry[0].changes[0].value.messages[0].timestamp;
+
+    //   const reactedMessage = await Message.findOne({
+    //     whatsappID: selectedMessage.reaction.message_id,
+    //   });
+
+    //   if (reactionEmoji) {
+    //     reactedMessage.clientReaction = {
+    //       emoji: reactionEmoji,
+    //       time: convertDate(reactionTime),
+    //     };
+    //   } else {
+    //     reactedMessage.clientReaction = undefined;
+    //   }
+    //   await reactedMessage.save();
+
+    //   //updating event in socket io
+    //   req.app.io.emit('updating');
+
+    //   res.status(200).json({ reactedMessage });
+
+    //   // other messages types
+    // } else {
+
     const newMessageData = {
       chat: selectedChat._id,
       session: selectedSession._id,
@@ -415,6 +444,9 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedSession.performance.onTime += 1;
     await selectedSession.save();
 
+    //for testing error message
+    const lastMessageError = await Message.findById(selectedChat.lastMessage);
+
     // ================> updating chat
     // Adding the received message as last message in the chat
     selectedChat.lastMessage = newMessage._id;
@@ -478,8 +510,7 @@ const receiveMessageHandler = async (req, res, next) => {
     await sessionTimerUpdate.schedulePerformance(
       req,
       newMessage,
-      //from config.env
-      responseDangerTime
+      responseDangerTime //from config.env
     );
 
     // *************************************************************************
@@ -497,7 +528,8 @@ const receiveMessageHandler = async (req, res, next) => {
         selectedChat,
         selectedSession,
         session,
-        msgType
+        msgType,
+        lastMessageError
       );
     }
 
@@ -875,21 +907,41 @@ const chatBotHandler = async (
   selectedChat,
   selectedSession,
   session,
-  msgType
+  msgType,
+  lastMessageError
 ) => {
   // ******************* All cases if it is a bot session **************
 
   // ******************* Startng chat bot **************
   if (!session) {
-    const interactiveObj = interactiveMessages.filter(
-      (message) => message.id === 'CPV'
-    )[0]; // from test data
-    const interactive = { ...interactiveObj };
-    delete interactive.id;
+    console.log('selectedChat ======= 911', selectedChat);
 
-    const msgToBeSent = { type: 'interactive', interactive };
+    const welcomeSession =
+      selectedChat.responseType === 'welcome' ? true : false;
 
-    await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+    selectedChat.responseType = undefined;
+    await selectedChat.save();
+
+    const lastMessage = await Message.findById(selectedChat.lastMessage);
+    console.log(
+      'lastMessage.from === process.env.WHATSAPP_PHONE_NUMBER',
+      lastMessage.from,
+      process.env.WHATSAPP_PHONE_NUMBER
+    );
+    // console.log('lastMessage', lastMessage);
+    console.log('selectedChat  ========== 923', selectedChat);
+
+    if (welcomeSession) {
+      const interactiveObj = interactiveMessages.filter(
+        (message) => message.id === 'CPV'
+      )[0]; // from test data
+      const interactive = { ...interactiveObj };
+      delete interactive.id;
+
+      const msgToBeSent = { type: 'interactive', interactive };
+
+      await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+    }
   } else if (selectedSession.refRequired) {
     // ************* Checking interactive reply message type **************
     if (msgType === 'text') {
@@ -1314,6 +1366,9 @@ const chatBotHandler = async (
       selectedSession.refRequired = false;
       selectedSession.referenceNo = undefined;
       await selectedSession.save();
+
+      console.log('selectedChat.lastMessage', selectedChat.lastMessage);
+      console.log('lastMessageError', lastMessageError);
 
       //===========> Sending error text message
       const textErrorMsg = {
