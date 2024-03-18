@@ -106,14 +106,19 @@ io.on('connection', async (socket) => {
         chats,
         session,
         chatStatus,
+        totalPages,
+        totalResults,
         messages,
         contactName,
         currentUser;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
-          data.chatNumber
+          data.chatNumber,
+          data.page
         );
+        totalPages = chatData.totalPages;
+        totalResults = chatData.totalResults;
         messages = chatData.messages;
         session = chatData.chatSession;
         chatStatus = chatData.chatStatus;
@@ -172,6 +177,8 @@ io.on('connection', async (socket) => {
         teamSessions,
         teamUsersSessions,
         chats,
+        totalPages,
+        totalResults,
         messages,
         session,
         chatStatus,

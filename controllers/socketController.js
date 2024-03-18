@@ -255,21 +255,39 @@ exports.getAllArchivedChats = async (userID, startDate, endDate) => {
   return chats;
 };
 
-exports.getAllChatMessages = async (chatNumber) => {
+exports.getAllChatMessages = async (chatNumber, chatPage) => {
   const chat = await Chat.findOne({ client: chatNumber }).populate(
     'contactName',
     'name'
   );
 
+  const page = chatPage || 1;
+
   const messages = await Message.find({ chat: chat._id })
-    .sort('createdAt')
+    .sort('-createdAt')
     .populate('user', 'firstName lastName photo')
-    .populate('reply');
+    .populate('reply')
+    .populate({
+      path: 'userReaction.user',
+      select: 'firstName lastName photo',
+    })
+    .limit(page * 20);
+
+  const totalResults = await Message.count({ chat: chat._id });
+  const totalPages = Math.ceil(totalResults / 20);
 
   const chatSession = chat.session;
   const chatStatus = chat.status;
   const contactName = chat.contactName;
   const currentUser = chat.currentUser;
 
-  return { messages, chatSession, chatStatus, contactName, currentUser };
+  return {
+    totalPages,
+    totalResults,
+    messages: messages.reverse(),
+    chatSession,
+    chatStatus,
+    contactName,
+    currentUser,
+  };
 };
