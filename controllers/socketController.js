@@ -211,8 +211,9 @@ exports.getAllTeamUserChats = async (teamUserID) => {
   return chats;
 };
 
-exports.getAllArchivedChats = async (userID, startDate, endDate) => {
-  let chats;
+exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
+  const page = chatPage || 1;
+  let chats, totalResults, totalPages;
 
   if (userID) {
     const sessionFilterObj = {
@@ -234,7 +235,11 @@ exports.getAllArchivedChats = async (userID, startDate, endDate) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status')
-      .populate('contactName', 'name');
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count({ _id: { $in: chatsIDs } });
+    totalPages = Math.ceil(totalResults / 10);
   } else {
     const chatFilterObj = { status: 'archived' };
 
@@ -249,10 +254,15 @@ exports.getAllArchivedChats = async (userID, startDate, endDate) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status')
-      .populate('contactName', 'name');
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count(chatFilterObj);
+    totalPages = Math.ceil(totalResults / 10);
   }
 
-  return chats;
+  // return chats;
+  return { totalResults, totalPages, chats };
 };
 
 exports.getAllChatMessages = async (chatNumber, chatPage) => {

@@ -146,7 +146,8 @@ io.on('connection', async (socket) => {
         chats = await socketController.getAllArchivedChats(
           data.userID,
           data.startDate,
-          data.endDate
+          data.endDate,
+          data.page
         );
       }
 
