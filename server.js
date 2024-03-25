@@ -143,12 +143,16 @@ io.on('connection', async (socket) => {
 
       // ==============> Archived Chats
       if (data.chatsType === 'archived') {
-        chats = await socketController.getAllArchivedChats(
+        archivedChatsData = await socketController.getAllArchivedChats(
           data.userID,
           data.startDate,
           data.endDate,
           data.page
         );
+
+        totalPages = archivedChatsData.totalPages;
+        totalResults = archivedChatsData.totalResults;
+        chats = archivedChatsData.chats;
       }
 
       // ==============> Team User Chats
