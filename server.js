@@ -110,7 +110,8 @@ io.on('connection', async (socket) => {
         totalResults,
         messages,
         contactName,
-        currentUser;
+        currentUser,
+        notification;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
@@ -124,6 +125,7 @@ io.on('connection', async (socket) => {
         chatStatus = chatData.chatStatus;
         contactName = chatData.contactName;
         currentUser = chatData.currentUser;
+        notification = chatData.notification;
       }
       if (data.chatsType === 'user') {
         chats = await socketController.getAllUserChats(
@@ -189,6 +191,7 @@ io.on('connection', async (socket) => {
         chatStatus,
         contactName,
         currentUser,
+        notification,
       });
     }
   });

@@ -123,18 +123,6 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     );
   }
 
-  // const messages = await Message.find({ chat: chat._id })
-  //   .sort('createdAt')
-  //   .populate({
-  //     path: 'user',
-  //     select: { firstName: 1, lastName: 1, photo: 1 },
-  //   })
-  //   .populate('reply')
-  //   .populate({
-  //     path: 'userReaction.user',
-  //     select: 'firstName lastName photo',
-  //   });
-
   const page = req.query.page * 1 || 1;
 
   const messages = await Message.find({ chat: chat._id })
@@ -164,7 +152,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       currentUser: chat.currentUser,
       chatStatus: chat.status,
       messages: messages.reverse(),
-      // messages,
+      notification: chat.notification,
     },
   });
 });

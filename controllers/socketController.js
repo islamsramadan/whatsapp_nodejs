@@ -290,6 +290,7 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
   const chatStatus = chat.status;
   const contactName = chat.contactName;
   const currentUser = chat.currentUser;
+  const notification = chat.notification;
 
   return {
     totalPages,
@@ -299,5 +300,6 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     chatStatus,
     contactName,
     currentUser,
+    notification,
   };
 };
