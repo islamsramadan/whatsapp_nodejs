@@ -304,7 +304,7 @@ const receiveMessageHandler = async (req, res, next) => {
       selectedChat.lastSession = newSession._id;
       selectedChat.team = botTeam._id;
       selectedChat.currentUser = botTeam.supervisor;
-      selectedChat.responseType = 'welcome';
+      selectedChat.responseType = 'welcome'; // for making sure that is a new session need welcome bot message
       await selectedChat.save();
 
       // =======> Adding the selected chat to the bot user chats
@@ -454,6 +454,7 @@ const receiveMessageHandler = async (req, res, next) => {
     selectedChat.notification = true;
     selectedChat.session = Date.now();
     selectedChat.status = 'open';
+    // if (session) selectedChat.responseType = 'normal'; // for making sure that is a normal message accepting reply error message
     if (contact) {
       selectedChat.contactName = contact;
     }
@@ -915,6 +916,7 @@ const chatBotHandler = async (
   // ******************* Startng chat bot **************
   if (!session) {
     console.log('selectedChat ======= 911', selectedChat);
+    console.log('selectedMessage ======= 912', selectedMessage);
 
     const welcomeSession =
       selectedChat.responseType === 'welcome' ? true : false;
@@ -929,7 +931,7 @@ const chatBotHandler = async (
       process.env.WHATSAPP_PHONE_NUMBER
     );
     // console.log('lastMessage', lastMessage);
-    console.log('selectedChat  ========== 923', selectedChat);
+    console.log('selectedChat  ========== 932', selectedChat);
 
     if (welcomeSession) {
       const interactiveObj = interactiveMessages.filter(
@@ -943,6 +945,9 @@ const chatBotHandler = async (
       await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
     }
   } else if (selectedSession.refRequired) {
+    // selectedChat.responseType === 'normal';
+    // await selectedChat.save();
+
     // ************* Checking interactive reply message type **************
     if (msgType === 'text') {
       const textWaitingMsg = {
@@ -1047,6 +1052,9 @@ const chatBotHandler = async (
       );
     }
   } else if (!selectedSession.refRequired) {
+    selectedChat.responseType = 'normal';
+    await selectedChat.save();
+
     // ************* Receiving interactive reply **************
     if (msgType === 'interactive') {
       const interactive =
@@ -1261,45 +1269,7 @@ const chatBotHandler = async (
           const selectedTeamConversation = await Conversation.findById(
             selectedTeam.conversation
           );
-          console.log('selectedTeamConversation', selectedTeamConversation);
 
-          // const insideOutsideServiceHours = (serviceHours) => {
-          //   const daysIDs = [
-          //     { id: 0, day: 'Sunday' },
-          //     { id: 1, day: 'Monday' },
-          //     { id: 2, day: 'Tuesday' },
-          //     { id: 3, day: 'Wednesday' },
-          //     { id: 4, day: 'Thursday' },
-          //     { id: 5, day: 'Friday' },
-          //     { id: 6, day: 'Saturday' },
-          //   ];
-          //   const date = new Date();
-          //   console.log('date.getDay()', date.getDay());
-          //   const day = daysIDs.filter(
-          //     (dayObj) => dayObj.id === date.getDay()
-          //   )[0].day;
-          //   const hour = date.getHours();
-          //   const min = date.getMinutes();
-          //   console.log('day =========', day);
-          //   console.log('hour =========', hour);
-          //   console.log('min =========', min);
-
-          //   const selectedDay = serviceHours.durations.filter(
-          //     (item) => item.day === day
-          //   );
-
-          //   console.log('selectedDay ==========', selectedDay);
-          //   if (selectedDay.length === 0) {
-          //     return false;
-          //   } else {
-          //   }
-          // };
-
-          // insideOutsideServiceHours(selectedTeamServiceHours);
-          console.log(
-            'checkInsideServiceHours()',
-            checkInsideServiceHours(selectedTeamServiceHours.durations)
-          );
           const msgText = checkInsideServiceHours(
             selectedTeamServiceHours.durations
           )
@@ -1363,42 +1333,68 @@ const chatBotHandler = async (
       }
     } else {
       // ******** Checking for interactive reply
+
+      console.log('selectedChat ============== 1331', selectedChat);
+      const errorSession =
+        selectedChat.responseType === 'normal' ? true : false;
+      // selectedChat.responseType = 'error';
+
+      // if (errorSession) {
+      //   selectedChat.responseType = 'error';
+      // } else {
+      //   selectedChat.responseType = 'normal';
+      // }
+      // await selectedChat.save();
+      // console.log('selectedChat ============== 1341', selectedChat);
+      console.log('errorSession', errorSession);
+
       selectedSession.refRequired = false;
       selectedSession.referenceNo = undefined;
       await selectedSession.save();
 
-      console.log('selectedChat.lastMessage', selectedChat.lastMessage);
-      console.log('lastMessageError', lastMessageError);
+      // console.log('selectedChat.lastMessage', selectedChat.lastMessage);
+      // console.log(
+      //   'lastMessageError =============================================',
+      //   lastMessageError
+      // );
 
-      //===========> Sending error text message
-      const textErrorMsg = {
-        type: 'text',
-        text: 'عفوا لم استطع التعرف على اختيارك.',
-      };
-      await sendMessageHandler(
-        req,
-        textErrorMsg,
-        selectedChat,
-        selectedSession
-      );
+      // if (lastMessageError.from !== process.env.WHATSAPP_PHONE_NUMBER) {
+      if (errorSession) {
+        selectedChat.responseType = 'error';
+        await selectedChat.save();
+        console.log('selectedChat ============== 1359', selectedChat);
 
-      //===========> Sending error interactive message
-      const interactiveMsgObj = interactiveMessages.filter(
-        (item) => item.id === 'error'
-      )[0];
-      const interactiveMsg = { ...interactiveMsgObj };
-      delete interactiveMsg.id;
-      const interactiveReplyMsg = {
-        type: 'interactive',
-        interactive: interactiveMsg,
-      };
+        //===========> Sending error text message
+        const textErrorMsg = {
+          type: 'text',
+          text: 'عفوا لم استطع التعرف على اختيارك.',
+        };
+        await sendMessageHandler(
+          req,
+          textErrorMsg,
+          selectedChat,
+          selectedSession
+        );
 
-      await sendMessageHandler(
-        req,
-        interactiveReplyMsg,
-        selectedChat,
-        selectedSession
-      );
+        //===========> Sending error interactive message
+        const interactiveMsgObj = interactiveMessages.filter(
+          (item) => item.id === 'error'
+        )[0];
+        const interactiveMsg = { ...interactiveMsgObj };
+        delete interactiveMsg.id;
+        const interactiveReplyMsg = {
+          type: 'interactive',
+          interactive: interactiveMsg,
+        };
+
+        await sendMessageHandler(
+          req,
+          interactiveReplyMsg,
+          selectedChat,
+          selectedSession
+        );
+      }
+      // }
     }
   }
 
