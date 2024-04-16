@@ -14,7 +14,7 @@ const historySchema = new mongoose.Schema(
       required: [true, 'required!'],
     },
 
-    type: {
+    actionType: {
       type: String,
       enum: [
         'transfer',
@@ -32,7 +32,7 @@ const historySchema = new mongoose.Schema(
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: function () {
-          if (this.type === 'transfer') {
+          if (this.actionType === 'transfer') {
             return [true, 'required!'];
           } else {
             return false;
@@ -43,7 +43,7 @@ const historySchema = new mongoose.Schema(
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: function () {
-          if (this.type === 'transfer') {
+          if (this.actionType === 'transfer') {
             return [true, 'required!'];
           } else {
             return false;
@@ -56,7 +56,7 @@ const historySchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        if (this.type === 'botTransfer') {
+        if (this.actionType === 'botTransfer') {
           return [true, 'required!'];
         } else {
           return false;
@@ -69,7 +69,7 @@ const historySchema = new mongoose.Schema(
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: function () {
-          if (this.type === 'takeOwnership') {
+          if (this.actionType === 'takeOwnership') {
             return [true, 'required!'];
           } else {
             return false;
@@ -80,7 +80,7 @@ const historySchema = new mongoose.Schema(
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: function () {
-          if (this.type === 'takeOwnership') {
+          if (this.actionType === 'takeOwnership') {
             return [true, 'required!'];
           } else {
             return false;
@@ -93,7 +93,7 @@ const historySchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        if (this.type === 'archive') {
+        if (this.actionType === 'archive') {
           return [true, 'required!'];
         } else {
           return false;
@@ -105,7 +105,7 @@ const historySchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        if (this.type === 'start') {
+        if (this.actionType === 'start') {
           return [true, 'required!'];
         } else {
           return false;
@@ -117,7 +117,7 @@ const historySchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        if (this.type === 'receive') {
+        if (this.actionType === 'receive') {
           return [true, 'required!'];
         } else {
           return false;

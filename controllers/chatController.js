@@ -236,7 +236,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: chat._id,
       user: req.user._id,
-      type: 'archive',
+      actionType: 'archive',
       archive: chat.currentUser,
     };
     await ChatHistory.create(chatHistoryData);
@@ -293,7 +293,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: chat._id,
       user: req.user._id,
-      type: 'takeOwnership',
+      actionType: 'takeOwnership',
       takeOwnership: { from: chat.currentUser, to: req.user._id },
     };
     await ChatHistory.create(chatHistoryData);
@@ -367,7 +367,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: chat._id,
       user: req.user._id,
-      type: 'transfer',
+      actionType: 'transfer',
       transfer: { from: chat.currentUser, to: req.body.user },
     };
     await ChatHistory.create(chatHistoryData);
@@ -465,7 +465,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: chat._id,
       user: req.user._id,
-      type: 'transfer',
+      actionType: 'transfer',
       transfer: { from: chat.currentUser, to: teamUsers[0]._id },
     };
     await ChatHistory.create(chatHistoryData);

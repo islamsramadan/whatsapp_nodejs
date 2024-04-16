@@ -289,7 +289,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: selectedChat._id,
       user: req.user._id,
-      type: 'start',
+      actionType: 'start',
       start: req.user._id,
     };
     await ChatHistory.create(chatHistoryData);
@@ -942,7 +942,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     const chatHistoryData = {
       chat: selectedChat._id,
       user: req.user._id,
-      type: 'start',
+      actionType: 'start',
       start: req.user._id,
     };
     await ChatHistory.create(chatHistoryData);
