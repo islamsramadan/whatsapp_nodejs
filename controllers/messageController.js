@@ -210,10 +210,16 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
-  const histories = await ChatHistory.find({ chat: chat._id }).populate(
-    'user',
-    'firstName lastName'
-  );
+  const histories = await ChatHistory.find({ chat: chat._id })
+    .populate('user', 'firstName lastName')
+    .populate('transfer.from', 'firstName lastName')
+    .populate('transfer.to', 'firstName lastName')
+    .populate('transfer.fromTeam', 'name')
+    .populate('transfer.toTeam', 'name')
+    .populate('takeOwnership.from', 'firstName lastName')
+    .populate('takeOwnership.to', 'firstName lastName')
+    .populate('start', 'firstName lastName')
+    .populate('archive', 'firstName lastName');
   const historyMessages = [...messages, ...histories];
 
   res.status(200).json({

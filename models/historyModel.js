@@ -18,13 +18,10 @@ const historySchema = new mongoose.Schema(
       type: String,
       enum: [
         'transfer',
-        'userTransfer',
-        'teamTransfer',
-        'botTransfer',
         'takeOwnership',
         'archive',
         'start',
-        'receive',
+        // 'receive',
       ],
       required: [true, 'required!'],
     },
@@ -139,17 +136,17 @@ const historySchema = new mongoose.Schema(
       },
     },
 
-    receive: {
-      type: mongoose.Schema.ObjectId,
-      ref: 'User',
-      required: function () {
-        if (this.actionType === 'receive') {
-          return [true, 'required!'];
-        } else {
-          return false;
-        }
-      },
-    },
+    // receive: {
+    //   type: mongoose.Schema.ObjectId,
+    //   ref: 'User',
+    //   required: function () {
+    //     if (this.actionType === 'receive') {
+    //       return [true, 'required!'];
+    //     } else {
+    //       return false;
+    //     }
+    //   },
+    // },
   },
   { timestamps: true }
 );
