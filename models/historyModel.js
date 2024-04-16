@@ -18,6 +18,8 @@ const historySchema = new mongoose.Schema(
       type: String,
       enum: [
         'transfer',
+        'userTransfer',
+        'teamTransfer',
         'botTransfer',
         'takeOwnership',
         'archive',
@@ -28,11 +30,22 @@ const historySchema = new mongoose.Schema(
     },
 
     transfer: {
+      type: {
+        type: String,
+        enum: ['user', 'team', 'bot'],
+        required: function () {
+          if (this.actionType === 'transfer') {
+            return [true, 'required!'];
+          } else {
+            return false;
+          }
+        },
+      },
       from: {
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: function () {
-          if (this.actionType === 'transfer') {
+          if (this.actionType === 'transfer' && this.transfer.type !== 'bot') {
             return [true, 'required!'];
           } else {
             return false;
@@ -50,17 +63,30 @@ const historySchema = new mongoose.Schema(
           }
         },
       },
-    },
-
-    botTransfer: {
-      type: mongoose.Schema.ObjectId,
-      ref: 'User',
-      required: function () {
-        if (this.actionType === 'botTransfer') {
-          return [true, 'required!'];
-        } else {
-          return false;
-        }
+      fromTeam: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Team',
+        required: function () {
+          if (this.actionType === 'transfer' && this.transfer.type === 'team') {
+            return [true, 'required!'];
+          } else {
+            return false;
+          }
+        },
+      },
+      toTeam: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Team',
+        required: function () {
+          if (
+            this.actionType === 'transfer' &&
+            (this.transfer.type === 'team' || this.transfer.type === 'bot')
+          ) {
+            return [true, 'required!'];
+          } else {
+            return false;
+          }
+        },
       },
     },
 

@@ -368,7 +368,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       chat: chat._id,
       user: req.user._id,
       actionType: 'transfer',
-      transfer: { from: chat.currentUser, to: req.body.user },
+      transfer: { type: 'user', from: chat.currentUser, to: req.body.user },
     };
     await ChatHistory.create(chatHistoryData);
 
@@ -466,7 +466,13 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       chat: chat._id,
       user: req.user._id,
       actionType: 'transfer',
-      transfer: { from: chat.currentUser, to: teamUsers[0]._id },
+      transfer: {
+        type: 'team',
+        from: chat.currentUser,
+        to: teamUsers[0]._id,
+        fromTeam: chat.team,
+        toTeam: req.body.team,
+      },
     };
     await ChatHistory.create(chatHistoryData);
 

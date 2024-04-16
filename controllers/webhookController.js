@@ -1196,8 +1196,12 @@ const chatBotHandler = async (
           const chatHistoryData = {
             chat: selectedChat._id,
             user: selectedChat.currentUser,
-            actionType: 'botTransfer',
-            botTransfer: teamUsers[0]._id,
+            actionType: 'transfer',
+            transfer: {
+              type: 'bot',
+              to: teamUsers[0]._id,
+              toTeam: selectedTeam._id,
+            },
           };
           await ChatHistory.create(chatHistoryData);
 
