@@ -882,6 +882,15 @@ const chatBotHandler = async (
 
   // ******************* Startng chat bot **************
   if (!session) {
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: selectedSession.currentUser,
+      actionType: 'botReceive',
+    };
+    await ChatHistory.create(chatHistoryData);
+
+    // =======> Send bot welcome message
     const interactiveObj = interactiveMessages.filter(
       (message) => message.id === 'CPV'
     )[0]; // from test data
@@ -1127,6 +1136,15 @@ const chatBotHandler = async (
           selectedSession.end = Date.now();
           selectedSession.status = 'finished';
           await selectedSession.save();
+
+          // =======> Create chat history session
+          const chatHistoryData = {
+            chat: selectedChat._id,
+            user: selectedSession.user,
+            actionType: 'archive',
+            archive: 'bot',
+          };
+          await ChatHistory.create(chatHistoryData);
 
           // Updating chat
           selectedChat.currentUser = undefined;

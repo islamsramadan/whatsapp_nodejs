@@ -237,7 +237,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       chat: chat._id,
       user: req.user._id,
       actionType: 'archive',
-      archive: chat.currentUser,
+      archive: 'user',
     };
     await ChatHistory.create(chatHistoryData);
 
