@@ -6,6 +6,7 @@ const Chat = require('../models/chatModel');
 const Message = require('../models/messageModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
+const ChatHistory = require('../models/historyModel');
 
 exports.protectSocket = async (socket, next) => {
   // 1) Getting token and check if it is there
@@ -283,6 +284,21 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     })
     .limit(page * 20);
 
+  const histories = await ChatHistory.find({ chat: chat._id })
+    .populate('user', 'firstName lastName')
+    .populate('transfer.from', 'firstName lastName')
+    .populate('transfer.to', 'firstName lastName')
+    .populate('transfer.fromTeam', 'name')
+    .populate('transfer.toTeam', 'name')
+    .populate('takeOwnership.from', 'firstName lastName')
+    .populate('takeOwnership.to', 'firstName lastName')
+    .populate('start', 'firstName lastName')
+    .populate('archive', 'firstName lastName');
+
+  const historyMessages = [...messages, ...histories].sort(
+    (a, b) => a.createdAt - b.createdAt
+  );
+
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
@@ -296,7 +312,8 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
   return {
     totalPages,
     totalResults,
-    messages: messages.reverse(),
+    // messages: messages.reverse(),
+    messages: historyMessages,
     chatSession,
     chatStatus,
     contactName,

@@ -220,7 +220,10 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     .populate('takeOwnership.to', 'firstName lastName')
     .populate('start', 'firstName lastName')
     .populate('archive', 'firstName lastName');
-  const historyMessages = [...messages, ...histories];
+
+  const historyMessages = [...messages, ...histories].sort(
+    (a, b) => a.createdAt - b.createdAt
+  );
 
   res.status(200).json({
     status: 'success',
@@ -232,8 +235,8 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       contactName: chat.contactName,
       currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
-      messages: historyMessages.sort((a, b) => a.createdAt - b.createdAt),
       // messages: messages.reverse(),
+      messages: historyMessages,
       notification: chat.notification,
     },
   });
