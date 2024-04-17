@@ -404,7 +404,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     //   );
     // }
 
-    if (!chat.team.equals(req.user.team && req.user.role !== 'admin')) {
+    console.log('req.user', req.user);
+
+    if (!chat.team.equals(req.user.team) && req.user.role !== 'admin') {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );
