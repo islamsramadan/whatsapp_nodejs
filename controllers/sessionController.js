@@ -125,42 +125,44 @@ exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
       const teamUsers = await Promise.all(
         team.users.map(async (userID) => {
           const user = await User.findById(userID);
-          let userSessions = await Session.find({
-            user: userID,
-            // status: { $ne: 'finished' },
-            end: { $exists: false },
-          }).populate('chat');
+          if (user) {
+            let userSessions = await Session.find({
+              user: userID,
+              // status: { $ne: 'finished' },
+              end: { $exists: false },
+            }).populate('chat');
 
-          userSessions = userSessions.filter(
-            (session) =>
-              session._id.equals(session.chat.lastSession) &&
-              session.chat.currentUser &&
-              session.chat.currentUser.equals(userID)
-          );
+            userSessions = userSessions.filter(
+              (session) =>
+                session._id.equals(session.chat.lastSession) &&
+                session.chat.currentUser &&
+                session.chat.currentUser.equals(userID)
+            );
 
-          const userSessionsfilters = {
-            all: userSessions.length,
-            onTime: userSessions.filter(
-              (session) => session.status === 'onTime'
-            ).length,
-            danger: userSessions.filter(
-              (session) => session.status === 'danger'
-            ).length,
-            tooLate: userSessions.filter(
-              (session) => session.status === 'tooLate'
-            ).length,
-            open: userSessions.filter((session) => session.status === 'open')
-              .length,
-          };
+            const userSessionsfilters = {
+              all: userSessions.length,
+              onTime: userSessions.filter(
+                (session) => session.status === 'onTime'
+              ).length,
+              danger: userSessions.filter(
+                (session) => session.status === 'danger'
+              ).length,
+              tooLate: userSessions.filter(
+                (session) => session.status === 'tooLate'
+              ).length,
+              open: userSessions.filter((session) => session.status === 'open')
+                .length,
+            };
 
-          return {
-            _id: userID,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            photo: user.photo,
-            status: user.status,
-            sessions: userSessionsfilters,
-          };
+            return {
+              _id: userID,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              photo: user.photo,
+              status: user.status,
+              sessions: userSessionsfilters,
+            };
+          }
         })
       );
 

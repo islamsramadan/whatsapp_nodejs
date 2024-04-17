@@ -123,8 +123,10 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     );
   }
 
+  const page = req.query.page * 1 || 1;
+
   const messages = await Message.find({ chat: chat._id })
-    .sort('createdAt')
+    .sort('-createdAt')
     .populate({
       path: 'user',
       select: { firstName: 1, lastName: 1, photo: 1 },
@@ -133,17 +135,25 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     .populate({
       path: 'userReaction.user',
       select: 'firstName lastName photo',
-    });
+    })
+    .limit(page * 20);
+
+  const totalResults = await Message.count({ chat: chat._id });
+  const totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
     results: messages.length,
     data: {
+      totalPages,
+      totalResults,
       session: chat.session,
       contactName: chat.contactName,
-      currentUser: chat.currentUser,
+      // currentUser: chat.currentUser,
+      currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
-      messages,
+      messages: messages.reverse(),
+      notification: chat.notification,
     },
   });
 });

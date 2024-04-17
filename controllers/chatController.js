@@ -99,7 +99,8 @@ exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
-  let chats;
+  const page = req.query.page || 1;
+  let chats, totalResults, totalPages;
 
   if (req.query.userID) {
     const userID = req.query.userID;
@@ -123,7 +124,11 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status')
-      .populate('contactName', 'name');
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count({ _id: { $in: chatsIDs } });
+    totalPages = Math.ceil(totalResults / 10);
   } else {
     const chatFilterObj = { status: 'archived' };
 
@@ -139,13 +144,19 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status')
-      .populate('contactName', 'name');
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count(chatFilterObj);
+    totalPages = Math.ceil(totalResults / 10);
   }
 
   res.status(200).json({
     status: 'success',
     results: chats.length,
     data: {
+      totalResults,
+      totalPages,
       chats,
     },
   });
@@ -364,7 +375,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     //   );
     // }
 
-    if (!chat.team.equals(req.user.team)) {
+    if (!chat.team.equals(req.user.team) && req.user.role !== 'admin') {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );

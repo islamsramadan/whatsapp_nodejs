@@ -106,19 +106,26 @@ io.on('connection', async (socket) => {
         chats,
         session,
         chatStatus,
+        totalPages,
+        totalResults,
         messages,
         contactName,
-        currentUser;
+        currentUser,
+        notification;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
-          data.chatNumber
+          data.chatNumber,
+          data.page
         );
+        totalPages = chatData.totalPages;
+        totalResults = chatData.totalResults;
         messages = chatData.messages;
         session = chatData.chatSession;
         chatStatus = chatData.chatStatus;
         contactName = chatData.contactName;
         currentUser = chatData.currentUser;
+        notification = chatData.notification;
       }
       if (data.chatsType === 'user') {
         chats = await socketController.getAllUserChats(
@@ -138,11 +145,16 @@ io.on('connection', async (socket) => {
 
       // ==============> Archived Chats
       if (data.chatsType === 'archived') {
-        chats = await socketController.getAllArchivedChats(
+        archivedChatsData = await socketController.getAllArchivedChats(
           data.userID,
           data.startDate,
-          data.endDate
+          data.endDate,
+          data.page
         );
+
+        totalPages = archivedChatsData.totalPages;
+        totalResults = archivedChatsData.totalResults;
+        chats = archivedChatsData.chats;
       }
 
       // ==============> Team User Chats
@@ -172,11 +184,14 @@ io.on('connection', async (socket) => {
         teamSessions,
         teamUsersSessions,
         chats,
+        totalPages,
+        totalResults,
         messages,
         session,
         chatStatus,
         contactName,
         currentUser,
+        notification,
       });
     }
   });
