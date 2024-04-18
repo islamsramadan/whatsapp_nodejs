@@ -885,7 +885,7 @@ const chatBotHandler = async (
     // =======> Create chat history session
     const chatHistoryData = {
       chat: selectedChat._id,
-      user: selectedSession.currentUser,
+      user: selectedSession.user,
       actionType: 'botReceive',
     };
     await ChatHistory.create(chatHistoryData);
