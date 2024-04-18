@@ -295,9 +295,25 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     .populate('start', 'firstName lastName')
     .populate('archive', 'firstName lastName');
 
-  const historyMessages = [...messages, ...histories].sort(
+  let historyMessages = [...messages, ...histories].sort(
     (a, b) => a.createdAt - b.createdAt
   );
+
+  let historyMessagesCopy = [...historyMessages];
+
+  for (let i = 0; i < historyMessagesCopy.length; i++) {
+    if (
+      historyMessagesCopy[i].actionType &&
+      historyMessagesCopy[i + 1]?.actionType
+    ) {
+      // Remove history item from array
+      historyMessages = historyMessages.filter(
+        (item) => item._id !== historyMessagesCopy[i]._id
+      );
+    } else {
+      break;
+    }
+  }
 
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
