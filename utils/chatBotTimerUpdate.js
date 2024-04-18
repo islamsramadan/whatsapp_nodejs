@@ -4,6 +4,7 @@ const Chat = require('../models/chatModel');
 const { default: axios } = require('axios');
 const User = require('../models/userModel');
 const Message = require('../models/messageModel');
+const ChatHistory = require('../models/historyModel');
 
 const getCronExpression = (timer) => {
   const timerExpression = {
@@ -171,6 +172,15 @@ const updateTask = (
         session.end = Date.now();
         session.status = 'finished';
         await session.save();
+
+        // =======> Create chat history session
+        const chatHistoryData = {
+          chat: chat._id,
+          user: session.user,
+          actionType: 'archive',
+          archive: 'auto',
+        };
+        await ChatHistory.create(chatHistoryData);
 
         // Updating chat
         chat.currentUser = undefined;

@@ -1,3 +1,4 @@
+const ChatHistory = require('../models/historyModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const User = require('../models/userModel');
@@ -175,6 +176,7 @@ exports.createChat = catchAsync(async (req, res, next) => {
     currentUser: req.user._id,
     users: [req.user._id],
     team: req.user.team,
+    status: 'archived',
   });
 
   res.status(201).json({
@@ -230,6 +232,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       { new: true, runValidators: true }
     );
 
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'archive',
+      archive: 'user',
+    };
+    await ChatHistory.create(chatHistoryData);
+
     // Updating chat
     chat.currentUser = undefined;
     chat.team = undefined;
@@ -277,6 +288,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       team: chat.team,
       status: 'open',
     });
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'takeOwnership',
+      takeOwnership: { from: chat.currentUser, to: req.user._id },
+    };
+    await ChatHistory.create(chatHistoryData);
 
     chat.currentUser = req.user._id;
     chat.lastSession = newSession._id;
@@ -342,6 +362,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       team: chat.team,
       status: 'open',
     });
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'transfer',
+      transfer: { type: 'user', from: chat.currentUser, to: req.body.user },
+    };
+    await ChatHistory.create(chatHistoryData);
 
     chat.currentUser = req.body.user;
     chat.lastSession = newSession._id;
@@ -431,6 +460,21 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       team: req.body.team,
       status: 'open',
     });
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'transfer',
+      transfer: {
+        type: 'team',
+        from: chat.currentUser,
+        to: teamUsers[0]._id,
+        fromTeam: chat.team,
+        toTeam: req.body.team,
+      },
+    };
+    await ChatHistory.create(chatHistoryData);
 
     //Update chat
     chat.team = req.body.team;

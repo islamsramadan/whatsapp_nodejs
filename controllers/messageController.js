@@ -9,6 +9,7 @@ const Chat = require('../models/chatModel');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const User = require('../models/userModel');
+const ChatHistory = require('../models/historyModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -90,6 +91,74 @@ exports.uploadMessageImage = upload.single('file');
 exports.uploadMultiFiles = upload.array('files');
 // exports.uploadMessageImage = upload.array('file', 2);
 
+// exports.getAllChatMessages = catchAsync(async (req, res, next) => {
+//   const userTeam = await Team.findById(req.user.team);
+//   if (!userTeam) {
+//     return next(
+//       new AppError("This user doesn't belong to any existed team!", 400)
+//     );
+//   }
+
+//   if (!req.params.chatNumber) {
+//     return next(new AppError('Kindly provide chat number!', 400));
+//   }
+
+//   const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
+//     'contactName',
+//     'name'
+//   );
+//   // console.log('chat', chat);
+
+//   if (!chat) {
+//     return next(new AppError('No chat found with that number!', 400));
+//   }
+
+//   // Checking if the user in the same team of the chat
+//   if (
+//     chat.team &&
+//     !chat.team.equals(req.user.team) &&
+//     req.user.role === 'user'
+//   ) {
+//     return next(
+//       new AppError("You don't have permission to view this chat!", 403)
+//     );
+//   }
+
+//   const page = req.query.page * 1 || 1;
+
+//   const messages = await Message.find({ chat: chat._id })
+//     .sort('-createdAt')
+//     .populate({
+//       path: 'user',
+//       select: { firstName: 1, lastName: 1, photo: 1 },
+//     })
+//     .populate('reply')
+//     .populate({
+//       path: 'userReaction.user',
+//       select: 'firstName lastName photo',
+//     })
+//     .limit(page * 20);
+
+//   const totalResults = await Message.count({ chat: chat._id });
+//   const totalPages = Math.ceil(totalResults / 20);
+
+//   res.status(200).json({
+//     status: 'success',
+//     results: messages.length,
+//     data: {
+//       totalPages,
+//       totalResults,
+//       session: chat.session,
+//       contactName: chat.contactName,
+//       // currentUser: chat.currentUser,
+//       currentUser: { _id: chat.currentUser, teamID: chat.team },
+//       chatStatus: chat.status,
+//       messages: messages.reverse(),
+//       notification: chat.notification,
+//     },
+//   });
+// });
+
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const userTeam = await Team.findById(req.user.team);
   if (!userTeam) {
@@ -141,6 +210,21 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
+  const histories = await ChatHistory.find({ chat: chat._id })
+    .populate('user', 'firstName lastName')
+    .populate('transfer.from', 'firstName lastName')
+    .populate('transfer.to', 'firstName lastName')
+    .populate('transfer.fromTeam', 'name')
+    .populate('transfer.toTeam', 'name')
+    .populate('takeOwnership.from', 'firstName lastName')
+    .populate('takeOwnership.to', 'firstName lastName')
+    .populate('start', 'firstName lastName')
+    .populate('archive', 'firstName lastName');
+
+  const historyMessages = [...messages, ...histories].sort(
+    (a, b) => a.createdAt - b.createdAt
+  );
+
   res.status(200).json({
     status: 'success',
     results: messages.length,
@@ -149,10 +233,10 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       totalResults,
       session: chat.session,
       contactName: chat.contactName,
-      // currentUser: chat.currentUser,
       currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
-      messages: messages.reverse(),
+      // messages: messages.reverse(),
+      messages: historyMessages,
       notification: chat.notification,
     },
   });
@@ -209,6 +293,15 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     selectedChat.currentUser = req.user._id;
     selectedChat.team = req.user.team;
     await selectedChat.save();
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: req.user._id,
+      actionType: 'start',
+      start: req.user._id,
+    };
+    await ChatHistory.create(chatHistoryData);
   }
   const selectedSession = session || newSession;
 
@@ -452,291 +545,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
-
-// exports.sendMessage = catchAsync(async (req, res, next) => {
-//   // console.log('req.body', req.body);
-//   // console.log('req.files', req.files);
-
-//   if (!req.body.type) {
-//     return next(new AppError('Message type is required!', 400));
-//   }
-
-//   if (!req.params.chatNumber) {
-//     return next(new AppError('Chat number is required!', 400));
-//   }
-
-//   // selecting chat that the message belongs to
-//   const chat = await Chat.findOne({ client: req.params.chatNumber });
-
-//   let newChat;
-//   if (!chat) {
-//     const userTeam = await Team.findById(req.user.team);
-//     if (!userTeam) {
-//       return next(
-//         new AppError(
-//           'the user sending the messages must belong to an existing team!',
-//           400
-//         )
-//       );
-//     }
-//     newChat = await Chat.create({
-//       client: req.params.chatNumber,
-//       currentUser: req.user._id,
-//       users: [req.user._id],
-//       team: req.user.team,
-//     });
-//   }
-
-//   const selectedChat = chat || newChat;
-
-//   const session = await Session.findById(selectedChat.lastSession);
-
-//   let newSession;
-//   if (!session) {
-//     newSession = await Session.create({
-//       chat: selectedChat._id,
-//       user: req.user._id,
-//       team: req.user.team,
-//       status: 'onTime',
-//     });
-
-//     selectedChat.lastSession = newSession._id;
-//     selectedChat.currentUser = req.user._id;
-//     selectedChat.team = req.user.team;
-//     await selectedChat.save();
-//   }
-//   const selectedSession = session || newSession;
-
-//   // checking if the user is the chat current user
-//   if (!selectedChat.currentUser.equals(req.user._id)) {
-//     return next(
-//       new AppError("You don't have permission to perform this action!", 403)
-//     );
-//   }
-
-//   // updating chat notification to false
-//   selectedChat.notification = false;
-//   await selectedChat.save();
-
-//   // updating user chats
-//   if (!req.user.chats.includes(selectedChat._id)) {
-//     await User.findByIdAndUpdate(
-//       req.user._id,
-//       { $push: { chats: selectedChat._id } },
-//       { new: true, runValidators: true }
-//     );
-//   }
-
-//   // Handling whatsapp session (24hours from the last message the client send)
-//   if (!selectedChat.session) {
-//     return next(
-//       new AppError(
-//         'You can only send template message until the end user reply!',
-//         400
-//       )
-//     );
-//   }
-
-//   const availableSession = Math.ceil(
-//     (new Date() - selectedChat.session) / (1000 * 60)
-//   );
-
-//   if (availableSession >= 24 * 60) {
-//     return next(
-//       new AppError(
-//         'Your session is expired, You can only send template message until the end user reply!',
-//         400
-//       )
-//     );
-//   }
-//   // console.log('availableSession', availableSession);
-
-//   const newMessageObj = {
-//     user: req.user._id,
-//     chat: selectedChat._id,
-//     session: selectedSession._id,
-//     from: process.env.WHATSAPP_PHONE_NUMBER,
-//     type: req.body.type,
-//   };
-
-//   const whatsappPayload = {
-//     messaging_product: 'whatsapp',
-//     to: selectedChat.client,
-//     type: req.body.type,
-//   };
-
-//   // Message Reply
-//   if (req.body.replyMessage) {
-//     const replyMessage = await Message.findById(req.body.replyMessage);
-//     if (!replyMessage) {
-//       return next(new AppError('There is no message to reply!.', 404));
-//     }
-
-//     whatsappPayload.context = {
-//       message_id: replyMessage.whatsappID,
-//     };
-
-//     newMessageObj.reply = req.body.replyMessage;
-//   }
-
-//   // Template Message
-//   if (req.body.type === 'template') {
-//     return next(
-//       new AppError('this end point not for sending template message!', 400)
-//     );
-//   }
-
-//   // Text Message
-//   if (req.body.type === 'text') {
-//     whatsappPayload.recipient_type = 'individual';
-//     whatsappPayload.text = {
-//       preview_url: false,
-//       body: req.body.text,
-//     };
-
-//     newMessageObj.text = req.body.text;
-//   }
-
-//   // Contacts Message
-//   if (req.body.type === 'contacts') {
-//     // To get the list of contacts
-//     // https://rd0.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
-//     if (!req.body.contacts || req.body.contacts.length === 0) {
-//       return next(new AppError('Contacts are required!', 400));
-//     }
-//     const contacts = req.body.contacts.map((contact) => {
-//       if (!contact.name) {
-//         return next(new AppError('contact name is required!', 400));
-//       }
-//       if (!contact.phones || contact.phones.length === 0) {
-//         return next(new AppError('contact phone is required!', 400));
-//       }
-
-//       return {
-//         name: { formatted_name: contact.name, first_name: contact.name },
-//         phones: contact.phones.map((item) => ({
-//           phone: item,
-//           wa_id: item,
-//           type: 'WORK',
-//         })),
-//         emails: contact.emails?.map((item) => ({ email: item, type: 'WORK' })),
-//         org: contact.org,
-//       };
-//     });
-
-//     // console.log('contacts===========', contacts, contacts[0].phones);
-//     whatsappPayload.contacts = contacts;
-//     newMessageObj.contacts = contacts.map((contact) => ({
-//       ...contact,
-//       name: contact.name.formatted_name,
-//     }));
-//   }
-
-//   // Image Message
-//   if (req.body.type === 'image') {
-//     if (!req.file) {
-//       return next(new AppError('No image found!', 404));
-//     }
-//     whatsappPayload.recipient_type = 'individual';
-//     whatsappPayload.image = {
-//       link: `${productionLink}/${req.file.filename}`,
-//       caption: req.body.caption,
-//     };
-
-//     newMessageObj.image = {
-//       file: req.file.filename,
-//       caption: req.body.caption,
-//     };
-//   }
-
-//   // Video Message
-//   if (req.body.type === 'video') {
-//     whatsappPayload.recipient_type = 'individual';
-//     whatsappPayload.video = {
-//       link: `${productionLink}/${req.file.filename}`,
-//       caption: req.body.caption,
-//     };
-
-//     newMessageObj.video = {
-//       file: req.file.filename,
-//       caption: req.body.caption,
-//     };
-//   }
-
-//   // Audio Message
-//   if (req.body.type === 'audio') {
-//     whatsappPayload.recipient_type = 'individual';
-//     whatsappPayload.audio = {
-//       link: `${productionLink}/${req.file.filename}`,
-//     };
-
-//     newMessageObj.audio = {
-//       file: req.file.filename,
-//       voice: false,
-//     };
-//   }
-
-//   // Document Message
-//   if (req.body.type === 'document') {
-//     whatsappPayload.recipient_type = 'individual';
-//     whatsappPayload.document = {
-//       link: `${productionLink}/${req.file.filename}`,
-//       filename: req.file.originalname,
-//       caption: req.body.caption,
-//     };
-
-//     newMessageObj.document = {
-//       file: req.file.filename,
-//       filename: req.file.originalname,
-//       caption: req.body.caption,
-//     };
-//   }
-//   // console.log('whatsappPayload', whatsappPayload);
-
-//   let response;
-//   try {
-//     response = await axios.request({
-//       method: 'post',
-//       maxBodyLength: Infinity,
-//       url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-//       },
-//       data: JSON.stringify(whatsappPayload),
-//     });
-//   } catch (err) {
-//     console.log('err', err);
-//   }
-
-//   // console.log('response.data----------------', JSON.stringify(response.data));
-//   const newMessage = await Message.create({
-//     ...newMessageObj,
-//     whatsappID: response.data.messages[0].id,
-//   });
-
-//   // Adding the sent message as last message in the chat and update chat status
-//   selectedChat.lastMessage = newMessage._id;
-//   selectedChat.status = 'open';
-//   await selectedChat.save();
-
-//   // Updating session to new status ((open))
-//   selectedSession.status = 'open';
-//   selectedSession.timer = undefined;
-//   selectedSession.lastUserMessage = newMessage._id;
-//   await selectedSession.save();
-
-//   //updating event in socket io
-//   req.app.io.emit('updating');
-
-//   res.status(201).json({
-//     status: 'success',
-//     // wahtsappResponse: response.data,
-//     data: {
-//       message: newMessage,
-//     },
-//   });
-// });
 
 const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
   if (!req.files || req.files.length === 0) {
@@ -1069,8 +877,8 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
 
 //with uploaded file
 exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
-  console.log('req.body', req.body);
-  console.log('req.file', req.file);
+  // console.log('req.body', req.body);
+  // console.log('req.file', req.file);
 
   const { templateName } = req.body;
   if (!templateName) {
@@ -1138,6 +946,15 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     selectedChat.currentUser = req.user._id;
     selectedChat.team = req.user.team;
     await selectedChat.save();
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: req.user._id,
+      actionType: 'start',
+      start: req.user._id,
+    };
+    await ChatHistory.create(chatHistoryData);
   }
   const selectedSession = session || newSession;
 
@@ -1366,241 +1183,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   });
 });
 
-//without uploaded file
-// exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
-//   const { templateName } = req.body;
-//   if (!templateName) {
-//     return next(new AppError('Template name is required!', 400));
-//   }
-
-//   const response = await axios.request({
-//     method: 'get',
-//     url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${whatsappToken}`,
-//     },
-//   });
-//   const template = response.data.data[0];
-//   // console.log('template', template);
-
-//   if (!template) {
-//     return next(new AppError('There is no template with that name!', 404));
-//   }
-
-//   if (template.status !== 'APPROVED') {
-//     return next(
-//       new AppError('You can only send templates with status (APPROVED)!', 400)
-//     );
-//   }
-
-//   // selecting chat that the message belongs to
-//   const chat = await Chat.findOne({ client: req.params.chatNumber });
-
-//   let newChat;
-//   if (!chat) {
-//     const userTeam = await Team.findById(req.user.team);
-//     if (!userTeam) {
-//       return next(
-//         new AppError(
-//           'the user sending the messages must belong to an existing team!',
-//           400
-//         )
-//       );
-//     }
-//     newChat = await Chat.create({
-//       client: req.params.chatNumber,
-//       currentUser: req.user._id,
-//       users: [req.user._id],
-//       team: req.user.team,
-//     });
-//   }
-//   // console.log('chat', chat);
-
-//   const selectedChat = chat || newChat;
-
-//   const session = await Session.findById(selectedChat.lastSession);
-
-//   let newSession;
-//   if (!session) {
-//     newSession = await Session.create({
-//       chat: selectedChat._id,
-//       user: req.user._id,
-//       team: req.user.team,
-//       status: 'onTime',
-//     });
-
-//     selectedChat.lastSession = newSession._id;
-//     selectedChat.currentUser = req.user._id;
-//     selectedChat.team = req.user.team;
-//     await selectedChat.save();
-//   }
-//   const selectedSession = session || newSession;
-
-//   // checking if the user is the chat current user
-//   if (!selectedChat.currentUser.equals(req.user._id)) {
-//     return next(
-//       new AppError("You don't have permission to perform this action!", 403)
-//     );
-//   }
-
-//   // updating chat notification to false
-//   selectedChat.notification = false;
-//   await selectedChat.save();
-
-//   //********************************************************************************* */
-//   // Preparing template for whatsapp payload
-//   const whatsappPayload = {
-//     messaging_product: 'whatsapp',
-//     to: selectedChat.client,
-//     type: 'template',
-//     template: {
-//       name: templateName,
-//       language: {
-//         code: template.language,
-//       },
-//       components: [],
-//     },
-//   };
-
-//   template.components.map((component) => {
-//     if (component.example) {
-//       let parameters =
-//         component.example[
-//           `${component.type.toLowerCase()}_${
-//             component.format ? component.format.toLowerCase() : 'text'
-//           }`
-//         ];
-//       parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
-//       // console.log('parameters', parameters);
-
-//       whatsappPayload.template.components.push({
-//         type: component.type,
-//         parameters: parameters.map((el) => ({
-//           type: component.format ? component.format.toLowerCase() : 'text',
-//           text: req.body[`${el}`],
-//         })),
-//       });
-//     }
-//   });
-
-//   //********************************************************************************* */
-//   // Preparing template for data base
-//   const newMessageObj = {
-//     user: req.user.id,
-//     chat: selectedChat.id,
-//     session: selectedSession._id,
-//     from: process.env.WHATSAPP_PHONE_NUMBER,
-//     type: 'template',
-//     template: {
-//       name: templateName,
-//       language: template.language,
-//       category: template.category,
-//       components: [],
-//     },
-//   };
-
-//   template.components.map((component) => {
-//     const templateComponent = { type: component.type };
-
-//     if (component.type === 'HEADER') {
-//       templateComponent.format = component.format;
-//       templateComponent[`${component.format.toLowerCase()}`] =
-//         component[`${component.format.toLowerCase()}`];
-//       if (component.example) {
-//         const headerParameters = whatsappPayload.template.components.filter(
-//           (comp) => comp.type === 'HEADER'
-//         )[0].parameters;
-//         // console.log('headerParameters', headerParameters);
-//         for (let i = 0; i < headerParameters.length; i++) {
-//           templateComponent[`${component.format.toLowerCase()}`] =
-//             templateComponent[`${component.format.toLowerCase()}`].replace(
-//               `{{${i + 1}}}`,
-//               headerParameters[i][`${component.format.toLowerCase()}`]
-//             );
-//         }
-//       }
-//     } else if (component.type === 'BODY') {
-//       templateComponent.text = component.text;
-//       if (component.example) {
-//         const bodyParameters = whatsappPayload.template.components.filter(
-//           (comp) => comp.type === 'BODY'
-//         )[0].parameters;
-//         // console.log('bodyParameters', bodyParameters);
-//         for (let i = 0; i < bodyParameters.length; i++) {
-//           templateComponent.text = templateComponent.text.replace(
-//             `{{${i + 1}}}`,
-//             bodyParameters[i].text
-//           );
-//         }
-//       }
-//     } else if (component.type === 'BUTTONS') {
-//       templateComponent.buttons = component.buttons;
-//     } else {
-//       templateComponent.text = component.text;
-//     }
-
-//     newMessageObj.template.components.push(templateComponent);
-//   });
-
-//   // Sending the template message to the client via whatsapp api
-//   let sendTemplateResponse;
-//   try {
-//     sendTemplateResponse = await axios.request({
-//       method: 'post',
-//       maxBodyLength: Infinity,
-//       url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-//       },
-//       data: JSON.stringify(whatsappPayload),
-//     });
-//   } catch (err) {
-//     console.log('err', err);
-//   }
-
-//   if (!sendTemplateResponse) {
-//     return next(
-//       new AppError(
-//         "Template couldn't be sent, Try again with all the variables required!",
-//         400
-//       )
-//     );
-//   }
-
-//   // Adding the template message to database
-//   const newMessage = await Message.create({
-//     ...newMessageObj,
-//     whatsappID: sendTemplateResponse.data.messages[0].id,
-//   });
-
-//   //********************************************************************************* */
-//   // Adding the sent message as last message in the chat and update chat status
-//   selectedChat.lastMessage = newMessage._id;
-//   selectedChat.status = 'open';
-//   await selectedChat.save();
-
-//   // Updating session to new status ((open))
-//   selectedSession.status = 'open';
-//   selectedSession.timer = undefined;
-//   selectedSession.lastUserMessage = newMessage._id;
-//   await selectedSession.save();
-
-//   //updating event in socket io
-//   req.app.io.emit('updating');
-
-//   res.status(201).json({
-//     status: 'success',
-//     data: {
-//       // template,
-//       // whatsappPayload,
-//       // wahtsappResponse: sendTemplateResponse?.data,
-//       message: newMessage,
-//     },
-//   });
-// });
-
 exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   const { templateName } = req.body;
   if (!templateName) {
@@ -1635,6 +1217,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   if (!chat) {
     newChat = await Chat.create({
       client: req.params.chatNumber,
+      status: 'archived',
       // currentUser: req.user._id,
       // users: [req.user._id],
       // team: req.user.team,
