@@ -17,6 +17,7 @@ const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
 const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
 const Contact = require('../models/contactModel');
+const ChatHistory = require('../models/historyModel');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -881,6 +882,15 @@ const chatBotHandler = async (
 
   // ******************* Startng chat bot **************
   if (!session) {
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: selectedSession.user,
+      actionType: 'botReceive',
+    };
+    await ChatHistory.create(chatHistoryData);
+
+    // =======> Send bot welcome message
     const interactiveObj = interactiveMessages.filter(
       (message) => message.id === 'CPV'
     )[0]; // from test data
@@ -1127,6 +1137,15 @@ const chatBotHandler = async (
           selectedSession.status = 'finished';
           await selectedSession.save();
 
+          // =======> Create chat history session
+          const chatHistoryData = {
+            chat: selectedChat._id,
+            user: selectedSession.user,
+            actionType: 'archive',
+            archive: 'bot',
+          };
+          await ChatHistory.create(chatHistoryData);
+
           // Updating chat
           selectedChat.currentUser = undefined;
           selectedChat.team = undefined;
@@ -1144,11 +1163,6 @@ const chatBotHandler = async (
 
         // ***** Transfer
         if (['inquiries', 'customer_service'].includes(msgOption.id)) {
-          // ========> Finishing bot session
-          selectedSession.end = Date.now();
-          selectedSession.status = 'finished';
-          await selectedSession.save();
-
           // =========> Selecting team and user
           const selectedTeam = await Team.findOne({ default: true });
 
@@ -1183,6 +1197,11 @@ const chatBotHandler = async (
           });
           // console.log('teamUsers', teamUsers);
 
+          // ========> Finishing bot session
+          selectedSession.end = Date.now();
+          selectedSession.status = 'finished';
+          await selectedSession.save();
+
           // ==========> Creating new session
           const newSession = await Session.create({
             chat: selectedChat._id,
@@ -1190,6 +1209,19 @@ const chatBotHandler = async (
             team: selectedTeam._id,
             status: 'onTime',
           });
+
+          // =======> Create chat history session
+          const chatHistoryData = {
+            chat: selectedChat._id,
+            user: selectedChat.currentUser,
+            actionType: 'transfer',
+            transfer: {
+              type: 'bot',
+              to: teamUsers[0]._id,
+              toTeam: selectedTeam._id,
+            },
+          };
+          await ChatHistory.create(chatHistoryData);
 
           // ==========> Updating chat
           selectedChat.lastSession = newSession._id;
@@ -1209,45 +1241,8 @@ const chatBotHandler = async (
           const selectedTeamConversation = await Conversation.findById(
             selectedTeam.conversation
           );
-          console.log('selectedTeamConversation', selectedTeamConversation);
+          // console.log('selectedTeamConversation', selectedTeamConversation);
 
-          // const insideOutsideServiceHours = (serviceHours) => {
-          //   const daysIDs = [
-          //     { id: 0, day: 'Sunday' },
-          //     { id: 1, day: 'Monday' },
-          //     { id: 2, day: 'Tuesday' },
-          //     { id: 3, day: 'Wednesday' },
-          //     { id: 4, day: 'Thursday' },
-          //     { id: 5, day: 'Friday' },
-          //     { id: 6, day: 'Saturday' },
-          //   ];
-          //   const date = new Date();
-          //   console.log('date.getDay()', date.getDay());
-          //   const day = daysIDs.filter(
-          //     (dayObj) => dayObj.id === date.getDay()
-          //   )[0].day;
-          //   const hour = date.getHours();
-          //   const min = date.getMinutes();
-          //   console.log('day =========', day);
-          //   console.log('hour =========', hour);
-          //   console.log('min =========', min);
-
-          //   const selectedDay = serviceHours.durations.filter(
-          //     (item) => item.day === day
-          //   );
-
-          //   console.log('selectedDay ==========', selectedDay);
-          //   if (selectedDay.length === 0) {
-          //     return false;
-          //   } else {
-          //   }
-          // };
-
-          // insideOutsideServiceHours(selectedTeamServiceHours);
-          console.log(
-            'checkInsideServiceHours()',
-            checkInsideServiceHours(selectedTeamServiceHours.durations)
-          );
           const msgText = checkInsideServiceHours(
             selectedTeamServiceHours.durations
           )
