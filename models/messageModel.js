@@ -257,13 +257,13 @@ const messageSchema = new mongoose.Schema(
     location: {
       address: {
         type: String,
-        required: function () {
-          if (this.type === 'location') {
-            return [true, 'Location message must have an address!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (this.type === 'location') {
+        //     return [true, 'Location message must have an address!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
       },
       latitude: {
         type: Number,
@@ -287,13 +287,13 @@ const messageSchema = new mongoose.Schema(
       },
       name: {
         type: String,
-        required: function () {
-          if (this.type === 'location') {
-            return [true, 'Location message must have a name!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (this.type === 'location') {
+        //     return [true, 'Location message must have a name!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
       },
     },
 

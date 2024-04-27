@@ -85,11 +85,11 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllPerformance = catchAsync(async (req, res, next) => {
-  let usersIDs = req.query.users?.split(',');
-  let teamsIDs = req.query.teams?.split(',');
+  let usersIDs = req.query.selectedUsers?.split(',');
+  let teamsIDs = req.query.selectedTeams?.split(',');
 
-  if (!req.query.users) {
-    if (req.query.teams) {
+  if (!req.query.selectedUsers) {
+    if (req.query.selectedTeams) {
       usersIDs = await User.find({ team: { $in: teamsIDs } });
     } else {
       usersIDs = await User.find();
