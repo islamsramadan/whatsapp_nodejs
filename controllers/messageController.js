@@ -1,5 +1,9 @@
 const axios = require('axios');
 const multer = require('multer');
+const xlsx = require('xlsx');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -90,74 +94,6 @@ const upload = multer({
 exports.uploadMessageImage = upload.single('file');
 exports.uploadMultiFiles = upload.array('files');
 // exports.uploadMessageImage = upload.array('file', 2);
-
-// exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-//   const userTeam = await Team.findById(req.user.team);
-//   if (!userTeam) {
-//     return next(
-//       new AppError("This user doesn't belong to any existed team!", 400)
-//     );
-//   }
-
-//   if (!req.params.chatNumber) {
-//     return next(new AppError('Kindly provide chat number!', 400));
-//   }
-
-//   const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
-//     'contactName',
-//     'name'
-//   );
-//   // console.log('chat', chat);
-
-//   if (!chat) {
-//     return next(new AppError('No chat found with that number!', 400));
-//   }
-
-//   // Checking if the user in the same team of the chat
-//   if (
-//     chat.team &&
-//     !chat.team.equals(req.user.team) &&
-//     req.user.role === 'user'
-//   ) {
-//     return next(
-//       new AppError("You don't have permission to view this chat!", 403)
-//     );
-//   }
-
-//   const page = req.query.page * 1 || 1;
-
-//   const messages = await Message.find({ chat: chat._id })
-//     .sort('-createdAt')
-//     .populate({
-//       path: 'user',
-//       select: { firstName: 1, lastName: 1, photo: 1 },
-//     })
-//     .populate('reply')
-//     .populate({
-//       path: 'userReaction.user',
-//       select: 'firstName lastName photo',
-//     })
-//     .limit(page * 20);
-
-//   const totalResults = await Message.count({ chat: chat._id });
-//   const totalPages = Math.ceil(totalResults / 20);
-
-//   res.status(200).json({
-//     status: 'success',
-//     results: messages.length,
-//     data: {
-//       totalPages,
-//       totalResults,
-//       session: chat.session,
-//       contactName: chat.contactName,
-//       // currentUser: chat.currentUser,
-//       currentUser: { _id: chat.currentUser, teamID: chat.team },
-//       chatStatus: chat.status,
-//       messages: messages.reverse(),
-//       notification: chat.notification,
-//     },
-//   });
-// });
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const userTeam = await Team.findById(req.user.team);
@@ -563,6 +499,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 });
 
 const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
+  console.log('req.files', req.files);
   if (!req.files || req.files.length === 0) {
     return next(new AppError('No file found!', 404));
   }
@@ -575,24 +512,6 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
 
   // Image Message
   if (req.body.type === 'image') {
-    // for (let i = 0; i < preparedMessages.length; i++) {
-    //   preparedMessages[i].whatsappPayload.recipient_type = 'individual';
-    //   preparedMessages[i].whatsappPayload.image = {
-    //     link: `${productionLink}/${preparedMessages[i].file.filename}------${i}`,
-    //     caption: req.body.caption,
-    //   };
-
-    //   console.log(
-    //     'file.filename =========== ' + i,
-    //     preparedMessages[i].whatsappPayload.image
-    //   );
-
-    //   preparedMessages[i].newMessageObj.image = {
-    //     file: preparedMessages[i].file.filename,
-    //     caption: req.body.caption,
-    //   };
-    // }
-
     preparedMessages = preparedMessages.map((item, i) => ({
       ...item,
       whatsappPayload: {
@@ -636,12 +555,6 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
     }));
   }
 
-  // preparedMessages.map((el) => {
-  //   console.log('el.whatsappPayload', el.whatsappPayload);
-  //   console.log('el.newMessageObj', el.newMessageObj);
-  //   console.log('el.file', el.file);
-  // });
-
   const newMessages = await Promise.all(
     preparedMessages.map(async (item) => {
       let response;
@@ -675,134 +588,134 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
   return newMessages;
 };
 
-// exports.sendFailedMessage = catchAsync(async (req, res, next) => {
-//   const failedMessage = await Message.findById(req.params.messageID);
-//   if (!failedMessage) {
-//     return next(new AppError('No message found with that ID!', 400));
-//   }
+exports.sendFailedMessage = catchAsync(async (req, res, next) => {
+  const failedMessage = await Message.findById(req.params.messageID);
+  if (!failedMessage) {
+    return next(new AppError('No message found with that ID!', 400));
+  }
 
-//   const chat = await Chat.findById(failedMessage.chat);
+  const chat = await Chat.findById(failedMessage.chat);
 
-//   // updating chat notification to false
-//   chat.notification = false;
-//   await chat.save();
+  // updating chat notification to false
+  chat.notification = false;
+  await chat.save();
 
-//   // Handling whatsapp session (24hours from the last message the client send)
-//   if (!chat.session) {
-//     return next(
-//       new AppError(
-//         'You can only send template message until the end user reply!',
-//         400
-//       )
-//     );
-//   }
+  // Handling whatsapp session (24hours from the last message the client send)
+  if (!chat.session) {
+    return next(
+      new AppError(
+        'You can only send template message until the end user reply!',
+        400
+      )
+    );
+  }
 
-//   const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
+  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
 
-//   if (availableSession >= 24 * 60) {
-//     return next(
-//       new AppError(
-//         'Your session is expired, You can only send template message!',
-//         400
-//       )
-//     );
-//   }
-//   // console.log('availableSession', availableSession);
+  if (availableSession >= 24 * 60) {
+    return next(
+      new AppError(
+        'Your session is expired, You can only send template message!',
+        400
+      )
+    );
+  }
+  // console.log('availableSession', availableSession);
 
-//   const whatsappPayload = {
-//     messaging_product: 'whatsapp',
-//     to: failedMessage.to,
-//     type: failedMessage.type,
-//     recipient_type: 'individual',
-//   };
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: failedMessage.to,
+    type: failedMessage.type,
+    recipient_type: 'individual',
+  };
 
-//   if (failedMessage.reply) {
-//     const replyMessage = await Message.findById(failedMessage.reply);
+  if (failedMessage.reply) {
+    const replyMessage = await Message.findById(failedMessage.reply);
 
-//     whatsappPayload.context = {
-//       message_id: replyMessage.whatsappID,
-//     };
-//   }
+    whatsappPayload.context = {
+      message_id: replyMessage.whatsappID,
+    };
+  }
 
-//   // Template Message
-//   // if (failedMessage.type === 'template') {
-//   //   whatsappPayload.template = {
-//   //     name: 'hello_world',
-//   //     language: {
-//   //       code: 'en_US',
-//   //     },
-//   //   };
-//   // }
+  // Template Message
+  // if (failedMessage.type === 'template') {
+  //   whatsappPayload.template = {
+  //     name: 'hello_world',
+  //     language: {
+  //       code: 'en_US',
+  //     },
+  //   };
+  // }
 
-//   // Text Message
-//   if (failedMessage.type === 'text') {
-//     whatsappPayload.text = {
-//       preview_url: false,
-//       body: failedMessage.text,
-//     };
-//   }
+  // Text Message
+  if (failedMessage.type === 'text') {
+    whatsappPayload.text = {
+      preview_url: false,
+      body: failedMessage.text,
+    };
+  }
 
-//   // Image Message
-//   if (failedMessage.type === 'image') {
-//     whatsappPayload.image = {
-//       link: `${productionLink}/${failedMessage.image.file}`,
-//       caption: failedMessage.image.caption,
-//     };
-//   }
+  // Image Message
+  if (failedMessage.type === 'image') {
+    whatsappPayload.image = {
+      link: `${productionLink}/${failedMessage.image.file}`,
+      caption: failedMessage.image.caption,
+    };
+  }
 
-//   // Video Message
-//   if (failedMessage.type === 'video') {
-//     whatsappPayload.video = {
-//       link: `${productionLink}/${failedMessage.video.file}`,
-//       caption: failedMessage.video.caption,
-//     };
-//   }
+  // Video Message
+  if (failedMessage.type === 'video') {
+    whatsappPayload.video = {
+      link: `${productionLink}/${failedMessage.video.file}`,
+      caption: failedMessage.video.caption,
+    };
+  }
 
-//   // Audio Message
-//   if (failedMessage.type === 'audio') {
-//     whatsappPayload.audio = {
-//       link: `${productionLink}/${failedMessage.audio.file}`,
-//     };
-//   }
+  // Audio Message
+  if (failedMessage.type === 'audio') {
+    whatsappPayload.audio = {
+      link: `${productionLink}/${failedMessage.audio.file}`,
+    };
+  }
 
-//   // Document Message
-//   if (failedMessage.type === 'document') {
-//     whatsappPayload.document = {
-//       link: `${productionLink}/${failedMessage.document.file}`,
-//       filename: failedMessage.document.filename,
-//       caption: failedMessage.document.caption,
-//     };
-//   }
+  // Document Message
+  if (failedMessage.type === 'document') {
+    whatsappPayload.document = {
+      link: `${productionLink}/${failedMessage.document.file}`,
+      filename: failedMessage.document.filename,
+      caption: failedMessage.document.caption,
+    };
+  }
 
-//   // console.log('whatsappPayload', whatsappPayload);
+  // console.log('whatsappPayload', whatsappPayload);
 
-//   const response = await axios.request({
-//     method: 'post',
-//     maxBodyLength: Infinity,
-//     url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-//     },
-//     data: JSON.stringify(whatsappPayload),
-//   });
+  const response = await axios.request({
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    },
+    data: JSON.stringify(whatsappPayload),
+  });
 
-//   // updating failed message status in database
-//   failedMessage.status = 'pending';
-//   failedMessage.whatsappID = response.data.messages[0].id;
-//   await failedMessage.save();
+  // updating failed message status in database
+  failedMessage.status = 'pending';
+  failedMessage.whatsappID = response.data.messages[0].id;
+  await failedMessage.save();
 
-//   //updating event in socket io
-//   req.app.io.emit('updating');
+  //updating event in socket io
+  req.app.io.emit('updating');
 
-//   res.status(200).json({
-//     status: 'success',
-//     // wahtsappResponse: response.data,
-//     data: {
-//       message: failedMessage,
-//     },
-//   });
-// });
+  res.status(200).json({
+    status: 'success',
+    // wahtsappResponse: response.data,
+    data: {
+      message: failedMessage,
+    },
+  });
+});
 
 exports.reactMessage = catchAsync(async (req, res, next) => {
   const reactedMessage = await Message.findById(req.params.messageID);
@@ -1195,6 +1108,580 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       whatsappPayload,
       wahtsappResponse: sendTemplateResponse?.data,
       message: newMessage,
+    },
+  });
+});
+
+exports.sendBroadcast = catchAsync(async (req, res, next) => {
+  const workbook = xlsx.readFile(req.file.path);
+  const sheetNameList = workbook.SheetNames;
+  const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
+
+  console.log('jsonData ============= ', jsonData);
+
+  // *********************************************************************************
+  // *********************************************************************************
+  // // console.log('req.body.clients', req.body.clients);
+  // const clients = req.body.clients?.split(',');
+  // if (!clients) {
+  //   return next(new AppError('Clients numbers are required!', 400));
+  // }
+
+  const { templateName } = req.body;
+  if (!templateName) {
+    return next(new AppError('Template name is required!', 400));
+  }
+
+  const response = await axios.request({
+    method: 'get',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${whatsappToken}`,
+    },
+  });
+  const template = response.data.data[0];
+  // console.log('template', template);
+
+  if (!template) {
+    return next(new AppError('There is no template with that name!', 404));
+  }
+
+  if (template.status !== 'APPROVED') {
+    return next(
+      new AppError('You can only send templates with status (APPROVED)!', 400)
+    );
+  }
+
+  //********************************************************************************* */
+  //********************************************************************************* */
+  //*********************** Download attachment ************************************* */
+
+  // Function to download the file
+  // const downloadFile = (url, dest) => {
+  //   const file = fs.createWriteStream(dest);
+
+  //   return new Promise((resolve, reject) => {
+  //     https
+  //       .get(url, (response) => {
+  //         // Check if response is successful
+  //         if (response.statusCode !== 200) {
+  //           reject(new Error(`Failed to get ${url}: ${response.statusCode}`));
+  //           return;
+  //         }
+
+  //         // Pipe the response to the file stream
+  //         response.pipe(file);
+
+  //         // Resolve the promise when the file is finished downloading
+  //         file.on('finish', () => {
+  //           file.close(resolve);
+  //         });
+  //       })
+  //       .on('error', (err) => {
+  //         // Delete the destination file if there is an error
+  //         fs.unlink(dest, () => {
+  //           reject(err);
+  //         });
+  //       });
+  //   });
+  // };
+
+  const downloadFile = (url) => {
+    return new Promise((resolve, reject) => {
+      https
+        .get(url, (response) => {
+          // Check if response is successful
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to get ${url}: ${response.statusCode}`));
+            return;
+          }
+
+          const contentDisposition = response.headers['content-disposition'];
+          let filename = path.basename(new URL(url).pathname);
+
+          if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?(.+)"?/);
+            if (match) filename = match[1];
+          }
+
+          const filePath = `prodcast-${Date.now()}-${Math.floor(
+            Math.random() * 1000
+          )}-${filename}`;
+
+          const file = fs.createWriteStream(`public/${filePath}`);
+
+          response.pipe(file);
+
+          file.on('finish', () => {
+            file.close(() => resolve(filePath));
+          });
+        })
+        .on('error', (err) => {
+          fs.unlink(dest, () => {
+            // Ensure to handle destination correctly
+            reject(err);
+          });
+        });
+    });
+  };
+
+  //********************************************************************************* */
+  // Preparing template for whatsapp payload
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    // to: selectedChat.client,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: template.language,
+      },
+      components: [],
+    },
+  };
+
+  // template.components.map((component) => {
+  //   if (component.example) {
+  //     let parameters;
+  //     if (component.type === 'HEADER') {
+  //       // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+  //       if (component.format !== 'TEXT') {
+  //         parameters = [{ type: component.format.toLowerCase() }];
+  //         parameters[0][component.format.toLowerCase()] = {
+  //           link: `${productionLink}/${req.file.filename}`,
+  //         };
+  //         if (component.format === 'DOCUMENT') {
+  //           parameters[0].document = {
+  //             link: `${productionLink}/${req.file.filename}`,
+  //             filename: req.file.originalname,
+  //           };
+  //         }
+  //       } else {
+  //         parameters = [];
+  //         let parametersValues =
+  //           component.example[`${component.type.toLowerCase()}_text`];
+  //         parametersValues = Array.isArray(parametersValues[0])
+  //           ? parametersValues[0]
+  //           : parametersValues;
+
+  //         parametersValues.map((el) => {
+  //           parameters.push({ type: 'text', text: req.body[el][0] });
+  //         });
+
+  //         parameters = parametersValues.map((el) => ({
+  //           type: 'text',
+  //           text: req.body[el],
+  //         }));
+  //       }
+  //     } else {
+  //       parameters = [];
+  //       let parametersValues =
+  //         component.example[`${component.type.toLowerCase()}_text`];
+  //       parametersValues = Array.isArray(parametersValues[0])
+  //         ? parametersValues[0]
+  //         : parametersValues;
+
+  //       parametersValues.map((el) => {
+  //         parameters.push({
+  //           type: 'text',
+  //           text: Array.isArray(req.body[el]) ? req.body[el][0] : req.body[el],
+  //         });
+  //       });
+
+  //       parameters = parametersValues.map((el) => ({
+  //         type: 'text',
+  //         text: req.body[el],
+  //       }));
+  //     }
+
+  //     whatsappPayload.template.components.push({
+  //       type: component.type.toLowerCase(),
+  //       parameters: parameters,
+  //     });
+  //   }
+  // });
+
+  //********************************************************************************* */
+  // Preparing template for Message database
+
+  const newMessageObj = {
+    user: req.user.id,
+    // chat: selectedChat._id,
+    // session: selectedSession._id, // no session to provide
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: template.language,
+      category: template.category,
+      components: [],
+    },
+  };
+
+  // template.components.map((component) => {
+  //   const templateComponent = { type: component.type };
+
+  //   if (component.type === 'HEADER') {
+  //     templateComponent.format = component.format;
+
+  //     if (component.example) {
+  //       const headerParameters = whatsappPayload.template.components.filter(
+  //         (comp) => comp.type === 'header'
+  //       )[0].parameters;
+  //       // console.log('headerParameters', headerParameters);
+
+  //       if (component.format === 'TEXT') {
+  //         templateComponent.text = component.text;
+
+  //         for (let i = 0; i < headerParameters.length; i++) {
+  //           templateComponent.text = templateComponent.text.replace(
+  //             `{{${i + 1}}}`,
+  //             headerParameters[i].text
+  //           );
+  //         }
+  //       } else {
+  //         templateComponent[`${component.format.toLowerCase()}`] = {
+  //           link: req.file.filename,
+  //         };
+  //         if (component.format === 'DOCUMENT') {
+  //           templateComponent.document = {
+  //             link: req.file.filename,
+  //             filename: req.file.originalname,
+  //           };
+  //         }
+  //       }
+  //     } else {
+  //       templateComponent[`${component.format.toLowerCase()}`] =
+  //         component[`${component.format.toLowerCase()}`];
+  //     }
+  //   } else if (component.type === 'BODY') {
+  //     templateComponent.text = component.text;
+  //     if (component.example) {
+  //       const bodyParameters = whatsappPayload.template.components.filter(
+  //         (comp) => comp.type === 'body'
+  //       )[0].parameters;
+  //       // console.log('bodyParameters', bodyParameters);
+  //       for (let i = 0; i < bodyParameters.length; i++) {
+  //         templateComponent.text = templateComponent.text.replace(
+  //           `{{${i + 1}}}`,
+  //           bodyParameters[i].text
+  //         );
+  //       }
+  //     }
+  //   } else if (component.type === 'BUTTONS') {
+  //     templateComponent.buttons = component.buttons;
+  //   } else {
+  //     templateComponent.text = component.text;
+  //   }
+
+  //   newMessageObj.template.components.push(templateComponent);
+  // });
+
+  const results = await Promise.all(
+    jsonData.map(async (item, i) => {
+      // URL of the file to download
+      const fileUrl = item[req.body.attachment] || '';
+
+      downloadFile(fileUrl)
+        .then((res) => {
+          console.log('res =============================', res);
+          console.log('File downloaded successfully.');
+          if (res) {
+            item.downloadedFile = res;
+            // item.downloadedFile = item.image;
+            // item.downloadedFile = `${productionLink}/${res}`;
+            console.log('item ======================= ', item);
+          }
+        })
+        .catch((err) => {
+          console.error('Error downloading file:', err);
+        });
+
+      // *********************************************************************
+
+      const client = item[req.body.number];
+
+      // selecting chat that the message belongs to
+      const chat = await Chat.findOne({ client });
+
+      let newChat;
+      if (!chat) {
+        newChat = await Chat.create({
+          client,
+          status: 'archived',
+        });
+      }
+      // console.log('chat', chat);
+
+      const selectedChat = chat || newChat;
+
+      const templateForClient = { ...template };
+      //********************************************************************************* */
+      // Preparing template for whatsapp payload
+      const whatsappPayloadForClient = { to: client, ...whatsappPayload };
+
+      whatsappPayloadForClient.template.components = [];
+      templateForClient.components.map((component) => {
+        if (component.example) {
+          let parameters;
+          if (component.type === 'HEADER') {
+            // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+            if (component.format !== 'TEXT') {
+              parameters = [{ type: component.format.toLowerCase() }];
+              parameters[0][component.format.toLowerCase()] = {
+                link: `${productionLink}/${item.downloadedFile}`,
+                // link: `${productionLink}/${req.file.filename}`,
+              };
+              if (component.format === 'DOCUMENT') {
+                parameters[0].document = {
+                  link: `${productionLink}/${req.file.filename}`,
+                  filename: req.file.originalname,
+                };
+              }
+            } else {
+              parameters = [];
+              let parametersValues =
+                component.example[`${component.type.toLowerCase()}_text`];
+              parametersValues = Array.isArray(parametersValues[0])
+                ? parametersValues[0]
+                : parametersValues;
+
+              parametersValues.map((el) => {
+                parameters.push({
+                  type: 'text',
+                  text: item[req.body[el]][0],
+                  // text: item[`${req.body[el]}`][0],
+                });
+                // parameters.push({ type: 'text', text: req.body[el][0] });
+              });
+
+              parameters = parametersValues.map((el) => ({
+                type: 'text',
+                text: item[req.body[el]],
+                // text: req.body[el],
+              }));
+            }
+          } else {
+            parameters = [];
+            let parametersValues =
+              component.example[`${component.type.toLowerCase()}_text`];
+            parametersValues = Array.isArray(parametersValues[0])
+              ? parametersValues[0]
+              : parametersValues;
+
+            parametersValues.map((el) => {
+              parameters.push({
+                type: 'text',
+                text: Array.isArray(req.body[el])
+                  ? item[req.body[el]][0]
+                  : item[req.body[el]],
+              });
+            });
+
+            parameters = parametersValues.map((el) => ({
+              type: 'text',
+              text: item[req.body[el]],
+            }));
+          }
+
+          whatsappPayloadForClient.template.components.push({
+            type: component.type.toLowerCase(),
+            parameters: parameters,
+          });
+        }
+      });
+
+      // Sending the template message to the client via whatsapp api
+      let sendTemplateResponse;
+      try {
+        sendTemplateResponse = await axios.request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify(whatsappPayloadForClient),
+        });
+      } catch (err) {
+        console.log('err --------------------> sendTemplateResponse');
+      }
+
+      let newMessage;
+      if (sendTemplateResponse) {
+        // Preparing template for Message database
+        const newMessageObjForClient = {
+          chat: selectedChat._id,
+          ...newMessageObj,
+        };
+
+        newMessageObjForClient.template.components = [];
+        templateForClient.components.map((component) => {
+          const templateComponent = { type: component.type };
+
+          if (component.type === 'HEADER') {
+            templateComponent.format = component.format;
+
+            if (component.example) {
+              let parameters;
+
+              // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+              if (component.format !== 'TEXT') {
+                parameters = [{ type: component.format.toLowerCase() }];
+                parameters[0][component.format.toLowerCase()] = {
+                  link: `${productionLink}/${item.downloadedFile}`,
+                  // link: `${productionLink}/${req.file.filename}`,
+                };
+                if (component.format === 'DOCUMENT') {
+                  parameters[0].document = {
+                    link: `${productionLink}/${req.file.filename}`,
+                    filename: req.file.originalname,
+                  };
+                }
+              } else {
+                parameters = [];
+                let parametersValues =
+                  component.example[`${component.type.toLowerCase()}_text`];
+                parametersValues = Array.isArray(parametersValues[0])
+                  ? parametersValues[0]
+                  : parametersValues;
+
+                parametersValues.map((el) => {
+                  parameters.push({
+                    type: 'text',
+                    text: item[req.body[el]][0],
+                  });
+                  // parameters.push({ type: 'text', text: req.body[el][0] });
+                });
+
+                parameters = parametersValues.map((el) => ({
+                  type: 'text',
+                  text: item[req.body[el]],
+                  // text: req.body[el],
+                }));
+              }
+
+              // **************************************************************
+              // **************************************************************
+              // **************************************************************
+
+              if (component.format === 'TEXT') {
+                templateComponent.text = component.text;
+
+                for (let i = 0; i < parameters.length; i++) {
+                  templateComponent.text = templateComponent.text.replace(
+                    `{{${i + 1}}}`,
+                    parameters[i].text
+                  );
+                }
+              } else {
+                templateComponent[`${component.format.toLowerCase()}`] = {
+                  link: item.downloadedFile,
+                  // link: req.file.filename,
+                };
+                if (component.format === 'DOCUMENT') {
+                  templateComponent.document = {
+                    link: req.file.filename,
+                    filename: req.file.originalname,
+                  };
+                }
+              }
+            } else {
+              templateComponent[`${component.format.toLowerCase()}`] =
+                component[`${component.format.toLowerCase()}`];
+            }
+          } else if (component.type === 'BODY') {
+            templateComponent.text = component.text;
+            // if (component.example) {
+            //   const bodyParameters =
+            //     whatsappPayloadForClient.template.components.filter(
+            //       (comp) => comp.type === 'body'
+            //     )[0].parameters;
+            //   // console.log('bodyParameters', bodyParameters);
+            //   for (let i = 0; i < bodyParameters.length; i++) {
+            //     templateComponent.text = templateComponent.text.replace(
+            //       `{{${i + 1}}}`,
+            //       bodyParameters[i].text
+            //     );
+            //   }
+            // }
+            if (component.example) {
+              parameters = [];
+              let parametersValues =
+                component.example[`${component.type.toLowerCase()}_text`];
+              parametersValues = Array.isArray(parametersValues[0])
+                ? parametersValues[0]
+                : parametersValues;
+
+              parametersValues.map((el) => {
+                parameters.push({
+                  type: 'text',
+                  text: Array.isArray(req.body[el])
+                    ? item[req.body[el]][0]
+                    : item[req.body[el]],
+                });
+              });
+
+              parameters = parametersValues.map((el) => ({
+                type: 'text',
+                text: item[req.body[el]],
+              }));
+
+              for (let i = 0; i < parameters.length; i++) {
+                templateComponent.text = templateComponent.text.replace(
+                  `{{${i + 1}}}`,
+                  parameters[i].text
+                );
+              }
+            }
+          } else if (component.type === 'BUTTONS') {
+            templateComponent.buttons = component.buttons;
+          } else {
+            templateComponent.text = component.text;
+          }
+
+          newMessageObjForClient.template.components.push(templateComponent);
+        });
+
+        // Adding the template message to database
+        newMessage = await Message.create({
+          ...newMessageObjForClient,
+          whatsappID: sendTemplateResponse.data.messages[0].id,
+        });
+
+        selectedChat.lastMessage = newMessage._id;
+        await selectedChat.save();
+      }
+
+      //********************************************************************************* */
+      // updating event in socket io
+      req.app.io.emit('updating');
+
+      // console.log('item ***********************************', item);
+
+      return {
+        item,
+        client,
+        message: newMessage ? newMessage._id : 'failed',
+      };
+    })
+  );
+
+  // console.log('results ======================== ', results);
+  console.log('jsonData ======================== ', jsonData);
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      // template,
+      // whatsappPayload,
+      // wahtsappResponse: sendTemplateResponse?.data,
+      // message: newMessage,
+      jsonData,
+      // clients,
+      results,
     },
   });
 });

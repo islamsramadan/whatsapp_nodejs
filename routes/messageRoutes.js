@@ -25,7 +25,19 @@ router
 
 router
   .route('/multi-templates')
-  .post(authController.protect, messageController.sendMultiTemplateMessage);
+  .post(
+    authController.protect,
+    messageController.uploadMessageImage,
+    messageController.sendMultiTemplateMessage
+  );
+
+router
+  .route('/broadcast')
+  .post(
+    authController.protect,
+    messageController.uploadMessageImage,
+    messageController.sendBroadcast
+  );
 
 // router
 //   .route('/:messageID/failedMessage')
