@@ -1383,7 +1383,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       // URL of the file to download
       const fileUrl = item[req.body.attachment] || '';
 
-      downloadFile(fileUrl)
+      await downloadFile(fileUrl)
         .then((res) => {
           console.log('res =============================', res);
           console.log('File downloaded successfully.');
@@ -1492,6 +1492,12 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         }
       });
 
+      console.log(
+        'whatsappPayloadForClient ================',
+        i,
+        '=====',
+        JSON.stringify(whatsappPayloadForClient)
+      );
       // Sending the template message to the client via whatsapp api
       let sendTemplateResponse;
       try {
