@@ -1388,9 +1388,9 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
           console.log('res =============================', res);
           console.log('File downloaded successfully.');
           if (res) {
-            item.downloadedFile = res;
-            // item.downloadedFile = item.image;
-            // item.downloadedFile = `${productionLink}/${res}`;
+            item.fileName = res;
+            // item.fileName = item.image;
+            // item.fileName = `${productionLink}/${res}`;
             console.log('item ======================= ', item);
           }
         })
@@ -1430,13 +1430,15 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
             if (component.format !== 'TEXT') {
               parameters = [{ type: component.format.toLowerCase() }];
               parameters[0][component.format.toLowerCase()] = {
-                link: `${productionLink}/${item.downloadedFile}`,
+                link: `${productionLink}/${item.fileName}`,
                 // link: `${productionLink}/${req.file.filename}`,
               };
               if (component.format === 'DOCUMENT') {
                 parameters[0].document = {
-                  link: `${productionLink}/${req.file.filename}`,
-                  filename: req.file.originalname,
+                  link: `${productionLink}/${item.fileName}`,
+                  filename: item.fileName,
+                  // link: `${productionLink}/${req.file.filename}`,
+                  // filename: req.file.originalname,
                 };
               }
             } else {
@@ -1537,13 +1539,15 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
               if (component.format !== 'TEXT') {
                 parameters = [{ type: component.format.toLowerCase() }];
                 parameters[0][component.format.toLowerCase()] = {
-                  link: `${productionLink}/${item.downloadedFile}`,
+                  link: `${productionLink}/${item.fileName}`,
                   // link: `${productionLink}/${req.file.filename}`,
                 };
                 if (component.format === 'DOCUMENT') {
                   parameters[0].document = {
-                    link: `${productionLink}/${req.file.filename}`,
-                    filename: req.file.originalname,
+                    link: `${productionLink}/${item.fileName}`,
+                    filename: item.fileName,
+                    // link: `${productionLink}/${req.file.filename}`,
+                    // filename: req.file.originalname,
                   };
                 }
               } else {
@@ -1584,13 +1588,15 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
                 }
               } else {
                 templateComponent[`${component.format.toLowerCase()}`] = {
-                  link: item.downloadedFile,
+                  link: item.fileName,
                   // link: req.file.filename,
                 };
                 if (component.format === 'DOCUMENT') {
                   templateComponent.document = {
-                    link: req.file.filename,
-                    filename: req.file.originalname,
+                    link: item.fileName,
+                    filename: item.fileName,
+                    // link: req.file.filename,
+                    // filename: req.file.originalname,
                   };
                 }
               }
