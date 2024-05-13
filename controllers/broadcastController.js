@@ -473,7 +473,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       // console.log('item ***********************************', item);
 
       return {
-        item,
+        // item,
         client,
         message: newMessage ? newMessage._id : 'failed',
       };
@@ -490,8 +490,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       // whatsappPayload,
       // wahtsappResponse: sendTemplateResponse?.data,
       // message: newMessage,
-      jsonData,
-      // clients,
+      //   jsonData,
       results,
     },
   });
