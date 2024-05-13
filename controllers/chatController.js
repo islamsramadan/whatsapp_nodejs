@@ -1,3 +1,4 @@
+const ChatHistory = require('../models/historyModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const User = require('../models/userModel');
@@ -77,17 +78,86 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
-  const chats = await Chat.find({ status: 'archived' })
+exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
+  // const statuses = ['open', 'onTime', 'danger', 'tooLate'];
+
+  const chats = await Chat.find({ currentUser: req.params.userID })
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status')
     .populate('contactName', 'name');
 
+  // console.log('statuses', statuses);
+  // chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
   res.status(200).json({
     status: 'success',
     results: chats.length,
     data: {
+      chats,
+    },
+  });
+});
+
+exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
+  const page = req.query.page || 1;
+  let chats, totalResults, totalPages;
+
+  if (req.query.userID) {
+    const userID = req.query.userID;
+    const sessionFilterObj = {
+      status: 'finished',
+      end: { $exists: true },
+      user: userID,
+    };
+
+    if (req.query.startDate)
+      sessionFilterObj.end = { $gt: new Date(req.query.startDate) };
+    if (req.query.endDate)
+      sessionFilterObj.end = {
+        ...sessionFilterObj.end,
+        $lt: new Date(req.query.endDate),
+      };
+
+    const sessions = await Session.find(sessionFilterObj);
+    const chatsIDs = sessions.map((session) => session.chat);
+    chats = await Chat.find({ _id: { $in: chatsIDs } })
+      .sort('-updatedAt')
+      .populate('lastMessage')
+      .populate('lastSession', 'status')
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count({ _id: { $in: chatsIDs } });
+    totalPages = Math.ceil(totalResults / 10);
+  } else {
+    const chatFilterObj = { status: 'archived' };
+
+    if (req.query.startDate)
+      chatFilterObj.updatedAt = { $gt: new Date(req.query.startDate) };
+    if (req.query.endDate)
+      chatFilterObj.updatedAt = {
+        ...chatFilterObj.updatedAt,
+        $lt: new Date(req.query.endDate),
+      };
+
+    chats = await Chat.find(chatFilterObj)
+      .sort('-updatedAt')
+      .populate('lastMessage')
+      .populate('lastSession', 'status')
+      .populate('contactName', 'name')
+      .limit(page * 10);
+
+    totalResults = await Chat.count(chatFilterObj);
+    totalPages = Math.ceil(totalResults / 10);
+  }
+
+  res.status(200).json({
+    status: 'success',
+    results: chats.length,
+    data: {
+      totalResults,
+      totalPages,
       chats,
     },
   });
@@ -106,6 +176,7 @@ exports.createChat = catchAsync(async (req, res, next) => {
     currentUser: req.user._id,
     users: [req.user._id],
     team: req.user.team,
+    status: 'archived',
   });
 
   res.status(201).json({
@@ -161,6 +232,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       { new: true, runValidators: true }
     );
 
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'archive',
+      archive: 'user',
+    };
+    await ChatHistory.create(chatHistoryData);
+
     // Updating chat
     chat.currentUser = undefined;
     chat.team = undefined;
@@ -208,6 +288,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       team: chat.team,
       status: 'open',
     });
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'takeOwnership',
+      takeOwnership: { from: chat.currentUser, to: req.user._id },
+    };
+    await ChatHistory.create(chatHistoryData);
 
     chat.currentUser = req.user._id;
     chat.lastSession = newSession._id;
@@ -274,6 +363,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       status: 'open',
     });
 
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'transfer',
+      transfer: { type: 'user', from: chat.currentUser, to: req.body.user },
+    };
+    await ChatHistory.create(chatHistoryData);
+
     chat.currentUser = req.body.user;
     chat.lastSession = newSession._id;
     //Add new user to the array of users
@@ -306,7 +404,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     //   );
     // }
 
-    if (!chat.team.equals(req.user.team)) {
+    if (!chat.team.equals(req.user.team) && req.user.role !== 'admin') {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );
@@ -362,6 +460,21 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       team: req.body.team,
       status: 'open',
     });
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: chat._id,
+      user: req.user._id,
+      actionType: 'transfer',
+      transfer: {
+        type: 'team',
+        from: chat.currentUser,
+        to: teamUsers[0]._id,
+        fromTeam: chat.team,
+        toTeam: req.body.team,
+      },
+    };
+    await ChatHistory.create(chatHistoryData);
 
     //Update chat
     chat.team = req.body.team;

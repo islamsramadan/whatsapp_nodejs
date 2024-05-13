@@ -102,22 +102,30 @@ io.on('connection', async (socket) => {
     if (data) {
       let userSessions,
         teamSessions,
+        teamUsersSessions,
         chats,
         session,
         chatStatus,
+        totalPages,
+        totalResults,
         messages,
         contactName,
-        currentUser;
+        currentUser,
+        notification;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
-          data.chatNumber
+          data.chatNumber,
+          data.page
         );
+        totalPages = chatData.totalPages;
+        totalResults = chatData.totalResults;
         messages = chatData.messages;
         session = chatData.chatSession;
         chatStatus = chatData.chatStatus;
         contactName = chatData.contactName;
         currentUser = chatData.currentUser;
+        notification = chatData.notification;
       }
       if (data.chatsType === 'user') {
         chats = await socketController.getAllUserChats(
@@ -134,9 +142,27 @@ io.on('connection', async (socket) => {
 
         // console.log('chats.length', chats.length);
       }
+
+      // ==============> Archived Chats
       if (data.chatsType === 'archived') {
-        chats = await socketController.getAllArchivedChats();
+        archivedChatsData = await socketController.getAllArchivedChats(
+          data.userID,
+          data.startDate,
+          data.endDate,
+          data.page
+        );
+
+        totalPages = archivedChatsData.totalPages;
+        totalResults = archivedChatsData.totalResults;
+        chats = archivedChatsData.chats;
       }
+
+      // ==============> Team User Chats
+      if (data.chatsType === 'teamUser' && data.teamUserID) {
+        chats = await socketController.getAllTeamUserChats(data.teamUserID);
+      }
+
+      // ==============> Team & users sessions
       if (data.sessions === true && data.teamsIDs) {
         let sessions = await socketController.getAllSessions(
           socket.user,
@@ -145,16 +171,27 @@ io.on('connection', async (socket) => {
         userSessions = sessions.userSessions;
         teamSessions = sessions.teamSessions;
       }
+      // ==============> Team users sessions
+      if (data.teamUsersSessions === true && data.teamsIDs) {
+        teamUsersSessions = await socketController.getAllTeamUsersSessions(
+          data.teamsIDs
+        );
+      }
+
       // Emit a response event back to the client
       socket.emit('server_to_client', {
         userSessions,
         teamSessions,
+        teamUsersSessions,
         chats,
+        totalPages,
+        totalResults,
         messages,
         session,
         chatStatus,
         contactName,
         currentUser,
+        notification,
       });
     }
   });

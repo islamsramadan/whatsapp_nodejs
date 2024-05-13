@@ -5,8 +5,9 @@ const authController = require('./../controllers/authController');
 
 const router = express.Router();
 
-router
-  .route('/')
-  .get(authController.protect, performanceController.getAllPerformance);
+router.route('/').get(
+  // authController.protect,
+  performanceController.getAllPerformance
+);
 
 module.exports = router;

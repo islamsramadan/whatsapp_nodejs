@@ -9,6 +9,7 @@ const Chat = require('../models/chatModel');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const User = require('../models/userModel');
+const ChatHistory = require('../models/historyModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -42,7 +43,7 @@ const convertDate = (timestamp) => {
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    console.log('file==============', file);
+    // console.log('file==============', file);
     // cb(
     //   null,
     //   file.mimetype.split('/')[0] === 'image'
@@ -63,7 +64,12 @@ const multerStorage = multer.diskStorage({
         ? file.mimetype.split('/')[1]
         : file.originalname.split('.')[file.originalname.split('.').length - 1];
 
-    cb(null, `user-${req.user.id}-${Date.now()}.${ext}`);
+    cb(
+      null,
+      `user-${req.user.id}-${Date.now()}-${Math.floor(
+        Math.random() * 1000
+      )}.${ext}`
+    );
   },
 });
 
@@ -82,6 +88,76 @@ const upload = multer({
 });
 
 exports.uploadMessageImage = upload.single('file');
+exports.uploadMultiFiles = upload.array('files');
+// exports.uploadMessageImage = upload.array('file', 2);
+
+// exports.getAllChatMessages = catchAsync(async (req, res, next) => {
+//   const userTeam = await Team.findById(req.user.team);
+//   if (!userTeam) {
+//     return next(
+//       new AppError("This user doesn't belong to any existed team!", 400)
+//     );
+//   }
+
+//   if (!req.params.chatNumber) {
+//     return next(new AppError('Kindly provide chat number!', 400));
+//   }
+
+//   const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
+//     'contactName',
+//     'name'
+//   );
+//   // console.log('chat', chat);
+
+//   if (!chat) {
+//     return next(new AppError('No chat found with that number!', 400));
+//   }
+
+//   // Checking if the user in the same team of the chat
+//   if (
+//     chat.team &&
+//     !chat.team.equals(req.user.team) &&
+//     req.user.role === 'user'
+//   ) {
+//     return next(
+//       new AppError("You don't have permission to view this chat!", 403)
+//     );
+//   }
+
+//   const page = req.query.page * 1 || 1;
+
+//   const messages = await Message.find({ chat: chat._id })
+//     .sort('-createdAt')
+//     .populate({
+//       path: 'user',
+//       select: { firstName: 1, lastName: 1, photo: 1 },
+//     })
+//     .populate('reply')
+//     .populate({
+//       path: 'userReaction.user',
+//       select: 'firstName lastName photo',
+//     })
+//     .limit(page * 20);
+
+//   const totalResults = await Message.count({ chat: chat._id });
+//   const totalPages = Math.ceil(totalResults / 20);
+
+//   res.status(200).json({
+//     status: 'success',
+//     results: messages.length,
+//     data: {
+//       totalPages,
+//       totalResults,
+//       session: chat.session,
+//       contactName: chat.contactName,
+//       // currentUser: chat.currentUser,
+//       currentUser: { _id: chat.currentUser, teamID: chat.team },
+//       chatStatus: chat.status,
+//       messages: messages.reverse(),
+//       notification: chat.notification,
+//     },
+//   });
+// });
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const userTeam = await Team.findById(req.user.team);
@@ -116,8 +192,10 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     );
   }
 
+  const page = req.query.page * 1 || 1;
+
   const messages = await Message.find({ chat: chat._id })
-    .sort('createdAt')
+    .sort('-createdAt')
     .populate({
       path: 'user',
       select: { firstName: 1, lastName: 1, photo: 1 },
@@ -126,24 +204,63 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     .populate({
       path: 'userReaction.user',
       select: 'firstName lastName photo',
-    });
+    })
+    .limit(page * 20);
+
+  const totalResults = await Message.count({ chat: chat._id });
+  const totalPages = Math.ceil(totalResults / 20);
+
+  const histories = await ChatHistory.find({ chat: chat._id })
+    .populate('user', 'firstName lastName')
+    .populate('transfer.from', 'firstName lastName')
+    .populate('transfer.to', 'firstName lastName')
+    .populate('transfer.fromTeam', 'name')
+    .populate('transfer.toTeam', 'name')
+    .populate('takeOwnership.from', 'firstName lastName')
+    .populate('takeOwnership.to', 'firstName lastName')
+    .populate('start', 'firstName lastName')
+    .populate('archive', 'firstName lastName');
+
+  let historyMessages = [...messages, ...histories].sort(
+    (a, b) => a.createdAt - b.createdAt
+  );
+
+  let historyMessagesCopy = [...historyMessages];
+
+  for (let i = 0; i < historyMessagesCopy.length; i++) {
+    if (
+      historyMessagesCopy[i].actionType &&
+      historyMessagesCopy[i + 1]?.actionType
+    ) {
+      // Remove history item from array
+      historyMessages = historyMessages.filter(
+        (item) => item._id !== historyMessagesCopy[i]._id
+      );
+    } else {
+      break;
+    }
+  }
 
   res.status(200).json({
     status: 'success',
     results: messages.length,
     data: {
+      totalPages,
+      totalResults,
       session: chat.session,
       contactName: chat.contactName,
-      currentUser: chat.currentUser,
+      currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
-      messages,
+      // messages: messages.reverse(),
+      messages: historyMessages,
+      notification: chat.notification,
     },
   });
 });
 
 exports.sendMessage = catchAsync(async (req, res, next) => {
   // console.log('req.body', req.body);
-  // console.log('req.file', req.file);
+  // console.log('req.files', req.files);
 
   if (!req.body.type) {
     return next(new AppError('Message type is required!', 400));
@@ -192,6 +309,15 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     selectedChat.currentUser = req.user._id;
     selectedChat.team = req.user.team;
     await selectedChat.save();
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: req.user._id,
+      actionType: 'start',
+      start: req.user._id,
+    };
+    await ChatHistory.create(chatHistoryData);
   }
   const selectedSession = session || newSession;
 
@@ -320,33 +446,33 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }));
   }
 
-  // Image Message
-  if (req.body.type === 'image') {
-    if (!req.file) {
-      return next(new AppError('No image found!', 404));
-    }
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.image = {
-      link: `${productionLink}/${req.file.filename}`,
-      caption: req.body.caption,
-    };
+  // // Image Message ===========> changed for multi files
+  // if (req.body.type === 'image') {
+  //   if (!req.file) {
+  //     return next(new AppError('No image found!', 404));
+  //   }
+  //   whatsappPayload.recipient_type = 'individual';
+  //   whatsappPayload.image = {
+  //     link: `${productionLink}/${req.file.filename}`,
+  //     caption: req.body.caption,
+  //   };
 
-    newMessageObj.image = {
-      file: req.file.filename,
-      caption: req.body.caption,
-    };
-  }
+  //   newMessageObj.image = {
+  //     file: req.file.filename,
+  //     caption: req.body.caption,
+  //   };
+  // }
 
   // Video Message
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.video = {
-      link: `${productionLink}/${req.file.filename}`,
+      link: `${productionLink}/${req.files[0].filename}`,
       caption: req.body.caption,
     };
 
     newMessageObj.video = {
-      file: req.file.filename,
+      file: req.files[0].filename,
       caption: req.body.caption,
     };
   }
@@ -355,53 +481,63 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   if (req.body.type === 'audio') {
     whatsappPayload.recipient_type = 'individual';
     whatsappPayload.audio = {
-      link: `${productionLink}/${req.file.filename}`,
+      link: `${productionLink}/${req.files[0].filename}`,
     };
 
     newMessageObj.audio = {
-      file: req.file.filename,
+      file: req.files[0].filename,
       voice: false,
     };
   }
 
-  // Document Message
-  if (req.body.type === 'document') {
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.document = {
-      link: `${productionLink}/${req.file.filename}`,
-      filename: req.file.originalname,
-      caption: req.body.caption,
-    };
+  // Document Message =============> changed for multi files
+  // if (req.body.type === 'document') {
+  //   whatsappPayload.recipient_type = 'individual';
+  //   whatsappPayload.document = {
+  //     link: `${productionLink}/${req.files[0].filename}`,
+  //     filename: req.files[0].originalname,
+  //     caption: req.body.caption,
+  //   };
 
-    newMessageObj.document = {
-      file: req.file.filename,
-      filename: req.file.originalname,
-      caption: req.body.caption,
-    };
-  }
+  //   newMessageObj.document = {
+  //     file: req.files[0].filename,
+  //     filename: req.files[0].originalname,
+  //     caption: req.body.caption,
+  //   };
+  // }
   // console.log('whatsappPayload', whatsappPayload);
 
-  let response;
-  try {
-    response = await axios.request({
-      method: 'post',
-      maxBodyLength: Infinity,
-      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      },
-      data: JSON.stringify(whatsappPayload),
-    });
-  } catch (err) {
-    console.log('err', err);
-  }
+  let newMessage;
+  if (req.body.type === 'image' || req.body.type === 'document') {
+    const newMessages = await sendMultiMediaHandler(
+      req,
+      whatsappPayload,
+      newMessageObj
+    );
+    newMessage = newMessages[newMessages.length - 1];
+  } else {
+    let response;
+    try {
+      response = await axios.request({
+        method: 'post',
+        maxBodyLength: Infinity,
+        url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        },
+        data: JSON.stringify(whatsappPayload),
+      });
+    } catch (err) {
+      console.log('err', err);
+    }
 
-  // console.log('response.data----------------', JSON.stringify(response.data));
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: response.data.messages[0].id,
-  });
+    // console.log('response.data----------------', JSON.stringify(response.data));
+    newMessage = await Message.create({
+      ...newMessageObj,
+      whatsappID: response.data.messages[0].id,
+    });
+  }
 
   // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
@@ -425,6 +561,119 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
+  if (!req.files || req.files.length === 0) {
+    return next(new AppError('No file found!', 404));
+  }
+
+  let preparedMessages = req.files.map((file) => ({
+    file,
+    whatsappPayload,
+    newMessageObj,
+  }));
+
+  // Image Message
+  if (req.body.type === 'image') {
+    // for (let i = 0; i < preparedMessages.length; i++) {
+    //   preparedMessages[i].whatsappPayload.recipient_type = 'individual';
+    //   preparedMessages[i].whatsappPayload.image = {
+    //     link: `${productionLink}/${preparedMessages[i].file.filename}------${i}`,
+    //     caption: req.body.caption,
+    //   };
+
+    //   console.log(
+    //     'file.filename =========== ' + i,
+    //     preparedMessages[i].whatsappPayload.image
+    //   );
+
+    //   preparedMessages[i].newMessageObj.image = {
+    //     file: preparedMessages[i].file.filename,
+    //     caption: req.body.caption,
+    //   };
+    // }
+
+    preparedMessages = preparedMessages.map((item, i) => ({
+      ...item,
+      whatsappPayload: {
+        ...item.whatsappPayload,
+        recipient_type: 'individual',
+        image: {
+          link: `${productionLink}/${item.file.filename}`,
+          caption: req.body.caption,
+        },
+      },
+      newMessageObj: {
+        ...newMessageObj,
+        image: {
+          file: item.file.filename,
+          caption: req.body.caption,
+        },
+      },
+    }));
+  }
+
+  if (req.body.type === 'document') {
+    preparedMessages = preparedMessages.map((item, i) => ({
+      ...item,
+      whatsappPayload: {
+        ...item.whatsappPayload,
+        recipient_type: 'individual',
+        document: {
+          link: `${productionLink}/${item.file.filename}`,
+          filename: item.file.originalname,
+          caption: req.body.caption,
+        },
+      },
+      newMessageObj: {
+        ...newMessageObj,
+        document: {
+          file: item.file.filename,
+          filename: item.file.originalname,
+          caption: req.body.caption,
+        },
+      },
+    }));
+  }
+
+  // preparedMessages.map((el) => {
+  //   console.log('el.whatsappPayload', el.whatsappPayload);
+  //   console.log('el.newMessageObj', el.newMessageObj);
+  //   console.log('el.file', el.file);
+  // });
+
+  const newMessages = await Promise.all(
+    preparedMessages.map(async (item) => {
+      let response;
+      try {
+        response = await axios.request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify(item.whatsappPayload),
+        });
+      } catch (err) {
+        console.log('err', err);
+      }
+
+      // console.log('response.data----------------', JSON.stringify(response.data));
+      const newMessage = await Message.create({
+        ...item.newMessageObj,
+        whatsappID: response.data.messages[0].id,
+      });
+
+      return newMessage;
+    })
+  );
+
+  // console.log('preparedMessages ===========================', preparedMessages);
+  // console.log('newMessages', newMessages);
+  return newMessages;
+};
 
 // exports.sendFailedMessage = catchAsync(async (req, res, next) => {
 //   const failedMessage = await Message.findById(req.params.messageID);
@@ -642,7 +891,11 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   });
 });
 
+//with uploaded file
 exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
+  // console.log('req.body', req.body);
+  // console.log('req.file', req.file);
+
   const { templateName } = req.body;
   if (!templateName) {
     return next(new AppError('Template name is required!', 400));
@@ -709,6 +962,15 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     selectedChat.currentUser = req.user._id;
     selectedChat.team = req.user.team;
     await selectedChat.save();
+
+    // =======> Create chat history session
+    const chatHistoryData = {
+      chat: selectedChat._id,
+      user: req.user._id,
+      actionType: 'start',
+      start: req.user._id,
+    };
+    await ChatHistory.create(chatHistoryData);
   }
   const selectedSession = session || newSession;
 
@@ -724,6 +986,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   await selectedChat.save();
 
   //********************************************************************************* */
+  //********************************************************************************* */
   // Preparing template for whatsapp payload
   const whatsappPayload = {
     messaging_product: 'whatsapp',
@@ -738,23 +1001,65 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     },
   };
 
+  // console.log('template.components =============', template);
+
   template.components.map((component) => {
     if (component.example) {
-      let paramaters =
-        component.example[
-          `${component.type.toLowerCase()}_${
-            component.format ? component.format.toLowerCase() : 'text'
-          }`
-        ];
-      paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
-      // console.log('paramaters', paramaters);
+      let parameters;
+      if (component.type === 'HEADER') {
+        // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+        if (component.format !== 'TEXT') {
+          parameters = [{ type: component.format.toLowerCase() }];
+          parameters[0][component.format.toLowerCase()] = {
+            link: `${productionLink}/${req.file.filename}`,
+          };
+          if (component.format === 'DOCUMENT') {
+            parameters[0].document = {
+              link: `${productionLink}/${req.file.filename}`,
+              filename: req.file.originalname,
+            };
+          }
+        } else {
+          parameters = [];
+          let parametersValues =
+            component.example[`${component.type.toLowerCase()}_text`];
+          parametersValues = Array.isArray(parametersValues[0])
+            ? parametersValues[0]
+            : parametersValues;
+
+          parametersValues.map((el) => {
+            parameters.push({ type: 'text', text: req.body[el][0] });
+          });
+
+          parameters = parametersValues.map((el) => ({
+            type: 'text',
+            text: req.body[el],
+          }));
+        }
+      } else {
+        parameters = [];
+        let parametersValues =
+          component.example[`${component.type.toLowerCase()}_text`];
+        parametersValues = Array.isArray(parametersValues[0])
+          ? parametersValues[0]
+          : parametersValues;
+
+        parametersValues.map((el) => {
+          parameters.push({
+            type: 'text',
+            text: Array.isArray(req.body[el]) ? req.body[el][0] : req.body[el],
+          });
+        });
+
+        parameters = parametersValues.map((el) => ({
+          type: 'text',
+          text: req.body[el],
+        }));
+      }
 
       whatsappPayload.template.components.push({
-        type: component.type,
-        parameters: paramaters.map((el) => ({
-          type: component.format ? component.format.toLowerCase() : 'text',
-          text: req.body[`${el}`],
-        })),
+        type: component.type.toLowerCase(),
+        parameters: parameters,
       });
     }
   });
@@ -780,26 +1085,42 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
     if (component.type === 'HEADER') {
       templateComponent.format = component.format;
-      templateComponent[`${component.format.toLowerCase()}`] =
-        component[`${component.format.toLowerCase()}`];
+
       if (component.example) {
         const headerParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'HEADER'
+          (comp) => comp.type === 'header'
         )[0].parameters;
         // console.log('headerParameters', headerParameters);
-        for (let i = 0; i < headerParameters.length; i++) {
-          templateComponent[`${component.format.toLowerCase()}`] =
-            templateComponent[`${component.format.toLowerCase()}`].replace(
+
+        if (component.format === 'TEXT') {
+          templateComponent.text = component.text;
+
+          for (let i = 0; i < headerParameters.length; i++) {
+            templateComponent.text = templateComponent.text.replace(
               `{{${i + 1}}}`,
-              headerParameters[i][`${component.format.toLowerCase()}`]
+              headerParameters[i].text
             );
+          }
+        } else {
+          templateComponent[`${component.format.toLowerCase()}`] = {
+            link: req.file.filename,
+          };
+          if (component.format === 'DOCUMENT') {
+            templateComponent.document = {
+              link: req.file.filename,
+              filename: req.file.originalname,
+            };
+          }
         }
+      } else {
+        templateComponent[`${component.format.toLowerCase()}`] =
+          component[`${component.format.toLowerCase()}`];
       }
     } else if (component.type === 'BODY') {
       templateComponent.text = component.text;
       if (component.example) {
         const bodyParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'BODY'
+          (comp) => comp.type === 'body'
         )[0].parameters;
         // console.log('bodyParameters', bodyParameters);
         for (let i = 0; i < bodyParameters.length; i++) {
@@ -817,6 +1138,8 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
 
     newMessageObj.template.components.push(templateComponent);
   });
+
+  // console.log('whatsappPayload', whatsappPayload);
 
   // Sending the template message to the client via whatsapp api
   let sendTemplateResponse;
@@ -868,9 +1191,9 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: 'success',
     data: {
-      // template,
-      // whatsappPayload,
-      // wahtsappResponse: sendTemplateResponse?.data,
+      template,
+      whatsappPayload,
+      wahtsappResponse: sendTemplateResponse?.data,
       message: newMessage,
     },
   });
@@ -910,6 +1233,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   if (!chat) {
     newChat = await Chat.create({
       client: req.params.chatNumber,
+      status: 'archived',
       // currentUser: req.user._id,
       // users: [req.user._id],
       // team: req.user.team,
@@ -936,7 +1260,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
   template.components.map((component) => {
     if (component.example) {
-      let paramaters =
+      let parameters =
         component.format === 'DOCUMENT'
           ? 'link'
           : component.example[
@@ -944,8 +1268,8 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
                 component.format ? component.format.toLowerCase() : 'text'
               }`
             ];
-      paramaters = Array.isArray(paramaters[0]) ? paramaters[0] : paramaters;
-      // console.log('paramaters', paramaters);
+      parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
+      // console.log('parameters', parameters);
 
       whatsappPayload.template.components.push({
         type: component.type,
@@ -960,7 +1284,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
                   },
                 },
               ]
-            : paramaters.map((el) => {
+            : parameters.map((el) => {
                 let object = {
                   type: component.format
                     ? component.format.toLowerCase()

@@ -10,15 +10,18 @@ router
   .get(authController.protect, messageController.getAllChatMessages)
   .post(
     authController.protect,
-    messageController.uploadMessageImage,
+    messageController.uploadMultiFiles,
+    // messageController.uploadMessageImage,
     messageController.sendMessage
   );
 
-router.route('/templates').post(
-  authController.protect,
-  // messageController.uploadMessageImage,
-  messageController.sendTemplateMessage
-);
+router
+  .route('/templates')
+  .post(
+    authController.protect,
+    messageController.uploadMessageImage,
+    messageController.sendTemplateMessage
+  );
 
 router
   .route('/multi-templates')
