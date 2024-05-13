@@ -429,7 +429,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
                     ? insertType === 'sheet'
                       ? item[req.body[el]][0]
                       : item[el][0]
-                    : insert['type'] === 'sheet'
+                    : insertType === 'sheet'
                     ? item[req.body[el]]
                     : item[el],
                 });
