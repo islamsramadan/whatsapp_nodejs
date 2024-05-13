@@ -65,13 +65,14 @@ const downloadFile = (url) => {
 exports.sendBroadcast = catchAsync(async (req, res, next) => {
   const insertType = req.body.type;
 
-  if (!insertType) {
+  if (!insertType || !['sheet', 'manual'].includes(insertType)) {
     return next(new AppError('Type is required!', 400));
   }
 
   let jsonData;
   if (insertType === 'sheet') {
-    console.log('req.file', req.file);
+    // console.log('req.file', req.file);
+
     const workbook = xlsx.readFile(req.file.path);
     const sheetNameList = workbook.SheetNames;
     jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
@@ -138,7 +139,11 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
   const results = await Promise.all(
     jsonData.map(async (item, i) => {
       // URL of the file to download
-      if (req.body.attachment && req.body.attachmentType === 'link') {
+      if (
+        insertType === 'sheet' &&
+        req.body.attachment &&
+        req.body.attachmentType === 'link'
+      ) {
         const fileUrl = item[req.body.attachment] || '';
 
         await downloadFile(fileUrl)
@@ -152,13 +157,18 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
           .catch((err) => {
             console.error('Error downloading file:', err);
           });
-      } else if (req.body.attachment && req.body.attachmentType === 'file') {
+      } else if (
+        insertType === 'sheet' &&
+        req.body.attachment &&
+        req.body.attachmentType === 'file'
+      ) {
         item.fileName = req.body.attachment;
       }
 
       // *********************************************************************
 
-      const client = item[req.body.number];
+      const client =
+        insertType === 'sheet' ? item[req.body.number] : item.number;
 
       // selecting chat that the message belongs to
       const chat = await Chat.findOne({ client });
@@ -210,7 +220,10 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
               parametersValues.map((el) => {
                 parameters.push({
                   type: 'text',
-                  text: item[req.body[el]][0],
+                  text:
+                    insertType === 'sheet'
+                      ? item[req.body[el]][0]
+                      : item[el][0],
                   // text: item[`${req.body[el]}`][0],
                 });
                 // parameters.push({ type: 'text', text: req.body[el][0] });
@@ -218,7 +231,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 
               parameters = parametersValues.map((el) => ({
                 type: 'text',
-                text: item[req.body[el]],
+                text: insertType === 'sheet' ? item[req.body[el]] : item[el],
                 // text: req.body[el],
               }));
             }
@@ -230,18 +243,31 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
               ? parametersValues[0]
               : parametersValues;
 
+            // parametersValues.map((el) => {
+            //   parameters.push({
+            //     type: 'text',
+            //     text: Array.isArray(req.body[el])
+            //       ? item[req.body[el]][0]
+            //       : item[req.body[el]],
+            //   });
+            // });
+
             parametersValues.map((el) => {
               parameters.push({
                 type: 'text',
                 text: Array.isArray(req.body[el])
-                  ? item[req.body[el]][0]
-                  : item[req.body[el]],
+                  ? insertType === 'sheet'
+                    ? item[req.body[el]][0]
+                    : item[el][0]
+                  : insertType === 'sheet'
+                  ? item[req.body[el]]
+                  : item[el],
               });
             });
 
             parameters = parametersValues.map((el) => ({
               type: 'text',
-              text: item[req.body[el]],
+              text: insertType === 'sheet' ? item[req.body[el]] : item[el],
             }));
           }
 
@@ -319,14 +345,17 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
                 parametersValues.map((el) => {
                   parameters.push({
                     type: 'text',
-                    text: item[req.body[el]][0],
+                    text:
+                      insertType === 'sheet'
+                        ? item[req.body[el]][0]
+                        : item[el][0],
                   });
                   // parameters.push({ type: 'text', text: req.body[el][0] });
                 });
 
                 parameters = parametersValues.map((el) => ({
                   type: 'text',
-                  text: item[req.body[el]],
+                  text: insertType === 'sheet' ? item[req.body[el]] : item[el],
                   // text: req.body[el],
                 }));
               }
@@ -385,18 +414,30 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
                 ? parametersValues[0]
                 : parametersValues;
 
+              //   parametersValues.map((el) => {
+              //     parameters.push({
+              //       type: 'text',
+              //       text: Array.isArray(req.body[el])
+              //         ? item[req.body[el]][0]
+              //         : item[req.body[el]],
+              //     });
+              //   });
               parametersValues.map((el) => {
                 parameters.push({
                   type: 'text',
                   text: Array.isArray(req.body[el])
-                    ? item[req.body[el]][0]
-                    : item[req.body[el]],
+                    ? insertType === 'sheet'
+                      ? item[req.body[el]][0]
+                      : item[el][0]
+                    : insert['type'] === 'sheet'
+                    ? item[req.body[el]]
+                    : item[el],
                 });
               });
 
               parameters = parametersValues.map((el) => ({
                 type: 'text',
-                text: item[req.body[el]],
+                text: insertType === 'sheet' ? item[req.body[el]] : item[el],
               }));
 
               for (let i = 0; i < parameters.length; i++) {

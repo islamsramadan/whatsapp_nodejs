@@ -1910,6 +1910,9 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   });
   // console.log('newMessage ===================', newMessage);
 
+  selectedChat.lastMessage = newMessage._id;
+  await selectedChat.save();
+
   //********************************************************************************* */
   //updating event in socket io
   req.app.io.emit('updating');
