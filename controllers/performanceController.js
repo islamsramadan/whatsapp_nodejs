@@ -85,30 +85,18 @@ exports.getAllSessions = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllPerformance = catchAsync(async (req, res, next) => {
-  let usersIDs = req.query.usersIDs?.split(',');
+  let usersIDs = req.query.selectedUsers?.split(',');
+  let teamsIDs = req.query.selectedTeams?.split(',');
 
-  if (!req.query.usersIDs) {
-    usersIDs = await User.find();
+  if (!req.query.selectedUsers) {
+    if (req.query.selectedTeams) {
+      usersIDs = await User.find({ team: { $in: teamsIDs } });
+    } else {
+      usersIDs = await User.find();
+    }
   }
-  // const sessions = await Session.find({
-  //   user: { $in: usersIDs },
-  //   type: 'normal',
-  //   'performance.all': { $gt: 0 },
-  //   status: 'finished',
-  // }).populate('user', 'firstName lastName');
 
-  // const performanceSessions = sessions.map((session) => ({
-  //   _id: session._id,
-  //   user: session.user,
-  //   all: session.performance.all,
-  //   onTime: session.performance.onTime,
-  //   danger: session.performance.danger,
-  //   tooLate: session.performance.tooLate,
-  //   updatedAt: session.updatedAt,
-  //   date: session.updatedAt.getMonth(),
-  //   status: session.status,
-  // }));
-
+  // console.log('usersIDs', usersIDs);
   const startDate = req.query.startDate;
   const endDate = req.query.endDate;
 
@@ -133,13 +121,7 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
   const performances = await Promise.all(
     usersIDs.map(async (userID) => {
       populateObject.user = userID;
-
-      // const sessions = await Session.find({
-      //   user: userID,
-      //   type: 'normal',
-      //   'performance.all': { $gt: 0 },
-      //   status: 'finished',
-      // }).populate('user', 'firstName lastName');
+      // console.log('populateObject', populateObject);
 
       const sessions = await Session.find(populateObject).populate(
         'user',

@@ -15,7 +15,8 @@ const interactiveMessages = require('../utils/interactiveMessages');
 
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
-const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
+// const serviceHoursUtils.checkInsideServiceHours = require('../utils/serviceHoursUtils');
+const serviceHoursUtils = require('../utils/serviceHoursUtils');
 const Contact = require('../models/contactModel');
 const ChatHistory = require('../models/historyModel');
 
@@ -428,20 +429,31 @@ const receiveMessageHandler = async (req, res, next) => {
     }
     await selectedChat.save();
 
+    // ***************** Adjusting session & message timer ******************
+    const team = await Team.findById(selectedSession.team);
+    const teamServiceHours = await Service.findById(team.serviceHours);
+    let timer = new Date();
+
+    if (
+      !serviceHoursUtils.checkInsideServiceHours(teamServiceHours.durations)
+    ) {
+      timer = serviceHoursUtils.getTheNextServiceHours(
+        teamServiceHours.durations
+      );
+    }
+
+    let delay = {
+      hours: teamServiceHours.responseTime.hours,
+      minutes: teamServiceHours.responseTime.minutes,
+    };
+
+    timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
+    timer.setHours(timer.getHours() + delay.hours * 1);
+
+    console.log('timer  checking 453 ==========', timer);
+
     // ***************** Updating session status ******************
     if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
-      const team = await Team.findById(selectedSession.team);
-      const serviceHours = await Service.findById(team.serviceHours);
-
-      let delay = {
-        hours: serviceHours.responseTime.hours,
-        minutes: serviceHours.responseTime.minutes,
-      };
-
-      let timer = new Date();
-      timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
-      timer.setHours(timer.getHours() + delay.hours * 1);
-
       selectedSession.timer = timer;
       selectedSession.status = 'onTime';
       await selectedSession.save();
@@ -461,18 +473,6 @@ const receiveMessageHandler = async (req, res, next) => {
     }
 
     // ***************** Updating session Performance ******************
-    const team = await Team.findById(selectedSession.team);
-    const serviceHours = await Service.findById(team.serviceHours);
-
-    let delay = {
-      hours: serviceHours.responseTime.hours,
-      minutes: serviceHours.responseTime.minutes,
-    };
-
-    let timer = new Date();
-    timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
-    timer.setHours(timer.getHours() + delay.hours * 1);
-
     newMessage.timer = timer;
     await newMessage.save();
 
@@ -1243,7 +1243,7 @@ const chatBotHandler = async (
           );
           // console.log('selectedTeamConversation', selectedTeamConversation);
 
-          const msgText = checkInsideServiceHours(
+          const msgText = serviceHoursUtils.checkInsideServiceHours(
             selectedTeamServiceHours.durations
           )
             ? selectedTeamConversation.bodyOn
