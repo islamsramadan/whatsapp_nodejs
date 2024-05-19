@@ -1,5 +1,6 @@
 const fs = require('fs');
 const axios = require('axios');
+const mongoose = require('mongoose');
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
@@ -268,7 +269,6 @@ const receiveMessageHandler = async (req, res, next) => {
     }
 
     const selectedChat = chat || newChat;
-    const session = await Session.findById(selectedChat.lastSession);
 
     const newMessageChecker = async (selectedMessage) => {
       const messagesWithSameID = await Message.find({
@@ -288,36 +288,70 @@ const receiveMessageHandler = async (req, res, next) => {
       return res.status(200).json({ message: 'Message not found!' });
     } // to avoid create new session and make error
 
-    let newSession;
+    // ------------------------> Selecting Session
+    const session = await Session.findById(selectedChat.lastSession);
+    let selectedSession = session;
+
     if (!session) {
-      const botTeam = await Team.findOne({ bot: true });
+      async function ensureSessionForChat(selectedChat) {
+        const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
+        transactionSession.startTransaction();
 
-      newSession = await Session.create({
-        chat: selectedChat._id,
-        user: botTeam.supervisor,
-        team: botTeam._id,
-        status: 'onTime',
-        type: 'bot',
-      });
+        try {
+          // Re-fetch the chat within the transaction to ensure data integrity
+          const chat = await Chat.findById(selectedChat._id).session(
+            transactionSession
+          );
 
-      // console.log('newSession 256 =============', newSession);
+          if (!chat.lastSession) {
+            const botTeam = await Team.findOne({ bot: true }).session(
+              transactionSession
+            );
 
-      selectedChat.lastSession = newSession._id;
-      selectedChat.team = botTeam._id;
-      selectedChat.currentUser = botTeam.supervisor;
-      await selectedChat.save();
+            const newSession = await Session.create(
+              [
+                {
+                  chat: chat._id,
+                  user: botTeam.supervisor,
+                  team: botTeam._id,
+                  status: 'onTime',
+                  type: 'bot',
+                },
+              ],
+              { session: transactionSession }
+            );
 
-      // =======> Adding the selected chat to the bot user chats
-      const botUser = await User.findById(botTeam.supervisor);
-      if (!botUser.chats.includes(selectedChat._id)) {
-        await User.findByIdAndUpdate(
-          botUser._id,
-          { $push: { chats: selectedChat._id } },
-          { new: true, runValidators: true }
-        );
+            chat.lastSession = newSession[0]._id;
+            chat.currentUser = botTeam.supervisor;
+            chat.team = botTeam._id;
+            await chat.save({ session: transactionSession });
+
+            await transactionSession.commitTransaction(); // Commit the transaction
+            transactionSession.endSession();
+
+            console.log('New session created:', newSession[0]._id);
+            return newSession[0];
+          } else {
+            await transactionSession.abortTransaction(); // Abort as no need to create a session
+            transactionSession.endSession();
+
+            console.log('Using existing session:', chat.lastSession);
+            return await Session.findById(chat.lastSession);
+          }
+        } catch (error) {
+          await transactionSession.abortTransaction(); // Make sure to abort if an error occurs
+          transactionSession.endSession();
+          throw error;
+        }
       }
+
+      selectedSession = await ensureSessionForChat(selectedChat);
     }
-    const selectedSession = session || newSession;
+
+    console.log(
+      'selectedSession **************************************************** ',
+      selectedSession
+    );
 
     const newMessageData = {
       chat: selectedChat._id,
