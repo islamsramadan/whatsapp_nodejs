@@ -71,6 +71,10 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    botReply: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
