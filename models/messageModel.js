@@ -75,7 +75,7 @@ const messageSchema = new mongoose.Schema(
       },
       language: {
         type: String,
-        enum: ['ar', 'en', 'en_US'],
+        // enum: ['ar', 'en', 'en_US', 'en_GB'],
         required: function () {
           if (this.type === 'template') {
             return [true, 'Template message must have a template language!'];
