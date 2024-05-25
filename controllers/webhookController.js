@@ -1645,6 +1645,9 @@ const chatBotHandler = async (
           selectedChat,
           selectedSession
         );
+
+        CheckingSession.botReply = 'error';
+        await CheckingSession.save();
       }
     }
   }
