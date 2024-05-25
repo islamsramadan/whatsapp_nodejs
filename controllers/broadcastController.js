@@ -1,5 +1,4 @@
 const axios = require('axios');
-const multer = require('multer');
 const xlsx = require('xlsx');
 const https = require('https');
 const fs = require('fs');
@@ -10,10 +9,6 @@ const AppError = require('../utils/appError');
 
 const Message = require('../models/messageModel');
 const Chat = require('../models/chatModel');
-const Team = require('../models/teamModel');
-const Session = require('../models/sessionModel');
-const User = require('../models/userModel');
-const ChatHistory = require('../models/historyModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -64,15 +59,24 @@ const downloadFile = (url) => {
 
 exports.sendBroadcast = catchAsync(async (req, res, next) => {
   const insertType = req.body.type;
+  let countryCode = req.body.countryCode;
 
   if (!insertType || !['sheet', 'manual'].includes(insertType)) {
     return next(new AppError('Type is required!', 400));
   }
 
+  if (insertType === 'sheet' && !countryCode) {
+    return next(new AppError('Country Code is required!'));
+  }
+
+  // remove + from country code if found
+  if (countryCode && countryCode.startsWith('+')) {
+    countryCode = countryCode.slice(1);
+  }
+
   let jsonData;
   if (insertType === 'sheet') {
     // console.log('req.file', req.file);
-
     const workbook = xlsx.readFile(req.file.path);
     const sheetNameList = workbook.SheetNames;
     jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
@@ -166,9 +170,27 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       }
 
       // *********************************************************************
+      // some validation for client number
+      if (
+        (insertType === 'sheet' && !item[req.body.number]) ||
+        (insertType === 'manual' && !item.number)
+      ) {
+        return { client: 'invalid number', message: 'failed' };
+      }
 
-      const client =
-        insertType === 'sheet' ? item[req.body.number] : item.number;
+      let client;
+      if (insertType === 'sheet') {
+        client = item[req.body.number];
+        if (client?.startsWith('+')) {
+          client = client.slice(1);
+        } else if (client?.startsWith('0')) {
+          client = client.slice(1);
+          client = `${countryCode}${client}`;
+        }
+      } else if (insertType === 'manual') {
+        client = item.number;
+        if (client?.startsWith('+')) client = client.slice(1);
+      }
 
       // selecting chat that the message belongs to
       const chat = await Chat.findOne({ client });
@@ -466,32 +488,24 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         await selectedChat.save();
       }
 
-      //********************************************************************************* */
-      // updating event in socket io
-      req.app.io.emit('updating');
-
-      // console.log('item ***********************************', item);
-
       return {
-        // item,
         client,
         message: newMessage ? newMessage._id : 'failed',
       };
     })
   );
+  // updating event in socket io
+  req.app.io.emit('updating');
 
   // console.log('results ======================== ', results);
-  //   console.log('jsonData ======================== ', jsonData);
+  // console.log('jsonData ======================== ', jsonData);
 
   res.status(201).json({
     status: 'success',
     data: {
-      // template,
-      // whatsappPayload,
-      // wahtsappResponse: sendTemplateResponse?.data,
-      // message: newMessage,
-      //   jsonData,
+      template: templateName,
       results,
+      jsonData,
     },
   });
 });

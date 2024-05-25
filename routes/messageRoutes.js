@@ -31,14 +31,6 @@ router
     messageController.sendMultiTemplateMessage
   );
 
-router
-  .route('/broadcast')
-  .post(
-    authController.protect,
-    messageController.uploadMessageImage,
-    messageController.sendBroadcast
-  );
-
 // router
 //   .route('/:messageID/failedMessage')
 //   .patch(authController.protect, messageController.sendFailedMessage);
