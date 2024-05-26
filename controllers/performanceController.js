@@ -92,7 +92,7 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
     if (req.query.selectedTeams) {
       usersIDs = await User.find({ team: { $in: teamsIDs } });
     } else {
-      usersIDs = await User.find();
+      usersIDs = await User.find({ bot: false });
     }
   }
 
