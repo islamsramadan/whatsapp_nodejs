@@ -3,12 +3,14 @@ const xlsx = require('xlsx');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const json2xls = require('json2xls');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
 const Message = require('../models/messageModel');
 const Chat = require('../models/chatModel');
+const Broadcast = require('../models/broadcastModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -16,6 +18,29 @@ const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
 const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 const productionLink = process.env.PRODUCTION_LINK;
+
+const convertDate = (timestamp) => {
+  const date = new Date(timestamp * 1);
+
+  const hours =
+    (date.getHours() + '').length > 1 ? date.getHours() : `0${date.getHours()}`;
+
+  const minutes =
+    (date.getMinutes() + '').length > 1
+      ? date.getMinutes()
+      : `0${date.getMinutes()}`;
+
+  const seconds =
+    (date.getSeconds() + '').length > 1
+      ? date.getSeconds()
+      : `0${date.getSeconds()}`;
+
+  const dateString = date.toDateString();
+
+  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+
+  return dateFormat;
+};
 
 // Function to download broadcast file
 const downloadFile = (url) => {
@@ -175,7 +200,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         (insertType === 'sheet' && !item[req.body.number]) ||
         (insertType === 'manual' && !item.number)
       ) {
-        return { client: 'invalid number', message: 'failed' };
+        return { client: 'invalid number', status: 'failed' };
       }
 
       let client;
@@ -488,10 +513,14 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         await selectedChat.save();
       }
 
-      return {
-        client,
-        message: newMessage ? newMessage._id : 'failed',
-      };
+      const result = { client };
+      if (newMessage) {
+        result.message = newMessage._id;
+      } else {
+        result.status = 'failed';
+      }
+
+      return result;
     })
   );
   // updating event in socket io
@@ -500,12 +529,105 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
   // console.log('results ======================== ', results);
   // console.log('jsonData ======================== ', jsonData);
 
+  const newBroadCast = await Broadcast.create({
+    template: templateName,
+    results,
+  });
+
   res.status(201).json({
     status: 'success',
     data: {
       template: templateName,
+      Broadcast: newBroadCast?._id,
       results,
       jsonData,
     },
   });
+});
+
+exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
+  let broadcasts = await Broadcast.find();
+
+  broadcasts = broadcasts.map((broadcast) => ({
+    _id: broadcast._id,
+    template: broadcast.template,
+    time: convertDate(broadcast.createdAt),
+    results: broadcast.results.length,
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    results: broadcasts.length,
+    data: {
+      broadcasts,
+    },
+  });
+});
+
+exports.getOneBroadcast = catchAsync(async (req, res, next) => {
+  const broadcast = await Broadcast.findById(req.params.broadcastID).populate(
+    'results.message',
+    'status delivered sent createdAt'
+  );
+
+  const type = req.query.type;
+
+  if (type && type === 'sheet') {
+    const results = broadcast.results.map((result) => ({
+      client: result.client,
+      status: result.status || result.message.status,
+      time: result.message
+        ? result.message.delivered ||
+          result.message.sent ||
+          convertDate(result.message.createdAt)
+        : convertDate(broadcast.createdAt),
+      messageID: result.message?._id,
+    }));
+
+    // Convert JSON to Excel
+    const xls = json2xls(results);
+
+    // Generate a unique filename
+    const fileName = `broadcast_${broadcast._id}.xlsx`;
+
+    // Write the Excel file to disk
+    fs.writeFileSync(fileName, xls, 'binary');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    let pending = 0;
+    let failed = 0;
+    let sent = 0;
+    let delivered = 0;
+    broadcast.results.map((result) => {
+      if (
+        (result.status && result.status === 'failed') ||
+        result.message.status === 'failed'
+      ) {
+        failed = +1;
+      } else if (result.message.status === 'pending') {
+        pending += 1;
+      } else if (result.message.status === 'sent') {
+        sent += 1;
+      } else if (result.message.status === 'delivered') {
+        delivered += 1;
+      }
+    });
+    const data = {
+      totalMessages: broadcast.results.length,
+      pending,
+      failed,
+      sent,
+      delivered,
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data,
+    });
+  }
 });
