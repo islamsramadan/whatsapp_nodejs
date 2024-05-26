@@ -1,5 +1,6 @@
 const fs = require('fs');
 const axios = require('axios');
+const mongoose = require('mongoose');
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
@@ -268,7 +269,6 @@ const receiveMessageHandler = async (req, res, next) => {
     }
 
     const selectedChat = chat || newChat;
-    const session = await Session.findById(selectedChat.lastSession);
 
     const newMessageChecker = async (selectedMessage) => {
       const messagesWithSameID = await Message.find({
@@ -288,36 +288,129 @@ const receiveMessageHandler = async (req, res, next) => {
       return res.status(200).json({ message: 'Message not found!' });
     } // to avoid create new session and make error
 
-    let newSession;
+    // ------------------------> Selecting Session
+    const session = await Session.findById(selectedChat.lastSession);
+    let selectedSession = session;
+
     if (!session) {
-      const botTeam = await Team.findOne({ bot: true });
+      // async function ensureSessionForChat(selectedChat) {
+      //   const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
+      //   transactionSession.startTransaction();
 
-      newSession = await Session.create({
-        chat: selectedChat._id,
-        user: botTeam.supervisor,
-        team: botTeam._id,
-        status: 'onTime',
-        type: 'bot',
-      });
+      //   try {
+      //     // Re-fetch the chat within the transaction to ensure data integrity
+      //     const chat = await Chat.findById(selectedChat._id).session(
+      //       transactionSession
+      //     );
 
-      // console.log('newSession 256 =============', newSession);
+      //     if (!chat.lastSession) {
+      //       const botTeam = await Team.findOne({ bot: true }).session(
+      //         transactionSession
+      //       );
 
-      selectedChat.lastSession = newSession._id;
-      selectedChat.team = botTeam._id;
-      selectedChat.currentUser = botTeam.supervisor;
-      await selectedChat.save();
+      //       const newSession = await Session.create(
+      //         [
+      //           {
+      //             chat: chat._id,
+      //             user: botTeam.supervisor,
+      //             team: botTeam._id,
+      //             status: 'onTime',
+      //             type: 'bot',
+      //           },
+      //         ],
+      //         { session: transactionSession }
+      //       );
 
-      // =======> Adding the selected chat to the bot user chats
-      const botUser = await User.findById(botTeam.supervisor);
-      if (!botUser.chats.includes(selectedChat._id)) {
-        await User.findByIdAndUpdate(
-          botUser._id,
-          { $push: { chats: selectedChat._id } },
-          { new: true, runValidators: true }
-        );
+      // chat.lastSession = newSession[0]._id;
+      // chat.currentUser = botTeam.supervisor;
+      // chat.team = botTeam._id;
+      // await chat.save({ session: transactionSession });
+
+      //       await transactionSession.commitTransaction(); // Commit the transaction
+      //       transactionSession.endSession();
+
+      //       console.log('New session created:', newSession[0]._id);
+      //       return newSession[0];
+      //     } else {
+      //       await transactionSession.abortTransaction(); // Abort as no need to create a session
+      //       transactionSession.endSession();
+
+      //       console.log('Using existing session:', chat.lastSession);
+      //       return await Session.findById(chat.lastSession);
+      //     }
+      //   } catch (error) {
+      //     await transactionSession.abortTransaction(); // Make sure to abort if an error occurs
+      //     transactionSession.endSession();
+      //     throw error;
+      //   }
+      // }
+
+      async function ensureSessionForChat(selectedChat) {
+        const maxRetries = 3; // Set a maximum number of retries
+        let attempts = 0;
+
+        while (attempts < maxRetries) {
+          const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
+          try {
+            transactionSession.startTransaction();
+
+            const chat = await Chat.findById(selectedChat._id).session(
+              transactionSession
+            );
+
+            if (!chat.lastSession) {
+              const botTeam = await Team.findOne({ bot: true }).session(
+                transactionSession
+              );
+
+              const newSession = await Session.create(
+                [
+                  {
+                    chat: chat._id,
+                    user: botTeam.supervisor,
+                    team: botTeam._id,
+                    status: 'onTime',
+                    type: 'bot',
+                  },
+                ],
+                { session: transactionSession }
+              );
+
+              chat.lastSession = newSession[0]._id;
+              chat.currentUser = botTeam.supervisor;
+              chat.team = botTeam._id;
+              await chat.save({ session: transactionSession });
+
+              await transactionSession.commitTransaction(); // Commit the transaction
+              transactionSession.endSession();
+              console.log('New session created:', newSession[0]._id);
+              return newSession[0];
+            } else {
+              await transactionSession.abortTransaction();
+              transactionSession.endSession();
+              console.log('Using existing session:', chat.lastSession);
+              return await Session.findById(chat.lastSession);
+            }
+          } catch (error) {
+            // console.log('error *************************** ', error);
+            attempts++;
+            await transactionSession.abortTransaction();
+            transactionSession.endSession();
+
+            if (attempts >= maxRetries) {
+              throw error; // If max retries exceeded, throw the error
+            }
+          }
+        }
       }
+
+      selectedSession = await ensureSessionForChat(selectedChat);
     }
-    const selectedSession = session || newSession;
+
+    console.log(
+      'selectedSession **************************************************** ',
+      selectedSession
+    );
 
     const newMessageData = {
       chat: selectedChat._id,
@@ -413,6 +506,11 @@ const receiveMessageHandler = async (req, res, next) => {
       contact = await Contact.create(contactData);
     }
 
+    // ================> updating session bot reply
+    if (selectedSession.botReply) {
+      selectedSession.botReply = 'normal';
+    }
+
     // ================> updating session performance
     selectedSession.performance.all += 1;
     selectedSession.performance.onTime += 1;
@@ -451,7 +549,7 @@ const receiveMessageHandler = async (req, res, next) => {
     timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
     timer.setHours(timer.getHours() + delay.hours * 1);
 
-    console.log('timer  checking 453 ==========', timer);
+    // console.log('timer  checking 453 ==========', timer);
 
     // ***************** Updating session status ******************
     if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
@@ -533,6 +631,91 @@ const updateMessageStatusHandler = async (req, res, next) => {
 };
 
 const sendMessageHandler = async (
+  req,
+  msgToBeSent,
+  selectedChat,
+  selectedSession
+) => {
+  const newMessageObj = {
+    user: selectedChat.currentUser,
+    chat: selectedChat._id,
+    session: selectedSession._id,
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    type: msgToBeSent.type,
+  };
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: selectedChat.client,
+    type: msgToBeSent.type,
+  };
+
+  if (msgToBeSent.type === 'interactive') {
+    newMessageObj.interactive = msgToBeSent.interactive;
+    whatsappPayload.interactive = msgToBeSent.interactive;
+  }
+  if (msgToBeSent.type === 'text') {
+    newMessageObj.text = msgToBeSent.text;
+    whatsappPayload.text = { preview_url: false, body: msgToBeSent.text };
+  }
+  if (msgToBeSent.type === 'contacts') {
+    whatsappPayload.contacts = msgToBeSent.contacts;
+    newMessageObj.contacts = msgToBeSent.contacts.map((contact) => ({
+      ...contact,
+      name: contact.name.formatted_name,
+    }));
+  }
+  if (msgToBeSent.type === 'document') {
+    whatsappPayload.document = msgToBeSent.document;
+    newMessageObj.document = { type: 'link', ...msgToBeSent.document };
+  }
+
+  // console.log('whatsappPayload =======', whatsappPayload);
+  // console.log('newMessageObj =======', newMessageObj);
+
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data----------------', response.data);
+  const newMessage = await Message.create({
+    ...newMessageObj,
+    whatsappID: response.data.messages[0].id,
+  });
+
+  // Adding the sent message as last message in the chat and update chat status
+  selectedChat.lastMessage = newMessage._id;
+  selectedChat.status = 'open';
+  // updating chat notification to false
+  selectedChat.notification = false;
+  await selectedChat.save();
+
+  // Updating session to new status ((open))
+  selectedSession.status = 'open';
+  selectedSession.timer = undefined;
+  if (selectedSession.type === 'bot')
+    selectedSession.lastBotMessage = newMessage._id;
+  await selectedSession.save();
+
+  //updating event in socket io
+  req.app.io.emit('updating');
+};
+
+const sendMessageWithSessionHandler = async (
+  transactionSession,
   req,
   msgToBeSent,
   selectedChat,
@@ -883,24 +1066,119 @@ const chatBotHandler = async (
 
   // ******************* Startng chat bot **************
   if (!session) {
-    // =======> Create chat history session
-    const chatHistoryData = {
-      chat: selectedChat._id,
-      user: selectedSession.user,
-      actionType: 'botReceive',
-    };
-    await ChatHistory.create(chatHistoryData);
+    // async function ensureWelcomeMessage(selectedChat) {
+    //   const maxRetries = 3; // Set a maximum number of retries
+    //   let attempts = 0;
 
-    // =======> Send bot welcome message
-    const interactiveObj = interactiveMessages.filter(
-      (message) => message.id === 'CPV'
-    )[0]; // from test data
-    const interactive = { ...interactiveObj };
-    delete interactive.id;
+    //   while (attempts < maxRetries) {
+    //     const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
+    //     try {
+    //       transactionSession.startTransaction();
 
-    const msgToBeSent = { type: 'interactive', interactive };
+    //       const chat = await Chat.findById(selectedChat._id).session(
+    //         transactionSession
+    //       );
 
-    await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+    //       if (!chat.lastSession) {
+    //         await transactionSession.commitTransaction(); // Commit the transaction
+    //         transactionSession.endSession();
+    //         console.log('=============================!chat.lastSession');
+    //         return true;
+    //       } else {
+    //         const selectedSession = await Session.findById(chat.lastSession);
+    //         if (selectedSession.botReply) {
+    //           await transactionSession.commitTransaction(); // Commit the transaction
+    //           transactionSession.endSession();
+    //           return false;
+    //         } else if (!selectedSession.botReply) {
+    //           selectedSession.botReply = 'welcome';
+    //           await selectedSession.save();
+    //           await transactionSession.commitTransaction(); // Commit the transaction
+    //           transactionSession.endSession();
+    //           console.log(
+    //             '============================= !selectedSession.botReply'
+    //           );
+
+    //           // =======> Create chat history session
+    //           const chatHistoryData = {
+    //             chat: selectedChat._id,
+    //             user: selectedSession.user,
+    //             actionType: 'botReceive',
+    //           };
+    //           await ChatHistory.create(chatHistoryData);
+
+    //           // =======> Send bot welcome message
+    //           const interactiveObj = interactiveMessages.filter(
+    //             (message) => message.id === 'CPV'
+    //           )[0]; // from test data
+    //           const interactive = { ...interactiveObj };
+    //           delete interactive.id;
+
+    //           const msgToBeSent = { type: 'interactive', interactive };
+
+    //           await sendMessageHandler(
+    //             req,
+    //             msgToBeSent,
+    //             selectedChat,
+    //             selectedSession
+    //           );
+
+    //           return true;
+    //         }
+    //       }
+    //     } catch (error) {
+    //       console.log('error *************************** ', error);
+    //       attempts++;
+    //       await transactionSession.abortTransaction();
+    //       transactionSession.endSession();
+
+    //       if (attempts >= maxRetries) {
+    //         throw error; // If max retries exceeded, throw the error
+    //       }
+    //     }
+    //   }
+    // }
+
+    // await ensureWelcomeMessage(selectedChat);
+
+    const checkingChat = await Chat.findById(selectedChat._id);
+
+    const CheckingSession = await Session.findById(checkingChat.lastSession);
+    // console.log(
+    //   'CheckingSession ******************************************',
+    //   CheckingSession
+    // );
+
+    if (!CheckingSession.botReply) {
+      CheckingSession.botReply = 'welcome';
+      await CheckingSession.save();
+
+      // =======> Create chat history session
+      const chatHistoryData = {
+        chat: selectedChat._id,
+        user: selectedSession.user,
+        actionType: 'botReceive',
+      };
+      await ChatHistory.create(chatHistoryData);
+
+      // =======> Send bot welcome message
+      const interactiveObj = interactiveMessages.filter(
+        (message) => message.id === 'CPV'
+      )[0]; // from test data
+      const interactive = { ...interactiveObj };
+      delete interactive.id;
+
+      const msgToBeSent = { type: 'interactive', interactive };
+
+      await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+      console.log(
+        '////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// true'
+      );
+    } else {
+      console.log(
+        '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
+      );
+    }
   } else if (selectedSession.refRequired) {
     // ************* Checking interactive reply message type **************
     if (msgType === 'text') {
@@ -1315,35 +1593,62 @@ const chatBotHandler = async (
       selectedSession.referenceNo = undefined;
       await selectedSession.save();
 
-      //===========> Sending error text message
-      const textErrorMsg = {
-        type: 'text',
-        text: 'عفوا لم استطع التعرف على اختيارك.',
-      };
-      await sendMessageHandler(
-        req,
-        textErrorMsg,
-        selectedChat,
-        selectedSession
-      );
+      const checkingChat = await Chat.findById(selectedChat._id);
+      const CheckingSession = await Session.findById(selectedChat.lastSession);
+      // console.log(
+      //   'CheckingSession ******************************************',
+      //   CheckingSession
+      // );
 
-      //===========> Sending error interactive message
-      const interactiveMsgObj = interactiveMessages.filter(
-        (item) => item.id === 'error'
-      )[0];
-      const interactiveMsg = { ...interactiveMsgObj };
-      delete interactiveMsg.id;
-      const interactiveReplyMsg = {
-        type: 'interactive',
-        interactive: interactiveMsg,
-      };
+      // console.log(
+      //   'CheckingSession.lastBotMessage._id.equals(checkingChat.lastMessage._id) ============================',
+      //   CheckingSession.lastBotMessage._id,
+      //   checkingChat.lastMessage._id,
+      //   CheckingSession.lastBotMessage._id.equals(checkingChat.lastMessage._id),
+      //   '==============================',
+      //   CheckingSession.botReply
+      // );
 
-      await sendMessageHandler(
-        req,
-        interactiveReplyMsg,
-        selectedChat,
-        selectedSession
-      );
+      if (
+        CheckingSession.botReply === 'welcome' ||
+        CheckingSession.botReply === 'normal'
+      ) {
+        CheckingSession.botReply = 'error';
+        await CheckingSession.save();
+
+        //===========> Sending error text message
+        const textErrorMsg = {
+          type: 'text',
+          text: 'عفوا لم استطع التعرف على اختيارك.',
+        };
+        await sendMessageHandler(
+          req,
+          textErrorMsg,
+          selectedChat,
+          selectedSession
+        );
+
+        //===========> Sending error interactive message
+        const interactiveMsgObj = interactiveMessages.filter(
+          (item) => item.id === 'error'
+        )[0];
+        const interactiveMsg = { ...interactiveMsgObj };
+        delete interactiveMsg.id;
+        const interactiveReplyMsg = {
+          type: 'interactive',
+          interactive: interactiveMsg,
+        };
+
+        await sendMessageHandler(
+          req,
+          interactiveReplyMsg,
+          selectedChat,
+          selectedSession
+        );
+
+        CheckingSession.botReply = 'error';
+        await CheckingSession.save();
+      }
     }
   }
 
