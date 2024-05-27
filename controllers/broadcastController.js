@@ -1,19 +1,16 @@
 const axios = require('axios');
-const multer = require('multer');
 const xlsx = require('xlsx');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const json2xls = require('json2xls');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
 const Message = require('../models/messageModel');
 const Chat = require('../models/chatModel');
-const Team = require('../models/teamModel');
-const Session = require('../models/sessionModel');
-const User = require('../models/userModel');
-const ChatHistory = require('../models/historyModel');
+const Broadcast = require('../models/broadcastModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -21,6 +18,29 @@ const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
 const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 const productionLink = process.env.PRODUCTION_LINK;
+
+const convertDate = (timestamp) => {
+  const date = new Date(timestamp * 1);
+
+  const hours =
+    (date.getHours() + '').length > 1 ? date.getHours() : `0${date.getHours()}`;
+
+  const minutes =
+    (date.getMinutes() + '').length > 1
+      ? date.getMinutes()
+      : `0${date.getMinutes()}`;
+
+  const seconds =
+    (date.getSeconds() + '').length > 1
+      ? date.getSeconds()
+      : `0${date.getSeconds()}`;
+
+  const dateString = date.toDateString();
+
+  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+
+  return dateFormat;
+};
 
 // Function to download broadcast file
 const downloadFile = (url) => {
@@ -64,15 +84,24 @@ const downloadFile = (url) => {
 
 exports.sendBroadcast = catchAsync(async (req, res, next) => {
   const insertType = req.body.type;
+  let countryCode = req.body.countryCode;
 
   if (!insertType || !['sheet', 'manual'].includes(insertType)) {
     return next(new AppError('Type is required!', 400));
   }
 
+  if (insertType === 'sheet' && !countryCode) {
+    return next(new AppError('Country Code is required!'));
+  }
+
+  // remove + from country code if found
+  if (countryCode && countryCode.startsWith('+')) {
+    countryCode = countryCode.slice(1);
+  }
+
   let jsonData;
   if (insertType === 'sheet') {
     // console.log('req.file', req.file);
-
     const workbook = xlsx.readFile(req.file.path);
     const sheetNameList = workbook.SheetNames;
     jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
@@ -166,9 +195,27 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       }
 
       // *********************************************************************
+      // some validation for client number
+      if (
+        (insertType === 'sheet' && !item[req.body.number]) ||
+        (insertType === 'manual' && !item.number)
+      ) {
+        return { client: 'invalid number', status: 'failed' };
+      }
 
-      const client =
-        insertType === 'sheet' ? item[req.body.number] : item.number;
+      let client;
+      if (insertType === 'sheet') {
+        client = item[req.body.number];
+        if (client?.startsWith('+')) {
+          client = client.slice(1);
+        } else if (client?.startsWith('0')) {
+          client = client.slice(1);
+          client = `${countryCode}${client}`;
+        }
+      } else if (insertType === 'manual') {
+        client = item.number;
+        if (client?.startsWith('+')) client = client.slice(1);
+      }
 
       // selecting chat that the message belongs to
       const chat = await Chat.findOne({ client });
@@ -466,32 +513,121 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         await selectedChat.save();
       }
 
-      //********************************************************************************* */
-      // updating event in socket io
-      req.app.io.emit('updating');
+      const result = { client };
+      if (newMessage) {
+        result.message = newMessage._id;
+      } else {
+        result.status = 'failed';
+      }
 
-      // console.log('item ***********************************', item);
-
-      return {
-        // item,
-        client,
-        message: newMessage ? newMessage._id : 'failed',
-      };
+      return result;
     })
   );
+  // updating event in socket io
+  req.app.io.emit('updating');
 
   // console.log('results ======================== ', results);
-  //   console.log('jsonData ======================== ', jsonData);
+  // console.log('jsonData ======================== ', jsonData);
+
+  const newBroadCast = await Broadcast.create({
+    template: templateName,
+    results,
+  });
 
   res.status(201).json({
     status: 'success',
     data: {
-      // template,
-      // whatsappPayload,
-      // wahtsappResponse: sendTemplateResponse?.data,
-      // message: newMessage,
-      //   jsonData,
+      template: templateName,
+      Broadcast: newBroadCast?._id,
       results,
+      jsonData,
     },
   });
+});
+
+exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
+  let broadcasts = await Broadcast.find();
+
+  broadcasts = broadcasts.map((broadcast) => ({
+    _id: broadcast._id,
+    template: broadcast.template,
+    time: convertDate(broadcast.createdAt),
+    results: broadcast.results.length,
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    results: broadcasts.length,
+    data: {
+      broadcasts,
+    },
+  });
+});
+
+exports.getOneBroadcast = catchAsync(async (req, res, next) => {
+  const broadcast = await Broadcast.findById(req.params.broadcastID).populate(
+    'results.message',
+    'status delivered sent createdAt'
+  );
+
+  const type = req.query.type;
+
+  if (type && type === 'sheet') {
+    const results = broadcast.results.map((result) => ({
+      client: result.client,
+      status: result.status || result.message.status,
+      time: result.message
+        ? result.message.delivered ||
+          result.message.sent ||
+          convertDate(result.message.createdAt)
+        : convertDate(broadcast.createdAt),
+      messageID: result.message?._id,
+    }));
+
+    // Convert JSON to Excel
+    const xls = json2xls(results);
+
+    // Generate a unique filename
+    const fileName = `broadcast_${broadcast._id}.xlsx`;
+
+    // Write the Excel file to disk
+    fs.writeFileSync(fileName, xls, 'binary');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    let pending = 0;
+    let failed = 0;
+    let sent = 0;
+    let delivered = 0;
+    broadcast.results.map((result) => {
+      if (
+        (result.status && result.status === 'failed') ||
+        result.message.status === 'failed'
+      ) {
+        failed = +1;
+      } else if (result.message.status === 'pending') {
+        pending += 1;
+      } else if (result.message.status === 'sent') {
+        sent += 1;
+      } else if (result.message.status === 'delivered') {
+        delivered += 1;
+      }
+    });
+    const data = {
+      totalMessages: broadcast.results.length,
+      pending,
+      failed,
+      sent,
+      delivered,
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data,
+    });
+  }
 });
