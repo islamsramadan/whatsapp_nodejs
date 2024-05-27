@@ -206,10 +206,22 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
       let client;
       if (insertType === 'sheet') {
         client = item[req.body.number];
+
+        //remove space in phone number
+        client = client.replaceAll(' ', '');
+
         if (client?.startsWith('+')) {
           client = client.slice(1);
+        } else if (client?.startsWith(`00${countryCode}`)) {
+          client = client.slice(2);
         } else if (client?.startsWith('0')) {
           client = client.slice(1);
+          client = `${countryCode}${client}`;
+        } else if (
+          ((countryCode === '966' || countryCode === '971') &&
+            client?.startsWith('5')) ||
+          (countryCode === '20' && client?.startsWith('1'))
+        ) {
           client = `${countryCode}${client}`;
         }
       } else if (insertType === 'manual') {
