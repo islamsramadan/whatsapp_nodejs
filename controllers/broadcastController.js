@@ -589,7 +589,8 @@ exports.getOneBroadcast = catchAsync(async (req, res, next) => {
       client: result.client,
       status: result.status || result.message.status,
       time: result.message
-        ? result.message.delivered ||
+        ? result.message.read ||
+          result.message.delivered ||
           result.message.sent ||
           convertDate(result.message.createdAt)
         : convertDate(broadcast.createdAt),
@@ -615,18 +616,21 @@ exports.getOneBroadcast = catchAsync(async (req, res, next) => {
     let failed = 0;
     let sent = 0;
     let delivered = 0;
+    let read = 0;
     broadcast.results.map((result) => {
       if (
         (result.status && result.status === 'failed') ||
         result.message.status === 'failed'
       ) {
-        failed = +1;
+        failed += 1;
       } else if (result.message.status === 'pending') {
         pending += 1;
       } else if (result.message.status === 'sent') {
         sent += 1;
       } else if (result.message.status === 'delivered') {
         delivered += 1;
+      } else if (result.message.status === 'read') {
+        read += 1;
       }
     });
     const data = {
@@ -635,6 +639,7 @@ exports.getOneBroadcast = catchAsync(async (req, res, next) => {
       failed,
       sent,
       delivered,
+      read,
     };
 
     res.status(200).json({

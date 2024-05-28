@@ -472,6 +472,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
     },
 
+    read: {
+      type: String,
+    },
+
     seen: {
       type: String,
     },
