@@ -6,6 +6,13 @@ const broadcastSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Template is required!'],
     },
+
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: [true, 'User is required!'],
+    },
+
     results: [
       {
         client: { type: String },

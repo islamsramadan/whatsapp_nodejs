@@ -543,6 +543,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 
   const newBroadCast = await Broadcast.create({
     template: templateName,
+    user: req.user._id,
     results,
   });
 
@@ -558,11 +559,15 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
-  let broadcasts = await Broadcast.find();
+  let broadcasts = await Broadcast.find().populate(
+    'user',
+    'firstName lastName'
+  );
 
   broadcasts = broadcasts.map((broadcast) => ({
     _id: broadcast._id,
     template: broadcast.template,
+    user: broadcast.user,
     time: convertDate(broadcast.createdAt),
     results: broadcast.results.length,
   }));
