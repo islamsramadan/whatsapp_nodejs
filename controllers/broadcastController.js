@@ -559,10 +559,13 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
-  let broadcasts = await Broadcast.find().populate(
-    'user',
-    'firstName lastName'
-  );
+  const page = req.query.page || 1;
+  let broadcasts, totalResults, totalPages;
+
+  broadcasts = await Broadcast.find()
+    .populate('user', 'firstName lastName')
+    .skip((page - 1) * 10)
+    .limit(page * 10);
 
   broadcasts = broadcasts.map((broadcast) => ({
     _id: broadcast._id,
@@ -572,10 +575,16 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     results: broadcast.results.length,
   }));
 
+  totalResults = await broadcasts.count();
+  totalPages = Math.ceil(totalResults / 10);
+
   res.status(200).json({
     status: 'success',
     results: broadcasts.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       broadcasts,
     },
   });
