@@ -598,6 +598,7 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
   broadcasts = await Broadcast.find()
     .populate('user', 'firstName lastName')
     .populate('results.message', 'status delivered sent createdAt')
+    .sort('-createdAt')
     .skip((page - 1) * 10)
     .limit(page * 10);
 
