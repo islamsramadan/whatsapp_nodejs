@@ -37,7 +37,7 @@ const convertDate = (timestamp) => {
 
   const dateString = date.toDateString();
 
-  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+  const dateFormat = `${dateString}, ${hours}:${minutes}:${seconds}`;
 
   return dateFormat;
 };
@@ -559,11 +559,45 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
+  const getBroadcastData = (broadcast) => {
+    let pending = 0;
+    let failed = 0;
+    let sent = 0;
+    let delivered = 0;
+    let read = 0;
+    broadcast.results.map((result) => {
+      if (
+        (result.status && result.status === 'failed') ||
+        result.message.status === 'failed'
+      ) {
+        failed += 1;
+      } else if (result.message.status === 'pending') {
+        pending += 1;
+      } else if (result.message.status === 'sent') {
+        sent += 1;
+      } else if (result.message.status === 'delivered') {
+        delivered += 1;
+      } else if (result.message.status === 'read') {
+        read += 1;
+      }
+    });
+
+    return {
+      totalMessages: broadcast.results.length,
+      pending,
+      failed,
+      sent,
+      delivered,
+      read,
+    };
+  };
+
   const page = req.query.page || 1;
   let broadcasts, totalResults, totalPages;
 
   broadcasts = await Broadcast.find()
     .populate('user', 'firstName lastName')
+    .populate('results.message', 'status delivered sent createdAt')
     .skip((page - 1) * 10)
     .limit(page * 10);
 
@@ -573,6 +607,7 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     user: broadcast.user,
     time: convertDate(broadcast.createdAt),
     results: broadcast.results.length,
+    broadcastData: getBroadcastData(broadcast),
   }));
 
   totalResults = await Broadcast.count();
