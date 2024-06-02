@@ -595,7 +595,30 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
   const page = req.query.page || 1;
   let broadcasts, totalResults, totalPages;
 
-  broadcasts = await Broadcast.find()
+  const filterObj = {};
+  if (req.query.users) {
+    const users = req.query.users.split(',');
+    filterObj.user = { $in: users };
+  }
+
+  if (req.query.templates) {
+    const templates = req.query.templates.split(',');
+    filterObj.template = { $in: templates };
+  }
+
+  if (req.query.startDate)
+    filterObj.createdAt = {
+      ...filterObj.createdAt,
+      $gt: new Date(req.query.startDate),
+    };
+
+  if (req.query.endDate)
+    filterObj.createdAt = {
+      ...filterObj.createdAt,
+      $lt: new Date(req.query.endDate),
+    };
+
+  broadcasts = await Broadcast.find(filterObj)
     .populate('user', 'firstName lastName')
     .populate('results.message', 'status delivered sent createdAt')
     .sort('-createdAt')
