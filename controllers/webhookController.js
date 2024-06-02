@@ -1,6 +1,9 @@
 const fs = require('fs');
 const axios = require('axios');
 const mongoose = require('mongoose');
+const { Mutex } = require('async-mutex');
+const chatCreationMutex = new Mutex();
+const contactCreationMutex = new Mutex();
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
@@ -254,21 +257,30 @@ const receiveMessageHandler = async (req, res, next) => {
 
     // other messages types
   } else {
-    const chat = await Chat.findOne({ client: from });
-    // console.log('chat', chat);
+    async function createOrGetChat(from) {
+      try {
+        return chatCreationMutex.runExclusive(async () => {
+          let selectedChat = await Chat.findOne({ client: from });
 
-    let newChat;
-    if (!chat) {
-      const botTeam = await Team.findOne({ bot: true });
+          if (!selectedChat) {
+            const botTeam = await Team.findOne({ bot: true });
 
-      newChat = await Chat.create({
-        client: from,
-        team: botTeam._id,
-        currentUser: botTeam.supervisor,
-      });
+            selectedChat = await Chat.create({
+              client: from,
+              team: botTeam._id,
+              currentUser: botTeam.supervisor,
+            });
+          }
+
+          return selectedChat;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
+      }
     }
 
-    const selectedChat = chat || newChat;
+    const selectedChat = await createOrGetChat(from);
 
     const newMessageChecker = async (selectedMessage) => {
       const messagesWithSameID = await Message.find({
@@ -407,11 +419,6 @@ const receiveMessageHandler = async (req, res, next) => {
       selectedSession = await ensureSessionForChat(selectedChat);
     }
 
-    console.log(
-      'selectedSession **************************************************** ',
-      selectedSession
-    );
-
     const newMessageData = {
       chat: selectedChat._id,
       session: selectedSession._id,
@@ -485,26 +492,47 @@ const receiveMessageHandler = async (req, res, next) => {
     const newMessage = await Message.create(newMessageData);
 
     // **************** Fetching name from RD app ***************************
-    let contact;
-    if (!selectedChat.contactName) {
-      const contactResponse = await RDAppHandler({
-        Action: '6', // action:6 to fetch client name
-        Phone: selectedChat.client,
-      });
-      // // console.log('contactResponse', contactResponse.data.name);
 
-      let contactData = {
-        number: selectedChat.client,
-        whatsappName: contactName,
-        name: contactName,
-      };
+    async function createOrGetContact() {
+      try {
+        return contactCreationMutex.runExclusive(async () => {
+          let contact = await Contact.findOne({ number: selectedChat.client });
 
-      if (contactResponse && contactResponse.name) {
-        contactData.externalName = contactResponse.name;
-        contactData.name = contactResponse.name;
+          if (!contact) {
+            const contactResponse = await RDAppHandler({
+              Action: '6', // action:6 to fetch client name
+              Phone: selectedChat.client,
+            });
+            // console.log(
+            //   'contactResponse ==================================================================',
+            //   contactResponse
+            // );
+
+            let contactData = {
+              number: selectedChat.client,
+              whatsappName: contactName,
+              name: contactName,
+            };
+
+            if (contactResponse && contactResponse.name) {
+              contactData.externalName = contactResponse.name;
+              contactData.name = contactResponse.name;
+            }
+            contact = await Contact.create(contactData);
+          }
+
+          selectedChat.contactName = contact;
+          await selectedChat.save();
+
+          return contact;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
       }
-      contact = await Contact.create(contactData);
     }
+
+    const contact = await createOrGetContact();
 
     // // ================> updating session bot reply
     // if (selectedSession.botReply && selectedSession.botReply !== 'proceeding') {
