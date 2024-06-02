@@ -37,7 +37,7 @@ const convertDate = (timestamp) => {
 
   const dateString = date.toDateString();
 
-  const dateFormat = `${hours}:${minutes}:${seconds}, ${dateString}`;
+  const dateFormat = `${dateString}, ${hours}:${minutes}:${seconds}`;
 
   return dateFormat;
 };
@@ -543,6 +543,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 
   const newBroadCast = await Broadcast.create({
     template: templateName,
+    user: req.user._id,
     results,
   });
 
@@ -558,19 +559,91 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
-  let broadcasts = await Broadcast.find();
+  const getBroadcastData = (broadcast) => {
+    let pending = 0;
+    let failed = 0;
+    let sent = 0;
+    let delivered = 0;
+    let read = 0;
+    broadcast.results.map((result) => {
+      if (
+        (result.status && result.status === 'failed') ||
+        result.message.status === 'failed'
+      ) {
+        failed += 1;
+      } else if (result.message.status === 'pending') {
+        pending += 1;
+      } else if (result.message.status === 'sent') {
+        sent += 1;
+      } else if (result.message.status === 'delivered') {
+        delivered += 1;
+      } else if (result.message.status === 'read') {
+        read += 1;
+      }
+    });
+
+    return {
+      totalMessages: broadcast.results.length,
+      pending,
+      failed,
+      sent,
+      delivered,
+      read,
+    };
+  };
+
+  const page = req.query.page || 1;
+  let broadcasts, totalResults, totalPages;
+
+  const filterObj = {};
+  if (req.query.users) {
+    const users = req.query.users.split(',');
+    filterObj.user = { $in: users };
+  }
+
+  if (req.query.templates) {
+    const templates = req.query.templates.split(',');
+    filterObj.template = { $in: templates };
+  }
+
+  if (req.query.startDate)
+    filterObj.createdAt = {
+      ...filterObj.createdAt,
+      $gt: new Date(req.query.startDate),
+    };
+
+  if (req.query.endDate)
+    filterObj.createdAt = {
+      ...filterObj.createdAt,
+      $lt: new Date(req.query.endDate),
+    };
+
+  broadcasts = await Broadcast.find(filterObj)
+    .populate('user', 'firstName lastName')
+    .populate('results.message', 'status delivered sent createdAt')
+    .sort('-createdAt')
+    .skip((page - 1) * 10)
+    .limit(10);
 
   broadcasts = broadcasts.map((broadcast) => ({
     _id: broadcast._id,
     template: broadcast.template,
+    user: broadcast.user,
     time: convertDate(broadcast.createdAt),
     results: broadcast.results.length,
+    broadcastData: getBroadcastData(broadcast),
   }));
+
+  totalResults = await Broadcast.count();
+  totalPages = Math.ceil(totalResults / 10);
 
   res.status(200).json({
     status: 'success',
     results: broadcasts.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       broadcasts,
     },
   });
