@@ -600,7 +600,7 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     .populate('results.message', 'status delivered sent createdAt')
     .sort('-createdAt')
     .skip((page - 1) * 10)
-    .limit(page * 10);
+    .limit(10);
 
   broadcasts = broadcasts.map((broadcast) => ({
     _id: broadcast._id,
