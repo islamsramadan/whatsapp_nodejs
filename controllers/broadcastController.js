@@ -634,7 +634,7 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     broadcastData: getBroadcastData(broadcast),
   }));
 
-  totalResults = await Broadcast.count();
+  totalResults = await Broadcast.count(filterObj);
   totalPages = Math.ceil(totalResults / 10);
 
   res.status(200).json({
