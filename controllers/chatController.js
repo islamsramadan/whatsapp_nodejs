@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const ChatHistory = require('../models/historyModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
@@ -506,6 +508,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       });
     }
   } catch (error) {
+    result = 'failed';
     await transactionSession.abortTransaction();
     transactionSession.endSession();
 
