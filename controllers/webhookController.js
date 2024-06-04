@@ -1,7 +1,7 @@
 const fs = require('fs');
 const axios = require('axios');
 const mongoose = require('mongoose');
-const { Mutex } = require('async-mutex');
+const { Mutex } = require('async-mutex'); // This will prevent multiple concurrent requests from creating multiple chats & concats.
 const chatCreationMutex = new Mutex();
 const contactCreationMutex = new Mutex();
 
