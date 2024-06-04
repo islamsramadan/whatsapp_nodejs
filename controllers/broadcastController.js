@@ -545,6 +545,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
     template: templateName,
     user: req.user._id,
     results,
+    type: insertType,
   });
 
   res.status(201).json({
