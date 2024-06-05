@@ -473,6 +473,17 @@ const receiveMessageHandler = async (req, res, next) => {
       newMessageData.contacts = contacts;
     }
 
+    if (msgType === 'button') {
+      const msgBody = req.body.entry[0].changes[0].value.messages[0].button;
+      console.log(
+        'msgBody ===========================================',
+        msgBody
+      );
+      newMessageData.button = { payload: msgBody.payload, text: msgBody.text };
+      // newMessageData.button.payload = msgBody.payload;
+      // newMessageData.button.text = msgBody.text;
+    }
+
     if (
       msgType === 'image' ||
       msgType === 'video' ||

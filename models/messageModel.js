@@ -57,6 +57,7 @@ const messageSchema = new mongoose.Schema(
         'sticker',
         'contacts',
         'interactive',
+        'button',
         'unsupported',
       ],
       required: [true, 'Message must have a type!'],
@@ -412,6 +413,15 @@ const messageSchema = new mongoose.Schema(
       button_reply: {
         id: String,
         title: String,
+      },
+    },
+
+    button: {
+      payload: {
+        type: String,
+      },
+      text: {
+        type: String,
       },
     },
 
