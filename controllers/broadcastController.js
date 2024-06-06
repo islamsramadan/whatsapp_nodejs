@@ -541,12 +541,20 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
   // console.log('results ======================== ', results);
   // console.log('jsonData ======================== ', jsonData);
 
-  const newBroadCast = await Broadcast.create({
+  const broadcastData = {
     template: templateName,
     user: req.user._id,
     results,
     type: insertType,
-  });
+  };
+
+  if (insertType === 'sheet') {
+    broadcastData.sheet = req.file.filename;
+  } else if (insertType === 'manual') {
+    broadcastData.manual = jsonData;
+  }
+
+  const newBroadCast = await Broadcast.create(broadcastData);
 
   res.status(201).json({
     status: 'success',

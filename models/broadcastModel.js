@@ -25,6 +25,12 @@ const broadcastSchema = new mongoose.Schema(
       type: String,
       enum: ['sheet', 'manual'],
     },
+
+    sheet: {
+      type: String,
+    },
+
+    manual: [{}],
   },
   { timestamps: true }
 );
