@@ -7,6 +7,7 @@ const User = require('../models/userModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
+const Log = require('../models/logModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
   const chats = await Chat.find()
@@ -524,6 +525,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       message: 'Chat updated successfully!',
     });
   } else {
+    await Log.create({
+      chat: chat._id,
+      user: req.user._id,
+      event: `chat update - ${type}`,
+    });
+
     res.status(400).json({
       status: 'failed',
       message: 'Try again!',

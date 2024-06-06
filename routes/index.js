@@ -15,6 +15,7 @@ const messageRouter = require('./messageRoutes');
 const broadcastRouter = require('./broadcastRoutes');
 const uploadRouter = require('./uploadRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
+const logRoutes = require('./logRoutes');
 
 const router = express.Router();
 
@@ -34,5 +35,6 @@ router.use('/messages', messageRouter);
 router.use('/broadcast', broadcastRouter);
 router.use('/upload', uploadRouter);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
+router.use('/logs', logRoutes);
 
 module.exports = router;
