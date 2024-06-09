@@ -6,6 +6,13 @@ const broadcastSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Template is required!'],
     },
+
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: [true, 'User is required!'],
+    },
+
     results: [
       {
         client: { type: String },
@@ -13,6 +20,17 @@ const broadcastSchema = new mongoose.Schema(
         status: { type: String },
       },
     ],
+
+    type: {
+      type: String,
+      enum: ['sheet', 'manual'],
+    },
+
+    sheet: {
+      type: String,
+    },
+
+    manual: [{}],
   },
   { timestamps: true }
 );
