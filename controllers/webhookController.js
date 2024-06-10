@@ -1109,6 +1109,8 @@ const chatBotHandler = async (
   // ================> updating session bot reply
   if (checkingSession.botReply && checkingSession.botReply !== 'proceeding') {
     checkingSession.botReply = 'normal';
+
+    await checkingSession.save();
   }
 
   // ******************* Startng chat bot **************
