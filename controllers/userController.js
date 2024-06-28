@@ -5,6 +5,80 @@ const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
 const AnswersSet = require('../models/answersSetModel');
 
+const axios = require('axios');
+
+const whatsappVersion = process.env.WHATSAPP_VERSION;
+const whatsappToken = process.env.WHATSAPP_TOKEN;
+const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
+const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
+const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+const productionLink = process.env.PRODUCTION_LINK;
+
+const sendOtpTemplate = async (phone) => {
+  const otp = Math.floor(100000 + Math.random() * 900000);
+
+  const templateName = 'login_otp';
+  const response = await axios.request({
+    method: 'get',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${whatsappToken}`,
+    },
+  });
+  const template = response.data.data[0];
+  // console.log('template', template);
+
+  const templateComponents = [
+    { type: 'body', parameters: [{ type: 'text', text: otp }] },
+    {
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [
+        {
+          type: 'text',
+          text: otp,
+        },
+      ],
+    },
+  ];
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: template.language,
+      },
+      components: templateComponents,
+    },
+  };
+
+  let sendTemplateResponse;
+  try {
+    sendTemplateResponse = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${whatsappToken}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
+  } catch (err) {
+    console.log(
+      'err ----------------------------------------------------------> ',
+      err
+    );
+  }
+
+  return { sendTemplateResponse, otp };
+};
+
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
   Object.keys(obj).forEach((el) => {
@@ -42,19 +116,16 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const filteredBody = { bot: { $ne: true } };
+  const filteredBody = { bot: false, deleted: false };
   let select = '-passwordChangedAt -createdAt -updatedAt';
   let populate = { path: 'team', select: 'name' };
 
   // Users for add or edit team
   if (req.query.type === 'team') {
     if (req.query.teamID) {
-      filteredBody['$or'] = [
-        { supervisor: { $ne: true } },
-        { team: req.query.teamID },
-      ];
+      filteredBody['$or'] = [{ supervisor: false }, { team: req.query.teamID }];
     } else {
-      filteredBody.supervisor = { $ne: true };
+      filteredBody.supervisor = false;
     }
     select = 'firstName lastName photo team';
     populate = { path: 'team', select: 'name' };
@@ -83,7 +154,10 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 exports.getUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.userID)
+  const user = await User.findOne({
+    _id: req.params.userID,
+    deleted: false,
+  })
     .select('-passwordChangedAt')
     .populate('team', 'name');
 
@@ -108,6 +182,8 @@ exports.createUser = catchAsync(async (req, res, next) => {
     firstName: req.body.firstName,
     lastName: req.body.lastName,
     email: req.body.email,
+    phone: req.body.phone,
+    creator: req.user._id,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     role: req.body.role,
@@ -117,6 +193,36 @@ exports.createUser = catchAsync(async (req, res, next) => {
   const team = await Team.findById(req.body.team);
   if (team) {
     newUserData.team = req.body.team;
+  }
+
+  // Checking the same email for deleted user
+  if (await User.findOne({ email: req.body.email, deleted: true })) {
+    return next(
+      new AppError('This email belongs to a suspended account!', 400)
+    );
+  }
+
+  // *********************************************************************************************************
+  // Checking the whatsapp phone by sending template
+  if (!req.body.phone) {
+    return next(new AppError('Whatsapp number is required!', 400));
+  }
+
+  const { sendTemplateResponse, otp } = await sendOtpTemplate(req.body.phone);
+
+  if (sendTemplateResponse) {
+    let otpTimer = new Date();
+    otpTimer.setMinutes(otpTimer.getMinutes() + 1);
+
+    newUserData.otp = otp;
+    newUserData.otpTimer = otpTimer;
+  } else {
+    return next(
+      new AppError(
+        'Invalid whatsapp number! Try again with form like 966500000000.',
+        400
+      )
+    );
   }
 
   // Creating the new user
@@ -155,13 +261,17 @@ exports.createUser = catchAsync(async (req, res, next) => {
 });
 
 exports.updateUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.userID);
+  const user = await User.findById(req.params.userID).populate('team', 'name');
   if (!user) {
     return next(new AppError('No user found with that ID!', 404));
   }
 
   if (user.bot === true) {
-    return next(new AppError("Couldn't update bot user!", 404));
+    return next(new AppError("Couldn't update bot user!", 400));
+  }
+
+  if (user.deleted === true) {
+    return next(new AppError("Couldn't update deleted user!", 400));
   }
 
   // 1) Create error if user post password data
@@ -175,6 +285,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     'firstName',
     'lastName',
     'email',
+    'phone',
     'role',
     'status'
     // 'team'
@@ -185,6 +296,20 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(
       new AppError('Password and password confirm must be the same', 400)
     );
+  }
+
+  // Checking if the whatsapp number is valid
+  if (req.body.phone && req.body.phone !== user.phone) {
+    const { sendTemplateResponse, otp } = await sendOtpTemplate(req.body.phone);
+
+    if (!sendTemplateResponse) {
+      return next(
+        new AppError(
+          'Invalid whatsapp number! Try again with form like 966500000000.',
+          400
+        )
+      );
+    }
   }
 
   if (req.body.password) {
@@ -204,7 +329,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   ) {
     return next(
       new AppError(
-        `Couldn\'t update team supervisor, Kindly update team with ID (${user.team}) first!`,
+        `Couldn\'t update team supervisor, Kindly update (${user.team.name}) team first!`,
         400
       )
     );
@@ -267,7 +392,13 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // 2) Filtered out unwanted fields names that are not allowed to be updated
-  let filteredBody = filterObj(req.body, 'firstName', 'lastName', 'email');
+  let filteredBody = filterObj(
+    req.body,
+    'firstName',
+    'lastName',
+    'email',
+    'phone'
+  );
 
   // To update only user status
   if (req.body.status) {
@@ -277,6 +408,24 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   // 3) Check if photo updated
   if (req.file) {
     filteredBody.photo = req.file.filename;
+  }
+
+  // Checking if the whatsapp number is valid
+  if (
+    filteredBody.phone &&
+    req.body.phone &&
+    req.body.phone !== req.user.phone
+  ) {
+    const { sendTemplateResponse, otp } = await sendOtpTemplate(req.body.phone);
+
+    if (!sendTemplateResponse) {
+      return next(
+        new AppError(
+          'Invalid whatsapp number! Try again with form like 966500000000.',
+          400
+        )
+      );
+    }
   }
 
   // 4) Update user document
@@ -317,8 +466,15 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
     $pull: { users: user._id },
   });
 
-  // Deleting user doc
-  await user.deleteOne();
+  // Deleting user doc by adding {delete : true}
+  await User.findByIdAndUpdate(
+    user._id,
+    {
+      deleted: true,
+      $unset: { token: null, team: null, otp: null, otpTimer: null },
+    },
+    { new: true, runValidators: true }
+  );
 
   res.status(200).json({
     status: 'success',

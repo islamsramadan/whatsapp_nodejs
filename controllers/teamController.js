@@ -43,7 +43,7 @@ const upload = multer({
 exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
-  const filteredBody = { bot: { $ne: true } };
+  const filteredBody = { bot: false };
   if (req.query.type === 'chatTransfer') {
     filteredBody._id = { $ne: req.user.team };
   }

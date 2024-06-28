@@ -49,7 +49,11 @@ io.use(async (socket, next) => {
   // console.log('decoded', decoded);
 
   // 3) Check if user still exists
-  const currentUser = await User.findById(decoded.id).select('+token');
+  const currentUser = await User.findOne({
+    _id: decoded.id,
+    deleted: false,
+  }).select('+token');
+
   if (!currentUser) {
     return next(
       new AppError(

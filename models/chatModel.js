@@ -5,6 +5,7 @@ const chatSchema = new mongoose.Schema(
     client: {
       type: String,
       required: [true, 'Chat must have a client!'],
+      unique: [true, 'This client already exist!'],
       match: [/\d{10,}/, 'Invalid client whatsapp number!'],
     },
 

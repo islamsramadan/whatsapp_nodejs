@@ -339,7 +339,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // to update later
     const previousUserID = chat.currentUser;
 
-    const user = await User.findById(req.body.user);
+    const user = await User.findOne({ _id: req.body.user, deleted: false });
     if (!user) {
       return next(new AppError('No user found with that ID', 404));
     }
@@ -425,8 +425,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     //Selecting new chat current user
     let teamUsers = [];
     for (let i = 0; i < team.users.length; i++) {
-      let teamUser = await User.findById(team.users[i]);
-      teamUsers = [...teamUsers, teamUser];
+      let teamUser = await User.findOne({ _id: team.users[i], deleted: false });
+      if (teamUser) teamUsers = [...teamUsers, teamUser];
     }
 
     // status sorting order
