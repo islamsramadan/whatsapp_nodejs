@@ -105,6 +105,7 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
     type: 'normal',
     'performance.all': { $gt: 0 },
     status: 'finished',
+    end: { $exists: true },
   };
   if (startDate)
     populateObject.updatedAt = {
