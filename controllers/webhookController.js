@@ -1,6 +1,9 @@
 const fs = require('fs');
 const axios = require('axios');
 const mongoose = require('mongoose');
+const { Mutex } = require('async-mutex'); // This will prevent multiple concurrent requests from creating multiple chats & concats.
+const chatCreationMutex = new Mutex();
+const contactCreationMutex = new Mutex();
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
@@ -254,21 +257,30 @@ const receiveMessageHandler = async (req, res, next) => {
 
     // other messages types
   } else {
-    const chat = await Chat.findOne({ client: from });
-    // console.log('chat', chat);
+    async function createOrGetChat(from) {
+      try {
+        return chatCreationMutex.runExclusive(async () => {
+          let selectedChat = await Chat.findOne({ client: from });
 
-    let newChat;
-    if (!chat) {
-      const botTeam = await Team.findOne({ bot: true });
+          if (!selectedChat) {
+            const botTeam = await Team.findOne({ bot: true });
 
-      newChat = await Chat.create({
-        client: from,
-        team: botTeam._id,
-        currentUser: botTeam.supervisor,
-      });
+            selectedChat = await Chat.create({
+              client: from,
+              team: botTeam._id,
+              currentUser: botTeam.supervisor,
+            });
+          }
+
+          return selectedChat;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
+      }
     }
 
-    const selectedChat = chat || newChat;
+    const selectedChat = await createOrGetChat(from);
 
     const newMessageChecker = async (selectedMessage) => {
       const messagesWithSameID = await Message.find({
@@ -407,11 +419,6 @@ const receiveMessageHandler = async (req, res, next) => {
       selectedSession = await ensureSessionForChat(selectedChat);
     }
 
-    console.log(
-      'selectedSession **************************************************** ',
-      selectedSession
-    );
-
     const newMessageData = {
       chat: selectedChat._id,
       session: selectedSession._id,
@@ -466,6 +473,14 @@ const receiveMessageHandler = async (req, res, next) => {
       newMessageData.contacts = contacts;
     }
 
+    if (msgType === 'button') {
+      const msgBody = req.body.entry[0].changes[0].value.messages[0].button;
+      newMessageData.button = {
+        payload: msgBody.payload,
+        text: msgBody.text,
+      };
+    }
+
     if (
       msgType === 'image' ||
       msgType === 'video' ||
@@ -485,31 +500,52 @@ const receiveMessageHandler = async (req, res, next) => {
     const newMessage = await Message.create(newMessageData);
 
     // **************** Fetching name from RD app ***************************
-    let contact;
-    if (!selectedChat.contactName) {
-      const contactResponse = await RDAppHandler({
-        Action: '6', // action:6 to fetch client name
-        Phone: selectedChat.client,
-      });
-      // // console.log('contactResponse', contactResponse.data.name);
 
-      let contactData = {
-        number: selectedChat.client,
-        whatsappName: contactName,
-        name: contactName,
-      };
+    async function createOrGetContact() {
+      try {
+        return contactCreationMutex.runExclusive(async () => {
+          let contact = await Contact.findOne({ number: selectedChat.client });
 
-      if (contactResponse && contactResponse.name) {
-        contactData.externalName = contactResponse.name;
-        contactData.name = contactResponse.name;
+          if (!contact) {
+            const contactResponse = await RDAppHandler({
+              Action: '6', // action:6 to fetch client name
+              Phone: selectedChat.client,
+            });
+            // console.log(
+            //   'contactResponse ==================================================================',
+            //   contactResponse
+            // );
+
+            let contactData = {
+              number: selectedChat.client,
+              whatsappName: contactName,
+              name: contactName,
+            };
+
+            if (contactResponse && contactResponse.name) {
+              contactData.externalName = contactResponse.name;
+              contactData.name = contactResponse.name;
+            }
+            contact = await Contact.create(contactData);
+          }
+
+          selectedChat.contactName = contact;
+          await selectedChat.save();
+
+          return contact;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
       }
-      contact = await Contact.create(contactData);
     }
 
-    // ================> updating session bot reply
-    if (selectedSession.botReply) {
-      selectedSession.botReply = 'normal';
-    }
+    const contact = await createOrGetContact();
+
+    // // ================> updating session bot reply
+    // if (selectedSession.botReply && selectedSession.botReply !== 'proceeding') {
+    //   selectedSession.botReply = 'normal';
+    // }
 
     // ================> updating session performance
     selectedSession.performance.all += 1;
@@ -637,7 +673,7 @@ const sendMessageHandler = async (
   selectedSession
 ) => {
   const newMessageObj = {
-    user: selectedChat.currentUser,
+    user: selectedSession.user,
     chat: selectedChat._id,
     session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
@@ -690,28 +726,30 @@ const sendMessageHandler = async (
     console.log('err', err);
   }
 
-  // console.log('response.data----------------', response.data);
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: response.data.messages[0].id,
-  });
+  if (response) {
+    // console.log('response.data----------------', response.data);
+    const newMessage = await Message.create({
+      ...newMessageObj,
+      whatsappID: response.data.messages[0].id,
+    });
 
-  // Adding the sent message as last message in the chat and update chat status
-  selectedChat.lastMessage = newMessage._id;
-  selectedChat.status = 'open';
-  // updating chat notification to false
-  selectedChat.notification = false;
-  await selectedChat.save();
+    // Adding the sent message as last message in the chat and update chat status
+    selectedChat.lastMessage = newMessage._id;
+    selectedChat.status = 'open';
+    // updating chat notification to false
+    selectedChat.notification = false;
+    await selectedChat.save();
 
-  // Updating session to new status ((open))
-  selectedSession.status = 'open';
-  selectedSession.timer = undefined;
-  if (selectedSession.type === 'bot')
-    selectedSession.lastBotMessage = newMessage._id;
-  await selectedSession.save();
+    // Updating session to new status ((open))
+    selectedSession.status = 'open';
+    selectedSession.timer = undefined;
+    if (selectedSession.type === 'bot')
+      selectedSession.lastBotMessage = newMessage._id;
+    await selectedSession.save();
 
-  //updating event in socket io
-  req.app.io.emit('updating');
+    //updating event in socket io
+    req.app.io.emit('updating');
+  }
 };
 
 const sendMessageWithSessionHandler = async (
@@ -1064,102 +1102,22 @@ const chatBotHandler = async (
 ) => {
   // ******************* All cases if it is a bot session **************
 
+  // ---------> checkingSession for checking for refRequired
+  const checkingChat = await Chat.findById(selectedChat._id);
+  const checkingSession = await Session.findById(checkingChat.lastSession);
+
+  // ================> updating session bot reply
+  if (checkingSession.botReply && checkingSession.botReply !== 'proceeding') {
+    checkingSession.botReply = 'normal';
+
+    await checkingSession.save();
+  }
+
   // ******************* Startng chat bot **************
   if (!session) {
-    // async function ensureWelcomeMessage(selectedChat) {
-    //   const maxRetries = 3; // Set a maximum number of retries
-    //   let attempts = 0;
-
-    //   while (attempts < maxRetries) {
-    //     const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
-    //     try {
-    //       transactionSession.startTransaction();
-
-    //       const chat = await Chat.findById(selectedChat._id).session(
-    //         transactionSession
-    //       );
-
-    //       if (!chat.lastSession) {
-    //         await transactionSession.commitTransaction(); // Commit the transaction
-    //         transactionSession.endSession();
-    //         console.log('=============================!chat.lastSession');
-    //         return true;
-    //       } else {
-    //         const selectedSession = await Session.findById(chat.lastSession);
-    //         if (selectedSession.botReply) {
-    //           await transactionSession.commitTransaction(); // Commit the transaction
-    //           transactionSession.endSession();
-    //           return false;
-    //         } else if (!selectedSession.botReply) {
-    //           selectedSession.botReply = 'welcome';
-    //           await selectedSession.save();
-    //           await transactionSession.commitTransaction(); // Commit the transaction
-    //           transactionSession.endSession();
-    //           console.log(
-    //             '============================= !selectedSession.botReply'
-    //           );
-
-    //           // =======> Create chat history session
-    //           const chatHistoryData = {
-    //             chat: selectedChat._id,
-    //             user: selectedSession.user,
-    //             actionType: 'botReceive',
-    //           };
-    //           await ChatHistory.create(chatHistoryData);
-
-    //           // =======> Send bot welcome message
-    //           const interactiveObj = interactiveMessages.filter(
-    //             (message) => message.id === 'CPV'
-    //           )[0]; // from test data
-    //           const interactive = { ...interactiveObj };
-    //           delete interactive.id;
-
-    //           const msgToBeSent = { type: 'interactive', interactive };
-
-    //           await sendMessageHandler(
-    //             req,
-    //             msgToBeSent,
-    //             selectedChat,
-    //             selectedSession
-    //           );
-
-    //           return true;
-    //         }
-    //       }
-    //     } catch (error) {
-    //       console.log('error *************************** ', error);
-    //       attempts++;
-    //       await transactionSession.abortTransaction();
-    //       transactionSession.endSession();
-
-    //       if (attempts >= maxRetries) {
-    //         throw error; // If max retries exceeded, throw the error
-    //       }
-    //     }
-    //   }
-    // }
-
-    // await ensureWelcomeMessage(selectedChat);
-
-    const checkingChat = await Chat.findById(selectedChat._id);
-
-    const CheckingSession = await Session.findById(checkingChat.lastSession);
-    // console.log(
-    //   'CheckingSession ******************************************',
-    //   CheckingSession
-    // );
-
-    if (!CheckingSession.botReply) {
-      CheckingSession.botReply = 'welcome';
-      await CheckingSession.save();
-
-      // =======> Create chat history session
-      const chatHistoryData = {
-        chat: selectedChat._id,
-        user: selectedSession.user,
-        actionType: 'botReceive',
-      };
-      await ChatHistory.create(chatHistoryData);
+    if (!checkingSession.botReply) {
+      checkingSession.botReply = 'welcome';
+      await checkingSession.save();
 
       // =======> Send bot welcome message
       const interactiveObj = interactiveMessages.filter(
@@ -1171,6 +1129,14 @@ const chatBotHandler = async (
       const msgToBeSent = { type: 'interactive', interactive };
 
       await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+      // =======> Create chat history session
+      const chatHistoryData = {
+        chat: selectedChat._id,
+        user: selectedSession.user,
+        actionType: 'botReceive',
+      };
+      await ChatHistory.create(chatHistoryData);
       console.log(
         '////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// true'
       );
@@ -1179,59 +1145,103 @@ const chatBotHandler = async (
         '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
       );
     }
-  } else if (selectedSession.refRequired) {
-    // ************* Checking interactive reply message type **************
-    if (msgType === 'text') {
-      const textWaitingMsg = {
-        type: 'text',
-        text: 'برجاء الانتظار',
-      };
-      await sendMessageHandler(
-        req,
-        textWaitingMsg,
-        selectedChat,
-        selectedSession
-      );
+  } else if (checkingSession.refRequired) {
+    const checkingChat = await Chat.findById(selectedChat._id);
+    const checkingSession = await Session.findById(selectedChat.lastSession);
 
-      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
+    if (checkingSession.botReply === 'normal') {
+      checkingSession.botReply = 'proceeding';
+      await checkingSession.save();
 
-      // *** API from RD app ***
-      const refResult = await RDAppHandler({
-        Action: '1',
-        Phone: from,
-        ReferenceNo: msgBody,
-      });
-
-      //===========> valid reference no
-      if (refResult.Result) {
-        selectedSession.referenceNo = msgBody;
-        selectedSession.refRequired = false;
-        await selectedSession.save();
-
-        const interactiveMsgObj = interactiveMessages.filter(
-          (item) => item.id === 'inspection'
-        )[0];
-        const interactiveMsg = { ...interactiveMsgObj };
-        delete interactiveMsg.id;
-        const interactiveReplyMsg = {
-          type: 'interactive',
-          interactive: interactiveMsg,
+      // ************* Checking interactive reply message type **************
+      if (msgType === 'text') {
+        const textWaitingMsg = {
+          type: 'text',
+          text: 'برجاء الانتظار',
         };
-
         await sendMessageHandler(
           req,
-          interactiveReplyMsg,
+          textWaitingMsg,
           selectedChat,
           selectedSession
         );
 
-        //===========> invalid reference no
+        const msgBody =
+          req.body.entry[0].changes[0].value.messages[0].text.body;
+
+        // *** API from RD app ***
+        const refResult = await RDAppHandler({
+          Action: '1',
+          Phone: from,
+          ReferenceNo: msgBody,
+        });
+
+        //===========> valid reference no
+        if (refResult.Result) {
+          selectedSession.referenceNo = msgBody;
+          selectedSession.refRequired = false;
+          await selectedSession.save();
+
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'inspection'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
+          );
+
+          //===========> invalid reference no
+        } else {
+          selectedSession.refRequired = false;
+          await selectedSession.save();
+
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'ref_error'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
+          );
+        }
       } else {
+        // ******** Checking for reference no. reply
         selectedSession.refRequired = false;
+        selectedSession.referenceNo = undefined;
         await selectedSession.save();
 
+        //===========> Sending error text message
+        const textErrorMsg = {
+          type: 'text',
+          text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
+        };
+        await sendMessageHandler(
+          req,
+          textErrorMsg,
+          selectedChat,
+          selectedSession
+        );
+
+        //===========> Sending error interactive message
         const interactiveMsgObj = interactiveMessages.filter(
-          (item) => item.id === 'ref_error'
+          (item) => item.id === 'error'
         )[0];
         const interactiveMsg = { ...interactiveMsgObj };
         delete interactiveMsg.id;
@@ -1247,374 +1257,340 @@ const chatBotHandler = async (
           selectedSession
         );
       }
-    } else {
-      // ******** Checking for reference no. reply
-      selectedSession.refRequired = false;
-      selectedSession.referenceNo = undefined;
-      await selectedSession.save();
 
-      //===========> Sending error text message
-      const textErrorMsg = {
-        type: 'text',
-        text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
-      };
-      await sendMessageHandler(
-        req,
-        textErrorMsg,
-        selectedChat,
-        selectedSession
-      );
-
-      //===========> Sending error interactive message
-      const interactiveMsgObj = interactiveMessages.filter(
-        (item) => item.id === 'error'
-      )[0];
-      const interactiveMsg = { ...interactiveMsgObj };
-      delete interactiveMsg.id;
-      const interactiveReplyMsg = {
-        type: 'interactive',
-        interactive: interactiveMsg,
-      };
-
-      await sendMessageHandler(
-        req,
-        interactiveReplyMsg,
-        selectedChat,
-        selectedSession
-      );
+      checkingSession.botReply = 'normal';
+      await checkingSession.save();
     }
-  } else if (!selectedSession.refRequired) {
+  } else if (!checkingSession.refRequired) {
     // ************* Receiving interactive reply **************
     if (msgType === 'interactive') {
-      const interactive =
-        req.body.entry[0].changes[0].value.messages[0].interactive;
+      if (checkingSession.botReply !== 'proceeding') {
+        checkingSession.botReply = 'proceeding';
+        await checkingSession.save();
 
-      const replyMessage = await Message.findOne({
-        whatsappID: selectedMessage.context.id,
-      });
+        const interactive =
+          req.body.entry[0].changes[0].value.messages[0].interactive;
 
-      // ************** the client reply to the last bot message
-      if (
-        replyMessage &&
-        replyMessage._id.equals(selectedSession.lastBotMessage)
-      ) {
-        // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
-        let msgOption;
+        const replyMessage = await Message.findOne({
+          whatsappID: selectedMessage.context.id,
+        });
 
-        if (interactive.type === 'button_reply') {
-          const replyButtons = replyMessage.interactive.action.buttons;
-          // console.log('replyButtons', replyButtons);
-          const button = replyButtons.filter(
-            (btn) => btn.reply.id === interactive.button_reply.id
-          )[0];
-          // console.log('button', button);
+        // ************** the client reply to the last bot message
+        if (
+          replyMessage &&
+          replyMessage._id.equals(selectedSession.lastBotMessage)
+        ) {
+          // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+          let msgOption;
 
-          //===========> Selecting reply message
-          msgOption = button.reply;
-        } else if (interactive.type === 'list_reply') {
-          // to join all options in one array
-          const listOptions = [];
-          replyMessage.interactive.action.sections.map((section) => {
-            section.rows.map((row) => {
-              listOptions.push({
-                id: row.id,
-                title: row.title,
-                description: row.description,
+          if (interactive.type === 'button_reply') {
+            const replyButtons = replyMessage.interactive.action.buttons;
+            // console.log('replyButtons', replyButtons);
+            const button = replyButtons.filter(
+              (btn) => btn.reply.id === interactive.button_reply.id
+            )[0];
+            // console.log('button', button);
+
+            //===========> Selecting reply message
+            msgOption = button.reply;
+          } else if (interactive.type === 'list_reply') {
+            // to join all options in one array
+            const listOptions = [];
+            replyMessage.interactive.action.sections.map((section) => {
+              section.rows.map((row) => {
+                listOptions.push({
+                  id: row.id,
+                  title: row.title,
+                  description: row.description,
+                });
               });
             });
-          });
-          // console.log('listOptions', listOptions);
+            // console.log('listOptions', listOptions);
 
-          const selectedOption = listOptions.filter(
-            (option) => option.id === interactive.list_reply.id
-          )[0];
-          // console.log('selectedOption', selectedOption);
+            const selectedOption = listOptions.filter(
+              (option) => option.id === interactive.list_reply.id
+            )[0];
+            // console.log('selectedOption', selectedOption);
 
-          //===========> Selecting reply message
-          msgOption = selectedOption;
-        }
+            //===========> Selecting reply message
+            msgOption = selectedOption;
+          }
 
-        const msgToBeSent = await checkInteractiveHandler(
-          msgOption,
-          selectedSession,
-          selectedChat
-        );
+          const msgToBeSent = await checkInteractiveHandler(
+            msgOption,
+            selectedSession,
+            selectedChat
+          );
 
-        //===========> Sending an intro message
-        if (
-          msgOption.id === 'inspector_phone' &&
-          msgToBeSent.type === 'contacts'
-        ) {
-          const introMsg = {
-            type: 'text',
-            text: 'رقم الفاحص الفني الخاص بمشروعكم',
-          };
+          //===========> Sending an intro message
+          if (
+            msgOption.id === 'inspector_phone' &&
+            msgToBeSent.type === 'contacts'
+          ) {
+            const introMsg = {
+              type: 'text',
+              text: 'رقم الفاحص الفني الخاص بمشروعكم',
+            };
+            await sendMessageHandler(
+              req,
+              introMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
+
+          //===========> Sending first reply message
           await sendMessageHandler(
             req,
-            introMsg,
+            msgToBeSent,
             selectedChat,
             selectedSession
           );
-        }
 
-        //===========> Sending first reply message
-        await sendMessageHandler(
-          req,
-          msgToBeSent,
-          selectedChat,
-          selectedSession
-        );
+          //===========> Sending a footer message
+          if (
+            msgOption.id === 'inspector_phone' &&
+            msgToBeSent.type === 'contacts'
+          ) {
+            const footerMsg = {
+              type: 'text',
+              text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
+            };
+            await sendMessageHandler(
+              req,
+              footerMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
 
-        //===========> Sending a footer message
-        if (
-          msgOption.id === 'inspector_phone' &&
-          msgToBeSent.type === 'contacts'
-        ) {
-          const footerMsg = {
-            type: 'text',
-            text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
-          };
-          await sendMessageHandler(
-            req,
-            footerMsg,
-            selectedChat,
-            selectedSession
-          );
-        }
+          //===========> Sending second reply message
+          if (
+            [
+              'inspector_phone',
+              'visits_reports',
+              'project_tickets',
+              'missing_data',
+              'payment_status',
+              'contractor_instructions',
+              'inspection_stages',
+              'common_questions',
+              'complete_building',
+              'work_hours',
+            ].includes(msgOption.id)
+          ) {
+            const interactiveObj = interactiveMessages.filter(
+              (message) => message.id === 'check'
+            )[0]; // from test data
+            const interactive = { ...interactiveObj };
+            delete interactive.id;
 
-        //===========> Sending second reply message
-        if (
-          [
-            'inspector_phone',
-            'visits_reports',
-            'project_tickets',
-            'missing_data',
-            'payment_status',
-            'contractor_instructions',
-            'inspection_stages',
-            'common_questions',
-            'complete_building',
-            'work_hours',
-          ].includes(msgOption.id)
-        ) {
-          const interactiveObj = interactiveMessages.filter(
-            (message) => message.id === 'check'
-          )[0]; // from test data
-          const interactive = { ...interactiveObj };
-          delete interactive.id;
+            const secondMsgToBeSent = { type: 'interactive', interactive };
+            await sendMessageHandler(
+              req,
+              secondMsgToBeSent,
+              selectedChat,
+              selectedSession
+            );
+          }
 
-          const secondMsgToBeSent = { type: 'interactive', interactive };
-          await sendMessageHandler(
-            req,
-            secondMsgToBeSent,
-            selectedChat,
-            selectedSession
-          );
-        }
+          //===========> Following action (archive, transfer, ...)
+          // ***** Archive
+          if (['end'].includes(msgOption.id)) {
+            // Add end date to the session and remove it from chat
+            selectedSession.end = Date.now();
+            selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
+            await selectedSession.save();
 
-        //===========> Following action (archive, transfer, ...)
-        // ***** Archive
-        if (['end'].includes(msgOption.id)) {
-          // Add end date to the session and remove it from chat
-          selectedSession.end = Date.now();
-          selectedSession.status = 'finished';
-          await selectedSession.save();
+            // =======> Create chat history session
+            const chatHistoryData = {
+              chat: selectedChat._id,
+              user: selectedSession.user,
+              actionType: 'archive',
+              archive: 'bot',
+            };
+            await ChatHistory.create(chatHistoryData);
 
-          // =======> Create chat history session
-          const chatHistoryData = {
-            chat: selectedChat._id,
-            user: selectedSession.user,
-            actionType: 'archive',
-            archive: 'bot',
-          };
-          await ChatHistory.create(chatHistoryData);
+            // Updating chat
+            selectedChat.currentUser = undefined;
+            selectedChat.team = undefined;
+            selectedChat.status = 'archived';
+            selectedChat.lastSession = undefined;
+            await selectedChat.save();
 
-          // Updating chat
-          selectedChat.currentUser = undefined;
-          selectedChat.team = undefined;
-          selectedChat.status = 'archived';
-          selectedChat.lastSession = undefined;
-          await selectedChat.save();
-
-          // Removing chat from bot user chats
-          await User.findByIdAndUpdate(
-            selectedSession.user,
-            { $pull: { chats: selectedChat._id } },
-            { new: true, runValidators: true }
-          );
-        }
-
-        // ***** Transfer
-        if (['inquiries', 'customer_service'].includes(msgOption.id)) {
-          // =========> Selecting team and user
-          const selectedTeam = await Team.findOne({ default: true });
-
-          let teamUsers = await Promise.all(
-            selectedTeam.users.map(async function (user) {
-              let teamUser = await User.findById(user);
-              return teamUser;
-            })
-          );
-          // console.log('teamUsers', teamUsers);
-
-          // status sorting order
-          const statusSortingOrder = [
-            'Online',
-            'Service hours',
-            'Offline',
-            'Away',
-          ];
-
-          // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
-          teamUsers = teamUsers.sort((a, b) => {
-            const orderA = statusSortingOrder.indexOf(a.status);
-            const orderB = statusSortingOrder.indexOf(b.status);
-
-            // If 'status' is the same, then sort by chats length
-            if (orderA === orderB) {
-              return a.chats.length - b.chats.length;
-            }
-
-            // Otherwise, sort by 'status'
-            return orderA - orderB;
-          });
-          // console.log('teamUsers', teamUsers);
-
-          // ========> Finishing bot session
-          selectedSession.end = Date.now();
-          selectedSession.status = 'finished';
-          await selectedSession.save();
-
-          // ==========> Creating new session
-          const newSession = await Session.create({
-            chat: selectedChat._id,
-            user: teamUsers[0]._id,
-            team: selectedTeam._id,
-            status: 'onTime',
-          });
-
-          // =======> Create chat history session
-          const chatHistoryData = {
-            chat: selectedChat._id,
-            user: selectedChat.currentUser,
-            actionType: 'transfer',
-            transfer: {
-              type: 'bot',
-              to: teamUsers[0]._id,
-              toTeam: selectedTeam._id,
-            },
-          };
-          await ChatHistory.create(chatHistoryData);
-
-          // ==========> Updating chat
-          selectedChat.lastSession = newSession._id;
-          selectedChat.team = selectedTeam._id;
-          selectedChat.currentUser = teamUsers[0]._id;
-          await selectedChat.save();
-
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          // ************ where to send another message depending on service hours
-
-          const selectedTeamServiceHours = await Service.findById(
-            selectedTeam.serviceHours
-          );
-          // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
-          const selectedTeamConversation = await Conversation.findById(
-            selectedTeam.conversation
-          );
-          // console.log('selectedTeamConversation', selectedTeamConversation);
-
-          const msgText = serviceHoursUtils.checkInsideServiceHours(
-            selectedTeamServiceHours.durations
-          )
-            ? selectedTeamConversation.bodyOn
-            : selectedTeamConversation.bodyOff;
-          const msgToBeSent = {
-            type: 'text',
-            text: msgText,
-          };
-          await sendMessageHandler(req, msgToBeSent, selectedChat, newSession);
-          //  *******************************************
-
-          // Adding the selected chat to the user chats
-          if (!teamUsers[0].chats.includes(selectedChat._id)) {
+            // Removing chat from bot user chats
             await User.findByIdAndUpdate(
-              teamUsers[0]._id,
-              { $push: { chats: selectedChat._id } },
+              selectedSession.user,
+              { $pull: { chats: selectedChat._id } },
               { new: true, runValidators: true }
             );
           }
 
-          // Removing chat from bot user chats
-          await User.findByIdAndUpdate(
-            selectedSession.user,
-            { $pull: { chats: selectedChat._id } },
-            { new: true, runValidators: true }
+          // ***** Transfer
+          if (['inquiries', 'customer_service'].includes(msgOption.id)) {
+            // =========> Selecting team and user
+            const selectedTeam = await Team.findOne({ default: true });
+
+            let teamUsers = await Promise.all(
+              selectedTeam.users.map(async function (user) {
+                let teamUser = await User.findById(user);
+                return teamUser;
+              })
+            );
+            // console.log('teamUsers', teamUsers);
+
+            // status sorting order
+            const statusSortingOrder = [
+              'Online',
+              'Service hours',
+              'Offline',
+              'Away',
+            ];
+
+            // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+            teamUsers = teamUsers.sort((a, b) => {
+              const orderA = statusSortingOrder.indexOf(a.status);
+              const orderB = statusSortingOrder.indexOf(b.status);
+
+              // If 'status' is the same, then sort by chats length
+              if (orderA === orderB) {
+                return a.chats.length - b.chats.length;
+              }
+
+              // Otherwise, sort by 'status'
+              return orderA - orderB;
+            });
+            // console.log('teamUsers', teamUsers);
+
+            // ========> Finishing bot session
+            selectedSession.end = Date.now();
+            selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
+            await selectedSession.save();
+
+            // ==========> Creating new session
+            const newSession = await Session.create({
+              chat: selectedChat._id,
+              user: teamUsers[0]._id,
+              team: selectedTeam._id,
+              status: 'onTime',
+            });
+
+            // =======> Create chat history session
+            const chatHistoryData = {
+              chat: selectedChat._id,
+              user: selectedChat.currentUser,
+              actionType: 'transfer',
+              transfer: {
+                type: 'bot',
+                to: teamUsers[0]._id,
+                toTeam: selectedTeam._id,
+              },
+            };
+            await ChatHistory.create(chatHistoryData);
+
+            // ==========> Updating chat
+            selectedChat.lastSession = newSession._id;
+            selectedChat.team = selectedTeam._id;
+            selectedChat.currentUser = teamUsers[0]._id;
+            await selectedChat.save();
+
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            // ************ where to send another message depending on service hours
+
+            const selectedTeamServiceHours = await Service.findById(
+              selectedTeam.serviceHours
+            );
+            // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
+            const selectedTeamConversation = await Conversation.findById(
+              selectedTeam.conversation
+            );
+            // console.log('selectedTeamConversation', selectedTeamConversation);
+
+            const msgText = serviceHoursUtils.checkInsideServiceHours(
+              selectedTeamServiceHours.durations
+            )
+              ? selectedTeamConversation.bodyOn
+              : selectedTeamConversation.bodyOff;
+            const msgToBeSent = {
+              type: 'text',
+              text: msgText,
+            };
+            await sendMessageHandler(
+              req,
+              msgToBeSent,
+              selectedChat,
+              newSession
+            );
+            //  *******************************************
+
+            // Adding the selected chat to the user chats
+            if (!teamUsers[0].chats.includes(selectedChat._id)) {
+              await User.findByIdAndUpdate(
+                teamUsers[0]._id,
+                { $push: { chats: selectedChat._id } },
+                { new: true, runValidators: true }
+              );
+            }
+
+            // Removing chat from bot user chats
+            await User.findByIdAndUpdate(
+              selectedSession.user,
+              { $pull: { chats: selectedChat._id } },
+              { new: true, runValidators: true }
+            );
+          }
+
+          // ************** the client doesn't reply to the last bot message
+        } else {
+          //===========> Sending error text message
+          const textErrorMsg = {
+            type: 'text',
+            text: 'عفوا لم استطع التعرف على اختيارك.',
+          };
+          await sendMessageHandler(
+            req,
+            textErrorMsg,
+            selectedChat,
+            selectedSession
+          );
+
+          //===========> Sending error interactive message
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'error'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
           );
         }
 
-        // ************** the client doesn't reply to the last bot message
-      } else {
-        //===========> Sending error text message
-        const textErrorMsg = {
-          type: 'text',
-          text: 'عفوا لم استطع التعرف على اختيارك.',
-        };
-        await sendMessageHandler(
-          req,
-          textErrorMsg,
-          selectedChat,
-          selectedSession
-        );
-
-        //===========> Sending error interactive message
-        const interactiveMsgObj = interactiveMessages.filter(
-          (item) => item.id === 'error'
-        )[0];
-        const interactiveMsg = { ...interactiveMsgObj };
-        delete interactiveMsg.id;
-        const interactiveReplyMsg = {
-          type: 'interactive',
-          interactive: interactiveMsg,
-        };
-
-        await sendMessageHandler(
-          req,
-          interactiveReplyMsg,
-          selectedChat,
-          selectedSession
-        );
+        checkingSession.botReply = 'normal';
+        await checkingSession.save();
       }
     } else {
-      // ******** Checking for interactive reply
-      selectedSession.refRequired = false;
-      selectedSession.referenceNo = undefined;
-      await selectedSession.save();
+      // // ******** Checking for interactive reply
+      // selectedSession.refRequired = false;
+      // selectedSession.referenceNo = undefined;
+      // await selectedSession.save();
 
-      const checkingChat = await Chat.findById(selectedChat._id);
-      const CheckingSession = await Session.findById(selectedChat.lastSession);
-      // console.log(
-      //   'CheckingSession ******************************************',
-      //   CheckingSession
-      // );
-
-      // console.log(
-      //   'CheckingSession.lastBotMessage._id.equals(checkingChat.lastMessage._id) ============================',
-      //   CheckingSession.lastBotMessage._id,
-      //   checkingChat.lastMessage._id,
-      //   CheckingSession.lastBotMessage._id.equals(checkingChat.lastMessage._id),
-      //   '==============================',
-      //   CheckingSession.botReply
-      // );
-
-      if (
-        CheckingSession.botReply === 'welcome' ||
-        CheckingSession.botReply === 'normal'
-      ) {
-        CheckingSession.botReply = 'error';
-        await CheckingSession.save();
+      if (checkingSession.botReply === 'normal') {
+        checkingSession.botReply = 'proceeding';
+        await checkingSession.save();
 
         //===========> Sending error text message
         const textErrorMsg = {
@@ -1646,8 +1622,8 @@ const chatBotHandler = async (
           selectedSession
         );
 
-        CheckingSession.botReply = 'error';
-        await CheckingSession.save();
+        checkingSession.botReply = 'error';
+        await checkingSession.save();
       }
     }
   }
