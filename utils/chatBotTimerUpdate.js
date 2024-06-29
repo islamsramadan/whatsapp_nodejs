@@ -171,6 +171,8 @@ const updateTask = (
         // Add end date to the session and remove it from chat
         session.end = Date.now();
         session.status = 'finished';
+        session.timer = undefined;
+        session.botTimer = undefined;
         await session.save();
 
         // =======> Create chat history session

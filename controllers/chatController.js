@@ -228,7 +228,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and remove it from chat
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now(), status: 'finished' },
+      { end: Date.now(), status: 'finished', $unset: { timer: '' } },
       { new: true, runValidators: true }
     );
 
@@ -279,7 +279,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now(), status: 'finished' },
+      { end: Date.now(), status: 'finished', $unset: { timer: '' } },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
@@ -353,7 +353,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now(), status: 'finished' },
+      { end: Date.now(), status: 'finished', $unset: { timer: '' } },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
@@ -451,7 +451,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     // Add end date to the session and creat new one
     await Session.findByIdAndUpdate(
       chat.lastSession,
-      { end: Date.now(), status: 'finished' },
+      { end: Date.now(), status: 'finished', $unset: { timer: '' } },
       { new: true, runValidators: true }
     );
     const newSession = await Session.create({
