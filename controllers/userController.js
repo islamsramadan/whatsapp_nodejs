@@ -135,11 +135,17 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     filteredBody.role = req.query.role;
   }
 
+  // ------------> firstName & lastName filters users
   if (req.query.name) {
     filteredBody['$or'] = [
-      { firstName: { $regex: req.query.name } },
-      { lastName: { $regex: req.query.name } },
+      { firstName: { $regex: req.query.name, $options: 'i' } },
+      { lastName: { $regex: req.query.name, $options: 'i' } },
     ];
+  }
+
+  // ------------> Team filters users
+  if (req.query.team) {
+    filteredBody.team = req.query.team;
   }
 
   // Users for add or edit team
