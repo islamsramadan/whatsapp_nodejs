@@ -144,52 +144,32 @@ const updatePerfromance = (status, timer, req, message) => {
     }
   });
 };
-// const updatePerfromance = (req, message) => {
-//   const cronExpression = getCronExpression(message.timer);
-//   // console.log('cronExpression', cronExpression);
 
-//   cron.schedule(cronExpression, async () => {
-//     // console.log('message ===========', message);
-
-//     const session = await Session.findById(message.session);
-//     let lastUserMessage;
-
-//     if (session.lastUserMessage) {
-//       lastUserMessage = await Message.findById(session.lastUserMessage);
-//     }
-
-//     if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
-//       const updatedSession = await Session.findById(session._id);
-//       const testSession = await Session.findByIdAndUpdate(
-//         session._id,
-//         {
-//           $set: { 'performance.onTime': updatedSession.performance.onTime - 1 },
-//         },
-//         { new: true, runValidators: true }
-//       );
-//       // console.log('testSession ===========', testSession);
-//     }
-//   });
-// };
-
-exports.schedulePerformance = async (req, message, responseDangerTime) => {
+exports.schedulePerformance = async (
+  req,
+  message,
+  responseDangerTime,
+  responseTime
+) => {
   const currentTime = new Date();
 
   const delay = message.timer - currentTime;
 
   if (delay > 0) {
-    let lateTimer = message.timer;
-    let dangerTimer = new Date(
-      message.timer - delay * (1 - responseDangerTime)
+    const lateTimer = message.timer;
+
+    const responseTimeInMelliSeconds =
+      (responseTime.hours * 60 + responseTime.minutes) * 60 * 1000;
+
+    const dangerTimer = new Date(
+      message.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
     );
 
     // console.log('session', session);
-    console.log('lateTimer ============', lateTimer);
-    console.log('dangerTimer ============', dangerTimer);
+    // console.log('lateTimer ============', lateTimer);
+    // console.log('dangerTimer ============', dangerTimer);
 
     updatePerfromance('danger', dangerTimer, req, message);
     updatePerfromance('tooLate', lateTimer, req, message);
   }
-
-  // updatePerfromance(req, message, session);
 };

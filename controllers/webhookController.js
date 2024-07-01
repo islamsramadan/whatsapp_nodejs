@@ -614,8 +614,8 @@ const receiveMessageHandler = async (req, res, next) => {
     await sessionTimerUpdate.schedulePerformance(
       req,
       newMessage,
-      //from config.env
-      responseDangerTime
+      responseDangerTime, //from config.env
+      teamServiceHours.responseTime
     );
 
     // *************************************************************************
