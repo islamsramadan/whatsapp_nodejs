@@ -116,38 +116,73 @@ const upload = multer({
 exports.uploadUserPhoto = upload.single('photo');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const filteredBody = { bot: false, deleted: false };
-  let select = '-passwordChangedAt -createdAt -updatedAt';
+  const filteredBody = {
+    bot: false,
+    // deleted: false,
+  };
+  let select = '-passwordChangedAt -createdAt -updatedAt -otp -otpTimer';
   let populate = { path: 'team', select: 'name' };
 
-  // Users for add or edit team
-  if (req.query.type === 'team') {
-    if (req.query.teamID) {
-      filteredBody['$or'] = [{ supervisor: false }, { team: req.query.teamID }];
-    } else {
-      filteredBody.supervisor = false;
-    }
-    select = 'firstName lastName photo team';
-    populate = { path: 'team', select: 'name' };
+  // ------------> Active and Inactive users
+  if (req.query.active === true) {
+    filteredBody.deleted = false;
+  } else if (req.query.active === false) {
+    filteredBody.deleted = true;
   }
+
+  // ------------> Role filters users
+  if (req.query.role) {
+    filteredBody.role = req.query.role;
+  }
+
+  if (req.query.name) {
+    filteredBody['$or'] = [
+      { firstName: { $regex: req.query.name } },
+      { lastName: { $regex: req.query.name } },
+    ];
+  }
+
+  // Users for add or edit team
+  // if (req.query.type === 'team') {
+  //   if (req.query.teamID) {
+  //     filteredBody['$or'] = [{ supervisor: false }, { team: req.query.teamID }];
+  //   } else {
+  //     filteredBody.supervisor = false;
+  //   }
+  //   select = 'firstName lastName photo team';
+  //   populate = { path: 'team', select: 'name' };
+  // }
 
   // users for chat transfer
-  if (req.query.type === 'chatTransfer') {
-    filteredBody['$and'] = [
-      { _id: { $ne: req.user._id } },
-      { team: req.user.team },
-    ];
-    select = 'firstName lastName photo';
-    populate = '';
-  }
+  // if (req.query.type === 'chatTransfer') {
+  //   filteredBody['$and'] = [
+  //     { _id: { $ne: req.user._id } },
+  //     { team: req.user.team },
+  //   ];
+  //   select = 'firstName lastName photo';
+  //   populate = '';
+  // }
 
-  // console.log('filteredBody', filteredBody);
-  const users = await User.find(filteredBody).select(select).populate(populate);
+  console.log('filteredBody', filteredBody);
+
+  const page = req.query.page || 1;
+
+  const users = await User.find(filteredBody)
+    .select(select)
+    .populate(populate)
+    .skip((page - 1) * 20)
+    .limit(20);
+
+  const totalResults = await User.count(filteredBody);
+  const totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
     results: users.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       users,
     },
   });
