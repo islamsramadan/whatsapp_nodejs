@@ -118,7 +118,7 @@ const createSendOTP = async (user, res) => {
 
   if (sendTemplateResponse) {
     let otpTimer = new Date();
-    otpTimer.setMinutes(otpTimer.getMinutes() + 1);
+    otpTimer.setMinutes(otpTimer.getMinutes() + 2);
 
     await User.findByIdAndUpdate(
       user._id,
@@ -170,7 +170,7 @@ exports.login = catchAsync(async (req, res, next) => {
   // 2) check if user exists && password is correct
   const user = await User.findOne({ email }).select('+password +deleted');
 
-  // 3) check if everything Ok ,send token to client
+  // 3) check if everything Ok ,send otp to client
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect Email or Password!', 400));
   }
@@ -183,9 +183,17 @@ exports.login = catchAsync(async (req, res, next) => {
 });
 
 exports.verifyOTP = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
+  const { email, password, otp } = req.body;
 
-  if (!user) {
+  if (!email || password || otp) {
+    return next(new AppError('Email, password and OTP are required!', 400));
+  }
+
+  const user = await User.findOne({ email }).select(
+    '+password +deleted +otp +otpTimer'
+  );
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('No Account found with that email', 401));
   }
 
@@ -193,10 +201,10 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('Account has been deleted!', 401));
   }
 
-  if (user.otp && user.otp === req.body.otp && user.otpTimer > Date.now()) {
+  if (user.otp && user.otp === otp && user.otpTimer > Date.now()) {
     await createSendToken(user, 200, req, res);
   } else {
-    return next(new AppError('Not acceptable OTP!', 400));
+    return next(new AppError('Invalid OTP!', 400));
   }
 });
 

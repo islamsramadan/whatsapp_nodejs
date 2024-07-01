@@ -1,6 +1,7 @@
 const multer = require('multer');
 const AppError = require('../utils/appError');
 const User = require('./../models/userModel');
+const Chat = require('../models/chatModel');
 const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
 const AnswersSet = require('../models/answersSetModel');
@@ -496,7 +497,17 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
   if (user.team && user.supervisor === true) {
     return next(
       new AppError(
-        `Couldn't delete team supervisor, Kindly update team with that id (${user.team}) first`,
+        `Couldn't delete team supervisor, Kindly update team with that id (${user.team}) first.`,
+        400
+      )
+    );
+  }
+
+  const userChats = await Chat.find({ currentUser: user._id });
+  if (userChats.length > 0) {
+    return next(
+      new AppError(
+        "Couldn't delete user with active chats! Kindly archive his chats first.",
         400
       )
     );

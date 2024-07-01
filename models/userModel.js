@@ -105,10 +105,12 @@ const userSchema = new mongoose.Schema(
 
     otp: {
       type: String,
+      select: false,
     },
 
     otpTimer: {
       type: Date,
+      select: false,
     },
 
     passwordChangedAt: {
