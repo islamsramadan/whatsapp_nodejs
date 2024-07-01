@@ -602,8 +602,8 @@ const receiveMessageHandler = async (req, res, next) => {
       await sessionTimerUpdate.scheduleDocumentUpdateTask(
         sessions,
         req,
-        //from config.env
-        responseDangerTime
+        responseDangerTime, //from config.env
+        teamServiceHours.responseTime
       );
     }
 

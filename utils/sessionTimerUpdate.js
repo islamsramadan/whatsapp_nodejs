@@ -53,7 +53,8 @@ const updateTask = (
 exports.scheduleDocumentUpdateTask = async (
   sessions,
   req,
-  responseDangerTime
+  responseDangerTime,
+  responseTime
 ) => {
   // console.log('sessions', sessions);
   const currentTime = new Date();
@@ -67,8 +68,12 @@ exports.scheduleDocumentUpdateTask = async (
 
       if (session.timer) {
         let lateTimer = session.timer;
-        let dangerTimer = new Date(
-          session.timer - delayArray[i] * (1 - responseDangerTime)
+
+        const responseTimeInMelliSeconds =
+          (responseTime.hours * 60 + responseTime.minutes) * 60 * 1000;
+
+        const dangerTimer = new Date(
+          session.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
         );
 
         // console.log('session', session);
