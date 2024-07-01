@@ -121,7 +121,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     bot: false,
     // deleted: false,
   };
-  let select = '-passwordChangedAt -createdAt -updatedAt -otp -otpTimer';
+  let select = '-passwordChangedAt -createdAt -updatedAt +deleted';
   let populate = { path: 'team', select: 'name' };
 
   // ------------> Active and Inactive users
