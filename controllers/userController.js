@@ -125,9 +125,9 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   let populate = { path: 'team', select: 'name' };
 
   // ------------> Active and Inactive users
-  if (req.query.active === true) {
+  if (req.query.active === 'true') {
     filteredBody.deleted = false;
-  } else if (req.query.active === false) {
+  } else if (req.query.active === 'false') {
     filteredBody.deleted = true;
   }
 

@@ -186,7 +186,7 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
   const { email, password, otp } = req.body;
 
   if (!email || !password || !otp) {
-    return next(new AppError('Email, password and OTP are required!', 400));
+    return next(new AppError('OTP is required!', 400));
   }
 
   const user = await User.findOne({ email }).select(
