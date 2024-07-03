@@ -25,7 +25,11 @@ router.patch(
 
 router
   .route('/')
-  .get(authController.protect, userController.getAllUsers)
+  .get(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.getAllUsers
+  )
   .post(
     authController.protect,
     authController.restrictTo('admin'),
@@ -34,7 +38,11 @@ router
 
 router
   .route('/:userID')
-  .get(authController.protect, userController.getUser)
+  .get(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.getUser
+  )
   .patch(
     authController.protect,
     authController.restrictTo('admin'),
@@ -44,6 +52,14 @@ router
     authController.protect,
     authController.restrictTo('admin'),
     userController.deleteUser
+  );
+
+router
+  .route('/recovery/:userID')
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.recoverUser
   );
 
 module.exports = router;

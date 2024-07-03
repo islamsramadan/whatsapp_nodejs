@@ -537,6 +537,24 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: 'User deleted successfully!!',
+    message: 'User deleted successfully!',
+  });
+});
+
+exports.recoverUser = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.userID);
+  if (!user) {
+    return next(new AppError('No user found with that ID!', 400));
+  }
+
+  await User.findByIdAndUpdate(
+    req.params.userID,
+    { deleted: false },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User recovered successfully!',
   });
 });
