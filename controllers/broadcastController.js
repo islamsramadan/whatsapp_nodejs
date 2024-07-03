@@ -208,7 +208,8 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
         client = item[req.body.number];
 
         //remove space in phone number
-        client = client.replaceAll(' ', '');
+        // client = client.replaceAll(' ', '');
+        client = client.replace(/ /g, '');
 
         if (client?.startsWith('+')) {
           client = client.slice(1);
@@ -234,10 +235,15 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 
       let newChat;
       if (!chat) {
-        newChat = await Chat.create({
-          client,
-          status: 'archived',
-        });
+        try {
+          newChat = await Chat.create({
+            client,
+            status: 'archived',
+          });
+          res.status(201).send(newChat);
+        } catch (error) {
+          return { client, status: 'failed' };
+        }
       }
       // console.log('chat', chat);
 
@@ -631,8 +637,8 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     .populate('user', 'firstName lastName')
     .populate('results.message', 'status delivered sent createdAt')
     .sort('-createdAt')
-    .skip((page - 1) * 10)
-    .limit(10);
+    .skip((page - 1) * 20)
+    .limit(20);
 
   broadcasts = broadcasts.map((broadcast) => ({
     _id: broadcast._id,
@@ -644,7 +650,7 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
   }));
 
   totalResults = await Broadcast.count(filterObj);
-  totalPages = Math.ceil(totalResults / 10);
+  totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
