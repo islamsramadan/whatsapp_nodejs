@@ -497,6 +497,10 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No user found with that ID', 404));
   }
 
+  if (user.deleted === true) {
+    return next(new AppError('User is already deleted!', 400));
+  }
+
   if (user.bot === true) {
     return next(new AppError("Couldn't delete bot user!", 404));
   }
@@ -545,6 +549,10 @@ exports.recoverUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.userID);
   if (!user) {
     return next(new AppError('No user found with that ID!', 400));
+  }
+
+  if (user.deleted === false) {
+    return next(new AppError('User is already recovered!', 400));
   }
 
   await User.findByIdAndUpdate(
