@@ -116,7 +116,10 @@ const updatePerfromance = (status, timer, req, message) => {
       lastUserMessage = await Message.findById(session.lastUserMessage);
     }
 
-    if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
+    if (
+      session.status !== 'finished' &&
+      (!lastUserMessage || message.createdAt > lastUserMessage.createdAt)
+    ) {
       const updatedSession = await Session.findById(session._id);
       if (status === 'danger') {
         const dangerSession = await Session.findByIdAndUpdate(
