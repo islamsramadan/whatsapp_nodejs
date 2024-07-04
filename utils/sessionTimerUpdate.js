@@ -34,6 +34,7 @@ const updateTask = (
 
     if (
       session.timer &&
+      session.status !== 'finished' &&
       ((session.timer.getTime() === timer.getTime() && status === 'tooLate') ||
         (new Date(
           session.timer - delay * (1 - responseDangerTime)
