@@ -67,7 +67,7 @@ exports.scheduleDocumentUpdateTask = async (
       let session = await Session.findById(sessions[i]._id);
 
       if (session.timer) {
-        let lateTimer = session.timer;
+        const lateTimer = session.timer;
 
         const responseTimeInMelliSeconds =
           (responseTime.hours * 60 + responseTime.minutes) * 60 * 1000;
@@ -77,6 +77,8 @@ exports.scheduleDocumentUpdateTask = async (
         );
 
         // console.log('session', session);
+        // console.log('lateTimer ============', lateTimer);
+        // console.log('dangerTimer ============', dangerTimer);
 
         updateTask(
           req,
