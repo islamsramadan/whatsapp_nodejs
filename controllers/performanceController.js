@@ -90,9 +90,9 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
 
   if (!req.query.selectedUsers) {
     if (req.query.selectedTeams) {
-      usersIDs = await User.find({ team: { $in: teamsIDs } });
+      usersIDs = await User.find({ team: { $in: teamsIDs }, deleted: false });
     } else {
-      usersIDs = await User.find({ bot: false });
+      usersIDs = await User.find({ bot: false, deleted: false });
     }
   }
 
@@ -105,6 +105,7 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
     type: 'normal',
     'performance.all': { $gt: 0 },
     status: 'finished',
+    end: { $exists: true },
   };
   if (startDate)
     populateObject.updatedAt = {

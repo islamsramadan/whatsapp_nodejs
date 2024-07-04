@@ -251,7 +251,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       // Add end date to the session and remove it from chat
       await Session.findByIdAndUpdate(
         chat.lastSession,
-        { end: Date.now(), status: 'finished' },
+        { end: Date.now(), status: 'finished', $unset: { timer: '' } },
         { new: true, runValidators: true }
       );
 
@@ -302,7 +302,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       // Add end date to the session and creat new one
       await Session.findByIdAndUpdate(
         chat.lastSession,
-        { end: Date.now(), status: 'finished' },
+        { end: Date.now(), status: 'finished', $unset: { timer: '' } },
         { new: true, runValidators: true }
       );
       const newSession = await Session.create({
@@ -362,7 +362,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       // to update later
       const previousUserID = chat.currentUser;
 
-      const user = await User.findById(req.body.user);
+      const user = await User.findOne({ _id: req.body.user, deleted: false });
       if (!user) {
         return next(new AppError('No user found with that ID', 404));
       }
@@ -376,7 +376,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       // Add end date to the session and creat new one
       await Session.findByIdAndUpdate(
         chat.lastSession,
-        { end: Date.now(), status: 'finished' },
+        { end: Date.now(), status: 'finished', $unset: { timer: '' } },
         { new: true, runValidators: true }
       );
       const newSession = await Session.create({
@@ -448,7 +448,10 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       //Selecting new chat current user
       let teamUsers = [];
       for (let i = 0; i < team.users.length; i++) {
-        let teamUser = await User.findById(team.users[i]);
+        let teamUser = await User.findOne({
+          _id: team.users[i],
+          deleted: false,
+        });
         teamUsers = [...teamUsers, teamUser];
       }
 
@@ -474,7 +477,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       // Add end date to the session and creat new one
       await Session.findByIdAndUpdate(
         chat.lastSession,
-        { end: Date.now(), status: 'finished' },
+        { end: Date.now(), status: 'finished', $unset: { timer: '' } },
         { new: true, runValidators: true }
       );
       const newSession = await Session.create({
@@ -518,9 +521,11 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       }
 
       //Update previous user open chats
-      await User.findByIdAndUpdate(previousUserID, {
-        $pull: { chats: chat._id },
-      });
+      await User.findByIdAndUpdate(
+        previousUserID,
+        { $pull: { chats: chat._id } },
+        { new: true, runValidators: true }
+      );
     }
   } catch (error) {
     result = 'failed';

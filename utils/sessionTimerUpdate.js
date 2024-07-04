@@ -74,7 +74,6 @@ exports.scheduleDocumentUpdateTask = async (
 
         const dangerTimer = new Date(
           session.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
-          // session.timer - delayArray[i] * (1 - responseDangerTime)
         );
 
         // console.log('session', session);
@@ -171,7 +170,6 @@ exports.schedulePerformance = async (
 
     const dangerTimer = new Date(
       message.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
-      // message.timer - delay * (1 - responseDangerTime)
     );
 
     // console.log('session', session);
@@ -181,6 +179,4 @@ exports.schedulePerformance = async (
     updatePerfromance('danger', dangerTimer, req, message);
     updatePerfromance('tooLate', lateTimer, req, message);
   }
-
-  // updatePerfromance(req, message, session);
 };

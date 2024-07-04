@@ -1346,6 +1346,8 @@ const chatBotHandler = async (
             // Add end date to the session and remove it from chat
             selectedSession.end = Date.now();
             selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
             await selectedSession.save();
 
             // =======> Create chat history session
@@ -1411,6 +1413,8 @@ const chatBotHandler = async (
             // ========> Finishing bot session
             selectedSession.end = Date.now();
             selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
             await selectedSession.save();
 
             // ==========> Creating new session

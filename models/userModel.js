@@ -92,6 +92,27 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    creator: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+    },
+
+    phone: {
+      type: String,
+      required: [true, 'Whatsapp number is required!'],
+      match: [/\d{10,}/, 'Invalid whatsapp number!'],
+    },
+
+    otp: {
+      type: String,
+      select: false,
+    },
+
+    otpTimer: {
+      type: Date,
+      select: false,
+    },
+
     passwordChangedAt: {
       type: Date,
     },
