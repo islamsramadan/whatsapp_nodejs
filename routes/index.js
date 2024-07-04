@@ -12,8 +12,10 @@ const noteRouter = require('./noteRoutes');
 const sessionRouter = require('./sessionRoutes');
 const performanceRouter = require('./performanceRoutes');
 const messageRouter = require('./messageRoutes');
+const internalMessageRouter = require('./internalMessageRoutes');
 const broadcastRouter = require('./broadcastRoutes');
 const uploadRouter = require('./uploadRoutes');
+const endUserRoutes = require('./endUserRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
 const logRoutes = require('./logRoutes');
 
@@ -32,8 +34,10 @@ router.use('/notes', noteRouter);
 router.use('/sessions', sessionRouter);
 router.use('/performance', performanceRouter);
 router.use('/messages', messageRouter);
+router.use('/internal-messages', internalMessageRouter);
 router.use('/broadcast', broadcastRouter);
 router.use('/upload', uploadRouter);
+router.use('/endUser', endUserRoutes);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
 router.use('/logs', logRoutes);
 

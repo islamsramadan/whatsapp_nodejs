@@ -16,7 +16,14 @@ const historySchema = new mongoose.Schema(
 
     actionType: {
       type: String,
-      enum: ['transfer', 'takeOwnership', 'archive', 'start', 'botReceive'],
+      enum: [
+        'transfer',
+        'takeOwnership',
+        'archive',
+        'start',
+        'receive',
+        'botReceive',
+      ],
       required: [true, 'required!'],
     },
 
@@ -105,18 +112,6 @@ const historySchema = new mongoose.Schema(
         },
       },
     },
-
-    // archive: {
-    //   type: mongoose.Schema.ObjectId,
-    //   ref: 'User',
-    //   required: function () {
-    //     if (this.actionType === 'archive') {
-    //       return [true, 'required!'];
-    //     } else {
-    //       return false;
-    //     }
-    //   },
-    // },
 
     archive: {
       type: String,

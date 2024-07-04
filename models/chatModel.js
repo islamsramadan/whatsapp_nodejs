@@ -2,10 +2,38 @@ const mongoose = require('mongoose');
 
 const chatSchema = new mongoose.Schema(
   {
+    type: {
+      type: String,
+      enum: ['whatsapp', 'internal'],
+      default: 'whatsapp',
+    },
+
     client: {
       type: String,
-      required: [true, 'Chat must have a client!'],
+      required: function () {
+        if (!this.type || this.type === 'whatsapp') {
+          return [true, 'Chat must have a client!'];
+        } else {
+          return false;
+        }
+      },
+      unique: [true, 'Unique client is required!'],
+      sparse: true, // Allows the field to be unique only when it is not null
       match: [/\d{10,}/, 'Invalid client whatsapp number!'],
+    },
+
+    endUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
+      required: function () {
+        if (this.type === 'internal') {
+          return [true, 'Chat must have an end user!'];
+        } else {
+          return false;
+        }
+      },
+      unique: [true, 'Unique end user is required!'],
+      sparse: true, // Allows the field to be unique only when it is not null
     },
 
     contactName: {

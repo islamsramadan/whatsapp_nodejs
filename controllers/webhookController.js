@@ -263,12 +263,9 @@ const receiveMessageHandler = async (req, res, next) => {
           let selectedChat = await Chat.findOne({ client: from });
 
           if (!selectedChat) {
-            const botTeam = await Team.findOne({ bot: true });
-
             selectedChat = await Chat.create({
               client: from,
-              team: botTeam._id,
-              currentUser: botTeam.supervisor,
+              status: 'archived',
             });
           }
 
@@ -305,58 +302,6 @@ const receiveMessageHandler = async (req, res, next) => {
     let selectedSession = session;
 
     if (!session) {
-      // async function ensureSessionForChat(selectedChat) {
-      //   const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
-      //   transactionSession.startTransaction();
-
-      //   try {
-      //     // Re-fetch the chat within the transaction to ensure data integrity
-      //     const chat = await Chat.findById(selectedChat._id).session(
-      //       transactionSession
-      //     );
-
-      //     if (!chat.lastSession) {
-      //       const botTeam = await Team.findOne({ bot: true }).session(
-      //         transactionSession
-      //       );
-
-      //       const newSession = await Session.create(
-      //         [
-      //           {
-      //             chat: chat._id,
-      //             user: botTeam.supervisor,
-      //             team: botTeam._id,
-      //             status: 'onTime',
-      //             type: 'bot',
-      //           },
-      //         ],
-      //         { session: transactionSession }
-      //       );
-
-      // chat.lastSession = newSession[0]._id;
-      // chat.currentUser = botTeam.supervisor;
-      // chat.team = botTeam._id;
-      // await chat.save({ session: transactionSession });
-
-      //       await transactionSession.commitTransaction(); // Commit the transaction
-      //       transactionSession.endSession();
-
-      //       console.log('New session created:', newSession[0]._id);
-      //       return newSession[0];
-      //     } else {
-      //       await transactionSession.abortTransaction(); // Abort as no need to create a session
-      //       transactionSession.endSession();
-
-      //       console.log('Using existing session:', chat.lastSession);
-      //       return await Session.findById(chat.lastSession);
-      //     }
-      //   } catch (error) {
-      //     await transactionSession.abortTransaction(); // Make sure to abort if an error occurs
-      //     transactionSession.endSession();
-      //     throw error;
-      //   }
-      // }
-
       async function ensureSessionForChat(selectedChat) {
         const maxRetries = 3; // Set a maximum number of retries
         let attempts = 0;
@@ -391,6 +336,7 @@ const receiveMessageHandler = async (req, res, next) => {
               chat.lastSession = newSession[0]._id;
               chat.currentUser = botTeam.supervisor;
               chat.team = botTeam._id;
+              chat.status = 'open';
               await chat.save({ session: transactionSession });
 
               await transactionSession.commitTransaction(); // Commit the transaction
@@ -602,8 +548,8 @@ const receiveMessageHandler = async (req, res, next) => {
       await sessionTimerUpdate.scheduleDocumentUpdateTask(
         sessions,
         req,
-        //from config.env
-        responseDangerTime
+        responseDangerTime, //from config.env
+        teamServiceHours.responseTime
       );
     }
 
@@ -614,8 +560,8 @@ const receiveMessageHandler = async (req, res, next) => {
     await sessionTimerUpdate.schedulePerformance(
       req,
       newMessage,
-      //from config.env
-      responseDangerTime
+      responseDangerTime, //from config.env
+      teamServiceHours.responseTime
     );
 
     // *************************************************************************

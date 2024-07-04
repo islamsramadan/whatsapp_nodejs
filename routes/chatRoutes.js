@@ -3,11 +3,13 @@ const express = require('express');
 const chatController = require('./../controllers/chatController');
 const authController = require('./../controllers/authController');
 const messageRouter = require('./messageRoutes');
+const internalMessageRouter = require('./internalMessageRoutes');
 const noteRouter = require('./noteRoutes');
 
 const router = express.Router();
 
 router.use('/:chatNumber/messages', messageRouter);
+router.use('/:chatID/internal-messages', internalMessageRouter);
 router.use('/:chatNumber/notes', noteRouter);
 
 router

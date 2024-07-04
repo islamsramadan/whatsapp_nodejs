@@ -238,7 +238,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
       chat: selectedChat._id,
       user: req.user._id,
       team: req.user.team,
-      status: 'onTime',
+      status: 'open',
     });
 
     selectedChat.lastSession = newSession._id;
@@ -499,9 +499,9 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 });
 
 const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
-  console.log('req.files', req.files);
+  // console.log('req.files', req.files);
   if (!req.files || req.files.length === 0) {
-    return next(new AppError('No file found!', 404));
+    return next(new AppError('No file found!', 400));
   }
 
   let preparedMessages = req.files.map((file) => ({
@@ -737,48 +737,55 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   chat.notification = false;
   await chat.save();
 
-  // Handling whatsapp session (24hours from the last message the client send)
-  if (!chat.session) {
-    return next(
-      new AppError(
-        'You can only send template message until the end user reply!',
-        400
-      )
+  if (chat.type === 'whatsapp') {
+    // Handling whatsapp session (24hours from the last message the client send)
+    if (!chat.session) {
+      return next(
+        new AppError(
+          'You can only send template message until the end user reply!',
+          400
+        )
+      );
+    }
+
+    const availableSession = Math.ceil(
+      (new Date() - chat.session) / (1000 * 60)
     );
+
+    if (availableSession >= 24 * 60) {
+      return next(
+        new AppError(
+          'Your session is expired, You can only send template message!',
+          400
+        )
+      );
+    }
+    // console.log(
+    //   'availableSession =====================================',
+    //   availableSession
+    // );
+
+    const whatsappPayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: chat.client,
+      type: 'reaction',
+      reaction: {
+        message_id: reactedMessage.whatsappID,
+        emoji: req.body.emoji || '',
+      },
+    };
+
+    const response = await axios.request({
+      method: 'post',
+      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
   }
-
-  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
-
-  if (availableSession >= 24 * 60) {
-    return next(
-      new AppError(
-        'Your session is expired, You can only send template message!',
-        400
-      )
-    );
-  }
-  // console.log('availableSession', availableSession);
-
-  const whatsappPayload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: chat.client,
-    type: 'reaction',
-    reaction: {
-      message_id: reactedMessage.whatsappID,
-      emoji: req.body.emoji,
-    },
-  };
-
-  const response = await axios.request({
-    method: 'post',
-    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-    },
-    data: JSON.stringify(whatsappPayload),
-  });
 
   // console.log('response ======>', response.data);
   if (req.body.emoji) {
@@ -868,7 +875,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       chat: selectedChat._id,
       user: req.user._id,
       team: req.user.team,
-      status: 'onTime',
+      status: 'open',
     });
 
     selectedChat.lastSession = newSession._id;

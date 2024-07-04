@@ -8,6 +8,7 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 const Log = require('../models/logModel');
+const EndUser = require('../models/endUserModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
   const chats = await Chat.find()
@@ -174,13 +175,26 @@ exports.createChat = catchAsync(async (req, res, next) => {
     );
   }
 
-  const newChat = await Chat.create({
+  const newChatData = {
     client: req.body.client,
     currentUser: req.user._id,
     users: [req.user._id],
     team: req.user.team,
     status: 'archived',
-  });
+    type: req.body.type,
+  };
+
+  if (req.body.type === 'internal') {
+    const newEndUser = await EndUser.create({
+      clientID: req.body.clientID,
+      name: req.body.clientName,
+    });
+
+    newChatData.endUser = newEndUser._id;
+    newChatData.client = undefined;
+  }
+
+  const newChat = await Chat.create(newChatData);
 
   res.status(201).json({
     status: 'success',
