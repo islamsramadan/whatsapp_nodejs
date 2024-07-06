@@ -124,82 +124,105 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   let select = '-passwordChangedAt -createdAt -updatedAt +deleted';
   let populate = { path: 'team', select: 'name' };
 
-  // ------------> Active and Inactive users
-  if (req.query.active === 'true') {
+  // =============> Users for add or edit team
+  if (req.query.type === 'team') {
     filteredBody.deleted = false;
-  } else if (req.query.active === 'false') {
-    filteredBody.deleted = true;
+
+    if (req.query.teamID) {
+      filteredBody['$or'] = [{ supervisor: false }, { team: req.query.teamID }];
+    } else {
+      filteredBody.supervisor = false;
+    }
+
+    select = 'firstName lastName photo team';
+
+    const users = await User.find(filteredBody)
+      .select(select)
+      .populate(populate);
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users,
+      },
+    });
+
+    // =============> users for chat transfer
+    // } else if (req.query.type === 'chatTransfer') {
+    //   filteredBody.deleted = false;
+
+    //   filteredBody['$and'] = [
+    //     { _id: { $ne: req.user._id } },
+    //     { team: req.user.team },
+    //   ];
+    //   select = 'firstName lastName photo';
+    //   populate = '';
+
+    //   res.status(200).json({
+    //     status: 'success',
+    //     results: users.length,
+    //     data: {
+    //       users,
+    //     },
+    //   });
+  } else {
+    // ------------> Active and Inactive filters users
+    if (req.query.active === 'true') {
+      filteredBody.deleted = false;
+    } else if (req.query.active === 'false') {
+      filteredBody.deleted = true;
+    }
+
+    // ------------> Role filters users
+    if (req.query.role) {
+      filteredBody.role = req.query.role;
+    }
+
+    // ------------> firstName & lastName filters users
+    if (req.query.name) {
+      filteredBody['$or'] = [
+        { firstName: { $regex: req.query.name, $options: 'i' } },
+        { lastName: { $regex: req.query.name, $options: 'i' } },
+      ];
+    }
+
+    // ------------> Team filters users
+    if (req.query.team) {
+      filteredBody.team = req.query.team;
+    }
+
+    console.log('filteredBody', filteredBody);
+
+    const page = req.query.page || 1;
+
+    const users = await User.find(filteredBody)
+      .select(select)
+      .populate(populate)
+      .skip((page - 1) * 20)
+      .limit(20);
+
+    const totalUsers = await User.count({ bot: false });
+    const activeUsers = await User.count({ bot: false, deleted: false });
+    const inactiveUsers = await User.count({ bot: false, deleted: true });
+
+    const totalResults = await User.count(filteredBody);
+    const totalPages = Math.ceil(totalResults / 20);
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        activeUsers,
+        inactiveUsers,
+        totalUsers,
+        totalResults,
+        totalPages,
+        page,
+        users,
+      },
+    });
   }
-
-  // ------------> Role filters users
-  if (req.query.role) {
-    filteredBody.role = req.query.role;
-  }
-
-  // ------------> firstName & lastName filters users
-  if (req.query.name) {
-    filteredBody['$or'] = [
-      { firstName: { $regex: req.query.name, $options: 'i' } },
-      { lastName: { $regex: req.query.name, $options: 'i' } },
-    ];
-  }
-
-  // ------------> Team filters users
-  if (req.query.team) {
-    filteredBody.team = req.query.team;
-  }
-
-  // Users for add or edit team
-  // if (req.query.type === 'team') {
-  //   if (req.query.teamID) {
-  //     filteredBody['$or'] = [{ supervisor: false }, { team: req.query.teamID }];
-  //   } else {
-  //     filteredBody.supervisor = false;
-  //   }
-  //   select = 'firstName lastName photo team';
-  //   populate = { path: 'team', select: 'name' };
-  // }
-
-  // users for chat transfer
-  // if (req.query.type === 'chatTransfer') {
-  //   filteredBody['$and'] = [
-  //     { _id: { $ne: req.user._id } },
-  //     { team: req.user.team },
-  //   ];
-  //   select = 'firstName lastName photo';
-  //   populate = '';
-  // }
-
-  console.log('filteredBody', filteredBody);
-
-  const page = req.query.page || 1;
-
-  const users = await User.find(filteredBody)
-    .select(select)
-    .populate(populate)
-    .skip((page - 1) * 20)
-    .limit(20);
-
-  const totalUsers = await User.count({ bot: false });
-  const activeUsers = await User.count({ bot: false, deleted: false });
-  const inactiveUsers = await User.count({ bot: false, deleted: true });
-
-  const totalResults = await User.count(filteredBody);
-  const totalPages = Math.ceil(totalResults / 20);
-
-  res.status(200).json({
-    status: 'success',
-    results: users.length,
-    data: {
-      activeUsers,
-      inactiveUsers,
-      totalUsers,
-      totalResults,
-      totalPages,
-      page,
-      users,
-    },
-  });
 });
 
 exports.getUser = catchAsync(async (req, res, next) => {
