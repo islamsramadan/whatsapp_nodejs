@@ -48,6 +48,10 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     filteredBody._id = { $ne: req.user.team };
   }
 
+  if (req.query.name) {
+    filteredBody.name = { $regex: req.query.name, $options: 'i' };
+  }
+
   let teams = await Team.find(filteredBody)
     .sort('createdAt')
     .populate('supervisor', 'firstName lastName photo')
@@ -57,10 +61,17 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     .populate('conversation', 'name')
     .populate('answersSets', 'name');
 
+  const totalTeams = await Team.count({ bot: false });
+  const defaultTeam = await Team.findOne({ default: true }).select('name');
+  const userTeam = await Team.findById(req.user.team).select('name');
+
   res.status(200).json({
     status: 'success',
     results: teams.length,
     data: {
+      totalTeams,
+      defaultTeam,
+      userTeam,
       teams,
     },
   });
