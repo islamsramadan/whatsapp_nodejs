@@ -186,7 +186,7 @@ exports.getTeam = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  if (team.bot === true) {
+  if (team.bot === true && req.user.bot === false) {
     return next(new AppError('Bot team!', 400));
   }
 
