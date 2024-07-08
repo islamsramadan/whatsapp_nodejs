@@ -55,6 +55,14 @@ router
   );
 
 router
+  .route('/status/:userID')
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.updateUserStatus
+  );
+
+router
   .route('/recovery/:userID')
   .patch(
     authController.protect,
