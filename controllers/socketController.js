@@ -224,11 +224,16 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     };
 
     if (startDate) sessionFilterObj.end = { $gt: new Date(startDate) };
-    if (endDate)
+
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      endDateObj.setDate(endDateObj.getDate() + 1);
+
       sessionFilterObj.end = {
         ...sessionFilterObj.end,
-        $lt: new Date(endDate),
+        $lt: endDateObj,
       };
+    }
 
     const sessions = await Session.find(sessionFilterObj);
     const chatsIDs = sessions.map((session) => session.chat);
@@ -245,11 +250,16 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     const chatFilterObj = { status: 'archived' };
 
     if (startDate) chatFilterObj.updatedAt = { $gt: new Date(startDate) };
-    if (endDate)
+
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      endDateObj.setDate(endDateObj.getDate() + 1);
+
       chatFilterObj.updatedAt = {
         ...chatFilterObj.updatedAt,
-        $lt: new Date(endDate),
+        $lt: endDateObj,
       };
+    }
 
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')

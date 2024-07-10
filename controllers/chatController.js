@@ -116,11 +116,16 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
 
     if (req.query.startDate)
       sessionFilterObj.end = { $gt: new Date(req.query.startDate) };
-    if (req.query.endDate)
+
+    if (req.query.endDate) {
+      const endDate = new Date(req.query.endDate);
+      endDate.setDate(endDate.getDate() + 1);
+
       sessionFilterObj.end = {
         ...sessionFilterObj.end,
-        $lt: new Date(req.query.endDate),
+        $lt: endDate,
       };
+    }
 
     const sessions = await Session.find(sessionFilterObj);
     const chatsIDs = sessions.map((session) => session.chat);
@@ -138,11 +143,16 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
 
     if (req.query.startDate)
       chatFilterObj.updatedAt = { $gt: new Date(req.query.startDate) };
-    if (req.query.endDate)
+
+    if (req.query.endDate) {
+      const endDate = new Date(req.query.endDate);
+      endDate.setDate(endDate.getDate() + 1);
+
       chatFilterObj.updatedAt = {
         ...chatFilterObj.updatedAt,
-        $lt: new Date(req.query.endDate),
+        $lt: endDate,
       };
+    }
 
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')
