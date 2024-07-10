@@ -329,7 +329,7 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     totalPages,
     totalResults,
     // messages: messages.reverse(),
-    messages: historyMessages,
+    messages: historyMessages.reverse(),
     chatSession,
     chatStatus,
     contactName,

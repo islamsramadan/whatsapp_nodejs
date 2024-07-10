@@ -188,7 +188,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
       // messages: messages.reverse(),
-      messages: historyMessages,
+      messages: historyMessages.reverse(),
       notification: chat.notification,
     },
   });
