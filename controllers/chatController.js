@@ -541,6 +541,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     });
   } else {
     await Log.create({
+      type: 'chat',
       chat: chat._id,
       user: req.user._id,
       event: `chat update - ${type}`,
