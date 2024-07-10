@@ -4,6 +4,7 @@ const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
 const AnswersSet = require('../models/answersSetModel');
+const Log = require('../models/logModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -247,6 +248,15 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     });
   }
 
+  // =======================> User status log
+  if (req.body.status && req.body.status !== user.status) {
+    await Log.create({
+      type: 'user',
+      user: req.user._id,
+      event: `user-${user._id} -${user.firstName} ${user.lastName}- status update from ${user.status} to ${req.body.status}`,
+    });
+  }
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -284,6 +294,15 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     new: true,
     runValidators: true,
   }).select('-passwordChangedAt');
+
+  // =======================> User status log
+  if (req.body.status && req.body.status !== req.user.status) {
+    await Log.create({
+      type: 'user',
+      user: req.user._id,
+      event: `user status update from ${req.user.status} to ${req.body.status}`,
+    });
+  }
 
   res.status(200).json({
     status: 'success',
