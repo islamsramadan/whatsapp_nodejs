@@ -444,6 +444,15 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     });
   }
 
+  // =======================> User status log
+  if (req.body.status && req.body.status !== user.status) {
+    await Log.create({
+      type: 'user',
+      user: req.user._id,
+      event: `user-${user._id} -${user.firstName} ${user.lastName}- status update from ${user.status} to ${req.body.status}`,
+    });
+  }
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -468,6 +477,15 @@ exports.updateUserStatus = catchAsync(async (req, res, next) => {
     { status: req.body.status },
     { new: true, runValidators: true }
   );
+
+  // =======================> User status log
+  if (req.body.status !== user.status) {
+    await Log.create({
+      type: 'user',
+      user: req.user._id,
+      event: `user-${user._id} -${user.firstName} ${user.lastName}- status update from ${user.status} to ${req.body.status}`,
+    });
+  }
 
   res.status(200).json({
     status: 'success',
@@ -530,6 +548,15 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     new: true,
     runValidators: true,
   }).select('-passwordChangedAt');
+
+  // =======================> User status log
+  if (req.body.status && req.body.status !== req.user.status) {
+    await Log.create({
+      type: 'user',
+      user: req.user._id,
+      event: `user status update from ${req.user.status} to ${req.body.status}`,
+    });
+  }
 
   res.status(200).json({
     status: 'success',

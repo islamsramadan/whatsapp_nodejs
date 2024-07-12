@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const logSchema = new mongoose.Schema(
   {
+    type: {
+      type: String,
+      enum: ['user', 'chat'],
+      required: [true, 'Log type is required!'],
+    },
+
     chat: {
       type: mongoose.Schema.ObjectId,
       ref: 'Chat',
