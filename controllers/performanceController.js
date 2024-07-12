@@ -115,11 +115,15 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
       $gt: new Date(startDate),
     };
 
-  if (endDate)
+  if (endDate) {
+    const endDateObj = new Date(endDate);
+    endDateObj.setDate(endDateObj.getDate() + 1);
+
     populateObject.updatedAt = {
       ...populateObject.updatedAt,
-      $lt: new Date(endDate),
+      $lt: endDateObj,
     };
+  }
 
   const performances = await Promise.all(
     usersIDs.map(async (userID) => {
