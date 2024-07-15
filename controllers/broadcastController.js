@@ -240,7 +240,7 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
             client,
             status: 'archived',
           });
-          res.status(201).send(newChat);
+          // res.status(201).send(newChat);
         } catch (error) {
           return { client, status: 'failed' };
         }
