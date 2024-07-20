@@ -4,7 +4,9 @@ const authController = require('../controllers/authController');
 
 const router = express.Router({ mergeParams: true });
 
-router.route('/').get(authController.protect, logController.getAllLogs);
+router
+  .route('/users')
+  .get(authController.protect, logController.getAllStatusLogs);
 //   .post(authController.protect, logController.createCreateLog);
 
 router.route('/:id');
