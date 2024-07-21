@@ -27,7 +27,7 @@ const noteSchema = new mongoose.Schema(
       {
         type: String,
         enum: [
-          'urgent',
+          'Urgent',
           'Resolved',
           'Pending',
           'Important',
