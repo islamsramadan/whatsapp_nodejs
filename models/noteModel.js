@@ -39,7 +39,7 @@ const noteSchema = new mongoose.Schema(
           'Weekly Review',
           'Payment Failed',
           'Refund Request',
-          'LoginIssue',
+          'Login Issue',
         ],
       },
     ],
