@@ -4,6 +4,7 @@ const User = require('./../models/userModel');
 const Chat = require('../models/chatModel');
 const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
+const Log = require('../models/logModel');
 const AnswersSet = require('../models/answersSetModel');
 
 const axios = require('axios');
