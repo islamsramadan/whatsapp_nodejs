@@ -12,6 +12,15 @@ exports.getAllChatHistory = catchAsync(async (req, res, next) => {
 
   const histories = await ChatHistory.find({ chat })
     .sort('-createdAt')
+    .populate('user', 'firstName lastName')
+    .populate('transfer.from', 'firstName lastName')
+    .populate('transfer.to', 'firstName lastName')
+    .populate('transfer.fromTeam', 'name')
+    .populate('transfer.toTeam', 'name')
+    .populate('takeOwnership.from', 'firstName lastName')
+    .populate('takeOwnership.to', 'firstName lastName')
+    .populate('start', 'firstName lastName')
+    .populate('archive', 'firstName lastName')
     .limit(page * 30);
 
   const totalResults = await ChatHistory.count({ chat });
