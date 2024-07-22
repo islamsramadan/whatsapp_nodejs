@@ -526,6 +526,11 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     filteredBody.photo = req.file.filename;
   }
 
+  // remove user photo
+  if (req.body.photo === '') {
+    filteredBody.photo = undefined;
+  }
+
   // Checking if the whatsapp number is valid
   if (
     filteredBody.phone &&
