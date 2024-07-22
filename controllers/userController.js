@@ -531,7 +531,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // ------------> to remove photo
-  if (req.body.removePhoto === 'true') {
+  if (req.body.removePhoto === 'true' || req.body.removePhoto === true) {
     filteredBody.$unset = { photo: '' };
   }
 
