@@ -513,25 +513,25 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     'firstName',
     'lastName',
     'email',
-    'phone',
-    'photo'
+    'phone'
   );
 
-  if (req.body.photo && req.body.photo !== '') {
-    return next(new AppError('Invalid photo!', 400));
-  }
   // To update only user status
   if (req.body.status) {
     filteredBody = { status: req.body.status };
   }
 
   // 3) Check if photo updated
+  if (req.file && req.body.removePhoto) {
+    return next(new AppError('Invalid photo!', 400));
+  }
+
   if (req.file) {
     filteredBody.photo = req.file.filename;
   }
 
-  // remove user photo
-  if (req.body.photo === '') {
+  // ------------> to remove photo
+  if (req.body.removePhoto === true) {
     filteredBody.photo = undefined;
   }
 
