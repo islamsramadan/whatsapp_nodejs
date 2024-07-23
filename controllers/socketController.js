@@ -292,6 +292,11 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
       path: 'userReaction.user',
       select: 'firstName lastName photo',
     })
+    .populate({
+      path: 'session',
+      select: 'team',
+      populate: { path: 'team', select: 'name' },
+    })
     .limit(page * 20);
 
   const histories = await ChatHistory.find({ chat: chat._id })
