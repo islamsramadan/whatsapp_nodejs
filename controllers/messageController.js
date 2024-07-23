@@ -141,6 +141,11 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       path: 'userReaction.user',
       select: 'firstName lastName photo',
     })
+    .populate({
+      path: 'session',
+      select: 'team',
+      populate: { path: 'team', select: 'name' },
+    })
     .limit(page * 20);
 
   const totalResults = await Message.count({ chat: chat._id });
