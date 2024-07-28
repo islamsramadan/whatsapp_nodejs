@@ -4,6 +4,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const json2xls = require('json2xls');
+// const moment = require('moment');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -18,6 +19,14 @@ const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
 const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
 const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
 const productionLink = process.env.PRODUCTION_LINK;
+
+const isValidDate = (value) => {
+  if (typeof value === 'string' && isNaN(value)) {
+    const date = new Date(value);
+    return !isNaN(date.getTime());
+  }
+  return false;
+};
 
 const convertDate = (timestamp) => {
   const date = new Date(timestamp * 1);
@@ -102,9 +111,35 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
   let jsonData;
   if (insertType === 'sheet') {
     // console.log('req.file', req.file);
-    const workbook = xlsx.readFile(req.file.path);
+    // const workbook = xlsx.readFile(req.file.path);
+    // const sheetNameList = workbook.SheetNames;
+    // jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
+
+    const workbook = xlsx.readFile(req.file.path, {
+      cellText: true, // Ensure all values are read as strings
+      cellDates: false, // Disable date parsing
+      raw: false, // Do not keep original value types
+    });
     const sheetNameList = workbook.SheetNames;
-    jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
+    jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], {
+      header: 0, // Generate an array of arrays
+      raw: false, // Ensure all values are strings
+    });
+
+    // // Format dates in the JSON data
+    // jsonData = jsonData.map((row) => {
+    //   const newRow = Object.fromEntries(
+    //     Object.entries(row).map(([key, value]) => {
+    //       if (isValidDate(value)) {
+    //         return [key, moment(value).format('DD/MM/YYYY')];
+    //       } else {
+    //         return [key, value];
+    //       }
+    //     }) // Example transformation
+    //   );
+
+    //   return newRow;
+    // });
   } else if (insertType === 'manual') {
     jsonData = req.body.clients;
   }
@@ -116,6 +151,10 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
     return next(new AppError('Template name is required!', 400));
   }
 
+  console.log(
+    'jsonData ============================================= ',
+    jsonData
+  );
   const response = await axios.request({
     method: 'get',
     url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
