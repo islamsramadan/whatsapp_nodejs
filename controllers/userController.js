@@ -415,14 +415,15 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
   // Remove token from database if email updated for any user
   if (req.body.email && req.body.email !== user.email) {
-    filteredBody.token = undefined;
+    filteredBody.$unset = { token: '' };
   }
 
   // ==========> Remove token from database if any other user updated
   if (!req.user._id.equals(req.params.userID)) {
-    filteredBody.token = undefined;
+    filteredBody.$unset = { token: '' };
   }
 
+  console.log('filteredBody', filteredBody);
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
     req.params.userID,
