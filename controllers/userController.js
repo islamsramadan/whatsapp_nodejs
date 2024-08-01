@@ -413,8 +413,13 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  // Remove token from database if email updated
+  // Remove token from database if email updated for any user
   if (req.body.email && req.body.email !== user.email) {
+    filteredBody.token = undefined;
+  }
+
+  // ==========> Remove token from database if any other user updated
+  if (!updatedUser._id.equals(req.user._id)) {
     filteredBody.token = undefined;
   }
 
@@ -430,12 +435,6 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
   if (!updatedUser) {
     return next(new AppError('No user found with that ID', 404));
-  }
-
-  // =============> force user to log out
-  if (!updatedUser._id.equals(req.user._id)) {
-    updatedUser.token = undefined;
-    await updatedUser.save();
   }
 
   // 4) Updating team users
