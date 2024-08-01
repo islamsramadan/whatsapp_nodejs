@@ -419,7 +419,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   }
 
   // ==========> Remove token from database if any other user updated
-  if (!updatedUser._id.equals(req.user._id)) {
+  if (!req.user._id.equals(req.params.userID)) {
     filteredBody.token = undefined;
   }
 
