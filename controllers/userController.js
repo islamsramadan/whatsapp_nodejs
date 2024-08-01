@@ -432,6 +432,12 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No user found with that ID', 404));
   }
 
+  // =============> force user to log out
+  if (!updatedUser._id.equals(req.user._id)) {
+    updatedUser.token = undefined;
+    await updatedUser.save();
+  }
+
   // 4) Updating team users
   if (req.body.team && req.body.team !== user.team) {
     // Removing user from the array of users of the previous team
