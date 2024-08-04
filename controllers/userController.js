@@ -151,7 +151,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 
     // =============> users for chat transfer
   } else if (req.query.type === 'chatTransfer') {
-    const chat = await Chat.findById(req.params.chat);
+    const chat = await Chat.findById(req.query.chat);
     if (!chat) {
       return next(new AppError('No chat found with that ID!', 404));
     }
