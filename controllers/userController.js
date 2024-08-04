@@ -160,6 +160,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 
     filteredBody['$and'] = [
       { _id: { $ne: req.user._id } },
+      { _id: { $ne: chat.currentUser } },
       { team: chat.team },
     ];
     select = 'firstName lastName photo';
