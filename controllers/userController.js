@@ -150,23 +150,32 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     });
 
     // =============> users for chat transfer
-    // } else if (req.query.type === 'chatTransfer') {
-    //   filteredBody.deleted = false;
+  } else if (req.query.type === 'chatTransfer') {
+    const chat = await Chat.findById(req.params.chat);
+    if (!chat) {
+      return next(new AppError('No chat found with that ID!', 404));
+    }
 
-    //   filteredBody['$and'] = [
-    //     { _id: { $ne: req.user._id } },
-    //     { team: req.user.team },
-    //   ];
-    //   select = 'firstName lastName photo';
-    //   populate = '';
+    filteredBody.deleted = false;
 
-    //   res.status(200).json({
-    //     status: 'success',
-    //     results: users.length,
-    //     data: {
-    //       users,
-    //     },
-    //   });
+    filteredBody['$and'] = [
+      { _id: { $ne: req.user._id } },
+      { team: chat.team },
+    ];
+    select = 'firstName lastName photo';
+    populate = '';
+
+    const users = await User.find(filteredBody)
+      .select(select)
+      .populate(populate);
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users,
+      },
+    });
   } else {
     // ------------> Active and Inactive filters users
     if (req.query.active === 'true') {
