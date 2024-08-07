@@ -352,3 +352,21 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     notification,
   };
 };
+
+exports.getTabsStatuses = async (tabs) => {
+  const tabsStatus = await Promise.all(
+    tabs.map(async (item) => {
+      const chat = await Chat.findOne({ client: item });
+
+      if (chat.status === 'archived' && !chat.lastSession) {
+        return { tab: item, status: 'archived' };
+      } else {
+        const session = await Session.findById(chat.lastSession);
+
+        return { tab: item, status: session.status };
+      }
+    })
+  );
+
+  return tabsStatus;
+};
