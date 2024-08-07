@@ -355,16 +355,13 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
 
 exports.getTabsStatuses = async (tabs) => {
   const tabsStatus = await Promise.all(
-    tabs.map(async (item) => {
-      const chat = await Chat.findOne({ client: item });
+    tabs.map(async (tab) => {
+      const chat = await Chat.findOne({ client: tab })
+        .populate('lastMessage')
+        .populate('contactName', 'name')
+        .populate('lastSession', 'status');
 
-      if (chat.status === 'archived' && !chat.lastSession) {
-        return { tab: item, status: 'archived' };
-      } else {
-        const session = await Session.findById(chat.lastSession);
-
-        return { tab: item, status: session.status };
-      }
+      return { tab, chat };
     })
   );
 
