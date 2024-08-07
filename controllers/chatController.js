@@ -523,6 +523,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         { new: true, runValidators: true }
       );
     }
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+    transactionSession.endSession();
   } catch (error) {
     result = 'failed';
     await transactionSession.abortTransaction();
