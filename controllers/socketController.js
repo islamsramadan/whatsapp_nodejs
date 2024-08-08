@@ -369,7 +369,7 @@ exports.getTabsStatuses = async (tabs) => {
         .populate('contactName', 'name')
         .populate('lastSession', 'status');
 
-      return { tab, chat: chat || tab };
+      return { tab, chat: chat || { client: tab } };
     })
   );
 
