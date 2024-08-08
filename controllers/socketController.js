@@ -336,7 +336,7 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     }
   }
 
-  const totalResults = (await Message.count({ chat: chat._id })) || 0;
+  const totalResults = chat ? await Message.count({ chat: chat._id }) : 0;
   const totalPages = Math.ceil(totalResults / 20);
 
   const chatSession = chat ? chat.session : null;
