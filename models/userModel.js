@@ -18,7 +18,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Email is required!'],
       unique: [true, 'This email address already exist!'],
-      lowerCase: true,
       validate: [validator.isEmail, 'Invalid email!'],
     },
 
@@ -39,6 +38,16 @@ const userSchema = new mongoose.Schema(
       default: 'user',
     },
 
+    tasks: {
+      type: [
+        {
+          type: String,
+          enum: ['messages', 'tickets'],
+        },
+      ],
+      default: ['Messages'],
+    },
+
     team: {
       type: mongoose.Schema.ObjectId,
       ref: 'Team',
@@ -53,6 +62,13 @@ const userSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: 'Chat',
+      },
+    ],
+
+    tickets: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Ticket',
       },
     ],
 

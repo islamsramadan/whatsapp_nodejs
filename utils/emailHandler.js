@@ -2,16 +2,21 @@ const nodemailer = require('nodemailer');
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 
+const fs = require('fs');
+const path = require('path');
+const Email = require('../models/ticketSystem/emailModel');
+
 // sendEmail(
-//   'gmail',
-//   'islamlaam@gmail.com',
-//   'hflamyyxqcsnqdoj',
 //   'islammansour42@gmail.com,islams.ramadan@outlook.com',
 //   'Sending Email using Node.js',
 //   'That was easy!'
 // );
 
-exports.sendEmail = (service, from, pass, to, subject, text) => {
+exports.sendEmail = (to, subject, text) => {
+  const service = process.env.EMAIL_SERVICE;
+  const from = process.env.EMAIL_USERNAME;
+  const pass = process.env.EMAIL_PASSWORD;
+
   const transporter = nodemailer.createTransport({
     service, // or your email service
     auth: {
@@ -37,6 +42,127 @@ exports.sendEmail = (service, from, pass, to, subject, text) => {
   });
 };
 
+const {
+  MailerSend,
+  Sender,
+  Recipient,
+  EmailParams,
+  Attachment,
+} = require('mailersend');
+
+exports.mailerSendEmail = async (emailDetails) => {
+  const mailerSend = new MailerSend({
+    apiKey: process.env.MAILERSEND_TOKEN,
+  });
+
+  const sentFrom = new Sender(
+    'MS_UTHnaw@trial-pq3enl6e7x742vwr.mlsender.net',
+    'CPV Arabia'
+  );
+
+  const recipients = [
+    // new Recipient('islamlaam@gmail.com'),
+    new Recipient(emailDetails.to),
+  ];
+
+  const attachments = emailDetails.attachments.map((item) => {
+    return new Attachment(
+      fs.readFileSync(`public/${item.file}`, {
+        encoding: 'base64',
+      }),
+      item.filename,
+      'attachment'
+    );
+  });
+
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setReplyTo(sentFrom)
+    .setAttachments(attachments)
+    .setSubject(emailDetails.subject)
+    // .setHtml('<strong>This is to test receiving emails</strong>');
+    .setText(emailDetails.text);
+  // .setTemplateId(emailDetails.template)
+  // .setVariables(emailDetails.variables);
+
+  const results = await mailerSend.email.send(emailParams);
+
+  console.log(
+    'JSON.stringify(results) ==================== ',
+    JSON.stringify(results)
+  );
+};
+
+const attachments = [
+  { file: '1.png', filename: '1.png' },
+  { file: '3.png', filename: '3.png' },
+  { file: 'test pdf.pdf', filename: 'test pdf.pdf' },
+  { file: 'test word.docx', filename: 'test word.docx' },
+];
+const variables = [
+  {
+    email: 'islamlaam@gmail.com',
+    substitutions: [
+      {
+        var: 'date',
+        value: 'test',
+      },
+      {
+        var: 'name',
+        value: 'test',
+      },
+      {
+        var: 'total',
+        value: 'test',
+      },
+      {
+        var: 'amount',
+        value: 'test',
+      },
+      {
+        var: 'due_date',
+        value: 'test',
+      },
+      {
+        var: 'action_url',
+        value: 'test',
+      },
+      {
+        var: 'invoice_id',
+        value: 'test',
+      },
+      {
+        var: 'description',
+        value: 'test',
+      },
+      {
+        var: 'support_url',
+        value: 'test',
+      },
+      {
+        var: 'account.name',
+        value: 'test',
+      },
+    ],
+  },
+];
+const emailDetails = {
+  attachments,
+  to: 'islamlaam@gmail.com',
+  subject: 'cpv welcome',
+  text: 'Hello from the other side!',
+  // html: '',
+  template: 'x2p0347kqdklzdrn',
+  variables,
+};
+
+// mailerSendEmail(emailDetails);
+
+// =========================================================
+// =========================================================
+// =========================================================
+
 const imapConfig = {
   user: 'islamlaam@gmail.com',
   password: 'hflamyyxqcsnqdoj',
@@ -46,162 +172,127 @@ const imapConfig = {
   tlsOptions: { rejectUnauthorized: false }, // This allows self-signed certificates
 };
 
-const getEmails = async () => {
-  return new Promise((resolve, reject) => {
-    try {
-      const imap = new Imap(imapConfig);
-      let emails = [];
+const getOtherEmails = async () => {
+  const imap = new Imap(imapConfig);
 
-      imap.once('ready', () => {
-        imap.openBox('INBOX', false, () => {
-          imap.search(['UNSEEN', ['SINCE', new Date()]], (err, results) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            if (!results.length) {
-              resolve(emails); // No emails found
-              return;
-            }
-            const f = imap.fetch(results, { bodies: '' });
-            f.on('message', (msg) => {
-              msg.on('body', (stream) => {
-                simpleParser(stream, (err, parsed) => {
-                  console.log('parsed ==========================', err);
-                  if (err) {
-                    reject(err);
-                    return;
-                  }
-                  emails.push(parsed);
-                  console.log(
-                    'emails =================================== 76',
-                    emails
+  const openInbox = (cb) => {
+    imap.openBox('INBOX', false, cb);
+  };
+
+  imap.once('ready', function () {
+    openInbox(function (err, box) {
+      if (err) throw err;
+      console.log('Opened inbox');
+
+      imap.on('mail', function () {
+        // This event is triggered when new mail arrives
+        fetchNewEmails();
+      });
+
+      fetchNewEmails(); // Fetch emails on startup
+    });
+  });
+
+  imap.once('error', function (err) {
+    console.error('error ---------------', err);
+  });
+
+  imap.once('end', function () {
+    console.log('Connection ended');
+  });
+
+  const fetchNewEmails = () => {
+    imap.search(
+      ['UNSEEN', ['SINCE', 'July 20, 2024']],
+      function (err, results) {
+        if (err) throw err;
+
+        if (results.length === 0) {
+          console.log('No new emails');
+          return;
+        }
+
+        const fetch = imap.fetch(results, { bodies: '' });
+        fetch.on('message', function (msg, seqno) {
+          console.log('Message #%d', seqno);
+          const prefix = '(#' + seqno + ') ';
+
+          msg.on('body', function (stream, info) {
+            simpleParser(stream, async (err, parsed) => {
+              if (err) {
+                console.error('Error parsing email:', err);
+                return;
+              }
+
+              let attachments;
+              if (parsed.attachments && parsed.attachments.length > 0) {
+                attachments = parsed.attachments.map((attachment) => {
+                  const filename = `ticket-${Date.now()}-${Math.floor(
+                    Math.random() * 1000000
+                  )}-${attachment.filename}`;
+
+                  fs.writeFile(
+                    `public/${filename}`,
+                    attachment.content,
+                    (err) => {
+                      if (err) {
+                        console.error(
+                          `Failed to save ${attachment.filename}:`,
+                          err
+                        );
+                      } else {
+                        // console.log(
+                        //   `${attachment.filename} saved successfully.`
+                        // );
+                      }
+                    }
                   );
+                  return {
+                    file: filename,
+                    filename: attachment.filename,
+                  };
                 });
+              }
+
+              const data = { ...parsed };
+              data.attachments = attachments;
+              data.headers = undefined;
+              data.headerLines = undefined;
+
+              console.log('parsed data =========================== ', data);
+
+              const emailsWithSameID = await Email.find({
+                messageId: data.messageId,
               });
-              // msg.once('attributes', (attrs) => {
-              //   const { uid } = attrs;
-              //   imap.addFlags(uid, ['\\Seen'], () => {
-              //     console.log('Marked as read!');
-              //   });
-              // });
+              if (emailsWithSameID.length === 0) {
+                await Email.create(data);
+              }
             });
-            f.once('error', (ex) => {
-              reject(ex);
-            });
-            f.once('end', () => {
-              console.log('emails ======================== ', emails);
-              console.log('Done fetching all messages!');
-              imap.end();
-              resolve(emails); // Resolve with the collected emails
+          });
+
+          msg.once('attributes', function (attrs) {
+            const { uid } = attrs;
+            imap.addFlags(uid, ['\\Seen'], (err) => {
+              if (err) {
+                console.error('Error marking email as seen:', err);
+              } else {
+                console.log('Marked email as seen');
+              }
             });
           });
         });
-      });
 
-      imap.once('error', (err) => {
-        console.log(err);
-        reject(err);
-      });
+        fetch.once('error', function (err) {
+          console.error('Fetch error:', err);
+        });
 
-      imap.once('end', () => {
-        console.log('Connection ended');
-      });
-
-      imap.connect();
-    } catch (ex) {
-      console.log('An error occurred');
-      reject(ex);
-    }
-  });
-};
-
-// Usage with async/await
-exports.readEmail = async () => {
-  try {
-    const emails = await getEmails();
-    console.log(
-      'Retrieved emails: =========================================',
-      emails
+        fetch.once('end', function () {
+          console.log('Done fetching new emails');
+        });
+      }
     );
-    return emails;
-  } catch (error) {
-    console.error('Error:', error);
-  }
+  };
+
+  imap.connect();
 };
-
-// ***************************************************************************************************************
-// ***************************************************************************************************************
-// ***************************************************************************************************************
-
-// const nodemailer = require('nodemailer');
-// const pug = require('pug');
-// const htmlToText = require('html-to-text');
-
-module.exports = class Email {
-  constructor(user, url) {
-    this.to = user.email;
-    this.firstName = user.firstName;
-    this.lastName = user.lastName;
-    this.url = url;
-    this.from = `Jonas Schmedtmann <${process.env.EMAIL_FROM}>`;
-  }
-
-  // service, // or your email service
-  //   auth: {
-  //     user: from,
-  //     pass,
-  //   },
-
-  newTransport() {
-    return nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      auth: {
-        user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-    // return nodemailer.createTransport({
-    //   host: process.env.EMAIL_HOST,
-    //   port: process.env.EMAIL_PORT,
-    //   auth: {
-    //     user: process.env.EMAIL_USERNAME,
-    //     pass: process.env.EMAIL_PASSWORD,
-    //   },
-    // });
-  }
-
-  // Send the actual email
-  async send(template, subject) {
-    // 1) Render HTML based on a pug template
-    const html = pug.renderFile(`${__dirname}/../views/email/${template}.pug`, {
-      firstName: this.firstName,
-      url: this.url,
-      subject,
-    });
-
-    // 2) Define email options
-    const mailOptions = {
-      from: this.from,
-      to: this.to,
-      subject,
-      html,
-      text: htmlToText.fromString(html),
-    };
-
-    // 3) Create a transport and send email
-    await this.newTransport().sendMail(mailOptions);
-  }
-
-  async sendWelcome() {
-    await this.send('welcome', 'Welcome to the Natours Family!');
-  }
-
-  async sendPasswordReset() {
-    await this.send(
-      'passwordReset',
-      'Your password reset token (valid for only 10 minutes)'
-    );
-  }
-};
+// getOtherEmails();

@@ -5,6 +5,7 @@ const User = require('./../models/userModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const axios = require('axios');
+const { scheduleDocumentUpdateTask } = require('../utils/chatBotTimerUpdate');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -221,7 +222,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(
       new AppError(
-        'You are not authenticated! Please log in to get access!',
+        'You are not authenticated! Kindly log in to get access.',
         401
       )
     );
@@ -251,7 +252,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
       new AppError(
-        'User recently changed password! Kindly login again to get access.',
+        'User recently changed password! Kindly log in again to get access.',
         401
       )
     );
@@ -274,6 +275,19 @@ exports.restrictTo = (...roles) => {
   return (req, res, next) => {
     // roles = ['user', 'admin', ...]
     if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
+      );
+    }
+
+    next();
+  };
+};
+
+exports.restrictToTasks = (task) => {
+  return (req, res, next) => {
+    // tasks = ['messages', 'tickets', ...]
+    if (!req.user.tasks.includes(task)) {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );

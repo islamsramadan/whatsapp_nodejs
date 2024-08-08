@@ -17,6 +17,15 @@ const uploadRouter = require('./uploadRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
 const logRoutes = require('./logRoutes');
 
+// Ticket System
+const fieldTypeRouter = require('./ticketSystem/fieldTypeRoutes');
+const fieldRouter = require('./ticketSystem/fieldRoutes');
+const formRouter = require('./ticketSystem/formRoutes');
+const ticketRouter = require('./ticketSystem/ticketRoutes');
+const ticketCategoryRouter = require('./ticketSystem/ticketCategoryRoutes');
+const ticketStatusRouter = require('./ticketSystem/ticketStatusRoutes');
+const commentRouter = require('./ticketSystem/commentRoutes');
+
 const router = express.Router();
 
 router.use('/webhook', webhookRouter);
@@ -36,5 +45,14 @@ router.use('/broadcast', broadcastRouter);
 router.use('/upload', uploadRouter);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
 router.use('/logs', logRoutes);
+
+// Ticket System
+router.use('/fieldtypes', fieldTypeRouter);
+router.use('/fields', fieldRouter);
+router.use('/forms', formRouter);
+router.use('/tickets', ticketRouter);
+router.use('/ticketCategories', ticketCategoryRouter);
+router.use('/ticketStatuses', ticketStatusRouter);
+router.use('/comments', commentRouter);
 
 module.exports = router;
