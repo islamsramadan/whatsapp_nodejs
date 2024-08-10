@@ -259,7 +259,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
 
   // 5) check if it is the same token in db as it is the last login
-  if (currentUser.token && currentUser.token !== token) {
+  if (token !== currentUser.token) {
     return next(new AppError('Invalid token!', 401));
   }
 

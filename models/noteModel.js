@@ -7,6 +7,9 @@ const noteSchema = new mongoose.Schema(
       ref: 'Chat',
       required: [true, 'Note chat is required!'],
     },
+    title: {
+      type: String,
+    },
     body: {
       type: String,
       required: [true, 'Note body is required!'],
@@ -20,6 +23,26 @@ const noteSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
     },
+    tag: [
+      {
+        type: String,
+        enum: [
+          'Urgent',
+          'Resolved',
+          'Pending',
+          'Important',
+          'Technical Support',
+          'Feedback',
+          'Action Required',
+          'Information Provided',
+          'Needs Clarification',
+          'Weekly Review',
+          'Payment Failed',
+          'Refund Request',
+          'Login Issue',
+        ],
+      },
+    ],
     time: String,
   },
   { timestamps: true }

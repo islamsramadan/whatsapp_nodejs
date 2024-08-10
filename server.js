@@ -115,7 +115,8 @@ io.on('connection', async (socket) => {
         messages,
         contactName,
         currentUser,
-        notification;
+        notification,
+        tabs;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
@@ -182,6 +183,11 @@ io.on('connection', async (socket) => {
         );
       }
 
+      // ==============> Team users sessions
+      if (data.tabs && data.tabs.length > 0) {
+        tabs = await socketController.getTabsStatuses(data.tabs);
+      }
+
       // Emit a response event back to the client
       socket.emit('server_to_client', {
         userSessions,
@@ -196,6 +202,7 @@ io.on('connection', async (socket) => {
         contactName,
         currentUser,
         notification,
+        tabs,
       });
     }
   });

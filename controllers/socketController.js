@@ -284,30 +284,41 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
 
   const page = chatPage || 1;
 
-  const messages = await Message.find({ chat: chat._id })
-    .sort('-createdAt')
-    .populate('user', 'firstName lastName photo')
-    .populate('reply')
-    .populate({
-      path: 'userReaction.user',
-      select: 'firstName lastName photo',
-    })
-    .limit(page * 20);
+  let messages = [];
+  let histories = [];
+  let historyMessages = [];
 
-  const histories = await ChatHistory.find({ chat: chat._id })
-    .populate('user', 'firstName lastName')
-    .populate('transfer.from', 'firstName lastName')
-    .populate('transfer.to', 'firstName lastName')
-    .populate('transfer.fromTeam', 'name')
-    .populate('transfer.toTeam', 'name')
-    .populate('takeOwnership.from', 'firstName lastName')
-    .populate('takeOwnership.to', 'firstName lastName')
-    .populate('start', 'firstName lastName')
-    .populate('archive', 'firstName lastName');
+  if (chat) {
+    messages = await Message.find({ chat: chat._id })
+      .sort('-createdAt')
+      .populate('user', 'firstName lastName photo')
+      .populate('reply')
+      .populate({
+        path: 'userReaction.user',
+        select: 'firstName lastName photo',
+      })
+      .populate({
+        path: 'session',
+        select: 'team',
+        populate: { path: 'team', select: 'name' },
+      })
+      .limit(page * 20);
 
-  let historyMessages = [...messages, ...histories].sort(
-    (a, b) => a.createdAt - b.createdAt
-  );
+    histories = await ChatHistory.find({ chat: chat._id })
+      .populate('user', 'firstName lastName')
+      .populate('transfer.from', 'firstName lastName')
+      .populate('transfer.to', 'firstName lastName')
+      .populate('transfer.fromTeam', 'name')
+      .populate('transfer.toTeam', 'name')
+      .populate('takeOwnership.from', 'firstName lastName')
+      .populate('takeOwnership.to', 'firstName lastName')
+      .populate('start', 'firstName lastName')
+      .populate('archive', 'firstName lastName');
+
+    historyMessages = [...messages, ...histories].sort(
+      (a, b) => a.createdAt - b.createdAt
+    );
+  }
 
   let historyMessagesCopy = [...historyMessages];
 
@@ -325,15 +336,17 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     }
   }
 
-  const totalResults = await Message.count({ chat: chat._id });
+  const totalResults = chat ? await Message.count({ chat: chat._id }) : 0;
   const totalPages = Math.ceil(totalResults / 20);
 
-  const chatSession = chat.session;
-  const chatStatus = chat.status;
-  const contactName = chat.contactName;
+  const chatSession = chat ? chat.session : null;
+  const chatStatus = chat ? chat.status : null;
+  const contactName = chat ? chat.contactName : null;
   // const currentUser = chat.currentUser;
-  const currentUser = { _id: chat.currentUser, teamID: chat.team };
-  const notification = chat.notification;
+  const currentUser = chat
+    ? { _id: chat.currentUser, teamID: chat.team }
+    : null;
+  const notification = chat ? chat.notification : false;
 
   return {
     totalPages,
@@ -346,4 +359,19 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     currentUser,
     notification,
   };
+};
+
+exports.getTabsStatuses = async (tabs) => {
+  const tabsStatus = await Promise.all(
+    tabs.map(async (tab) => {
+      const chat = await Chat.findOne({ client: tab })
+        .populate('lastMessage')
+        .populate('contactName', 'name')
+        .populate('lastSession', 'status');
+
+      return { tab, chat: chat || { client: tab } };
+    })
+  );
+
+  return tabsStatus;
 };

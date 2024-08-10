@@ -4,6 +4,7 @@ const User = require('./../models/userModel');
 const Chat = require('../models/chatModel');
 const catchAsync = require('./../utils/catchAsync');
 const Team = require('../models/teamModel');
+const Log = require('../models/logModel');
 const AnswersSet = require('../models/answersSetModel');
 
 const axios = require('axios');
@@ -149,23 +150,33 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     });
 
     // =============> users for chat transfer
-    // } else if (req.query.type === 'chatTransfer') {
-    //   filteredBody.deleted = false;
+  } else if (req.query.type === 'chatTransfer') {
+    const chat = await Chat.findById(req.query.chat);
+    if (!chat) {
+      return next(new AppError('No chat found with that ID!', 404));
+    }
 
-    //   filteredBody['$and'] = [
-    //     { _id: { $ne: req.user._id } },
-    //     { team: req.user.team },
-    //   ];
-    //   select = 'firstName lastName photo';
-    //   populate = '';
+    filteredBody.deleted = false;
 
-    //   res.status(200).json({
-    //     status: 'success',
-    //     results: users.length,
-    //     data: {
-    //       users,
-    //     },
-    //   });
+    filteredBody['$and'] = [
+      { _id: { $ne: req.user._id } },
+      { _id: { $ne: chat.currentUser } },
+      { team: chat.team },
+    ];
+    select = 'firstName lastName photo';
+    populate = '';
+
+    const users = await User.find(filteredBody)
+      .select(select)
+      .populate(populate);
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users,
+      },
+    });
   } else {
     // ------------> Active and Inactive filters users
     if (req.query.active === 'true') {
@@ -414,11 +425,17 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  // Remove token from database if email updated
+  // Remove token from database if email updated for any user
   if (req.body.email && req.body.email !== user.email) {
-    filteredBody.token = undefined;
+    filteredBody.$unset = { token: '' };
   }
 
+  // ==========> Remove token from database if any other user updated
+  if (!req.user._id.equals(req.params.userID)) {
+    filteredBody.$unset = { token: '' };
+  }
+
+  console.log('filteredBody', filteredBody);
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
     req.params.userID,
@@ -523,8 +540,17 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // 3) Check if photo updated
+  if (req.file && req.body.removePhoto) {
+    return next(new AppError('Invalid photo!', 400));
+  }
+
   if (req.file) {
     filteredBody.photo = req.file.filename;
+  }
+
+  // ------------> to remove photo
+  if (req.body.removePhoto === 'true' || req.body.removePhoto === true) {
+    filteredBody.$unset = { photo: '' };
   }
 
   // Checking if the whatsapp number is valid
