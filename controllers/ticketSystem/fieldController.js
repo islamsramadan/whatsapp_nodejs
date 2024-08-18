@@ -13,7 +13,7 @@ const filterObj = (obj, ...allowedFields) => {
 };
 
 exports.getAllFields = catchAsync(async (req, res, next) => {
-  const fields = await Field.find().populate('type', 'name');
+  const fields = await Field.find().populate('type');
 
   res.status(200).json({
     status: 'success',
