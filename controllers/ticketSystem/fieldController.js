@@ -13,7 +13,7 @@ const filterObj = (obj, ...allowedFields) => {
 };
 
 exports.getAllFields = catchAsync(async (req, res, next) => {
-  const fields = await Field.find().populate('type');
+  const fields = await Field.find().populate('type', 'name');
 
   res.status(200).json({
     status: 'success',
@@ -25,10 +25,7 @@ exports.getAllFields = catchAsync(async (req, res, next) => {
 });
 
 exports.getField = catchAsync(async (req, res, next) => {
-  const field = await Field.findById(req.params.fieldID).populate(
-    'type',
-    'name'
-  );
+  const field = await Field.findById(req.params.fieldID).populate('type');
 
   if (!field) {
     return next(new AppError('No field found with that ID!', 404));
