@@ -39,13 +39,13 @@ router
 //   ticketCategoryController.deleteCategory
 // );
 
-router
-  .route('/:categoryID/status')
-  .patch(
-    authController.protect,
-    authController.restrictToTasks('tickets'),
-    authController.restrictTo('admin'),
-    ticketCategoryController.updateCategoryStatus
-  );
+// router
+//   .route('/:categoryID/status')
+//   .patch(
+//     authController.protect,
+//     authController.restrictToTasks('tickets'),
+//     authController.restrictTo('admin'),
+//     ticketCategoryController.updateCategoryStatus
+//   );
 
 module.exports = router;

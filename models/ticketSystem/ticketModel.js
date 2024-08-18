@@ -19,18 +19,6 @@ const questionSchema = new mongoose.Schema({
   // },
 });
 
-const attachmentSchema = new mongoose.Schema({
-  file: {
-    type: String,
-    required: function () {
-      return !this.text;
-    },
-  },
-  filename: {
-    type: String,
-  },
-});
-
 const ticketSchema = new mongoose.Schema(
   {
     type: {
@@ -43,6 +31,7 @@ const ticketSchema = new mongoose.Schema(
       type: Number,
       required: true,
       unique: true,
+      min: 1,
     },
 
     category: {
@@ -80,6 +69,13 @@ const ticketSchema = new mongoose.Schema(
       ref: 'Team',
       required: [true, 'Ticket team is required!'],
     },
+
+    users: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+      },
+    ],
 
     client: {
       name: {
@@ -139,22 +135,6 @@ const ticketSchema = new mongoose.Schema(
 
     questions: {
       type: [questionSchema],
-    },
-
-    attachments: {
-      type: [attachmentSchema],
-      validate: {
-        validator: function (attachments) {
-          // Check if each attachment contains the required fields
-          for (let attachment of attachments) {
-            if (!attachment.file) {
-              return false;
-            }
-          }
-          return true;
-        },
-        message: 'Attachment must contain file!',
-      },
     },
   },
   { timestamps: true }

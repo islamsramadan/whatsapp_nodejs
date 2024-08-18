@@ -17,7 +17,6 @@ router
   .post(
     authController.protect,
     authController.restrictToTasks('tickets'),
-    // ticketController.uploadMultiFiles,
     ticketController.createTicket
   );
 
@@ -40,6 +39,22 @@ router
     authController.protect,
     authController.restrictToTasks('tickets'),
     ticketController.updateTicket
+  );
+
+router
+  .route('/:ticketID/client')
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.updateTicketClientData
+  );
+
+router
+  .route('/:ticketID/form')
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.updateTicketForm
   );
 
 module.exports = router;

@@ -7,6 +7,7 @@ const ticketUtilsHandler = require('../../utils/ticketsUtils');
 
 const Comment = require('../../models/ticketSystem/commentModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
+const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -53,7 +54,10 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  const comments = await Comment.find({ ticket: req.params.ticketID });
+  const comments = await Comment.find({ ticket: req.params.ticketID }).populate(
+    'user',
+    'firstName lastName photo'
+  );
 
   res.status(200).json({
     status: 'success',
@@ -65,7 +69,10 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
 });
 
 exports.getComment = catchAsync(async (req, res, next) => {
-  const comment = await Comment.findById(req.params.commentID);
+  const comment = await Comment.findById(req.params.commentID).populate(
+    'user',
+    'firstName lastName photo'
+  );
 
   if (!comment) {
     return next(new AppError('No comment found with that ID', 404));
@@ -99,11 +106,16 @@ exports.createComment = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (!req.body.type) {
+    return next(new AppError('Comment type is required!', 400));
+  }
+
   if (!req.body.text && (!req.files || req.files.length === 0)) {
     return next(new AppError('Comment body is required!', 400));
   }
 
   const newCommentData = {
+    type: req.body.type,
     user: req.user._id,
     ticket: req.params.ticketID,
   };
@@ -129,23 +141,23 @@ exports.createComment = catchAsync(async (req, res, next) => {
     const comment = await Comment.create([newCommentData], {
       session: transactionSession,
     });
-    console.log('comment', comment);
+    // console.log('comment', comment);
 
     newComment = comment[0];
 
-    let status;
-    if (ticket.creator.equals(req.user._id)) status = 'pending';
-    if (ticket.assignee.equals(req.user._id)) status = 'open';
-
-    ticket.status = status;
-    await ticket.save({ session: transactionSession });
+    if (
+      req.body.ticketStatus &&
+      (await TicketStatus.findById(req.body.ticketStatus))
+    ) {
+      ticket.status = req.body.ticketStatus;
+      await ticket.save({ session: transactionSession });
+    }
 
     await transactionSession.commitTransaction(); // Commit the transaction
-    transactionSession.endSession();
+
     console.log('New comment created: ============', comment[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
-    transactionSession.endSession();
 
     console.error(
       'Transaction aborted due to an error: ===========================',
@@ -153,25 +165,28 @@ exports.createComment = catchAsync(async (req, res, next) => {
     );
 
     return next(new AppError('Creating new comment aborted', 400));
+  } finally {
+    transactionSession.endSession();
   }
 
   // ===================> Notify client
-  //   const link = 'https://wp.designal.cc/client-966501378197-1719936815178.jpeg';
-  //   req.body.link = `${link} -- ${link} -- ${link} -- ${link} -- ${link}`;
 
-  let link = '';
-  if (req.files) {
-    const linksArray = req.files.map(
-      (item) => `https://wp.designal.cc/${item.filename}`
-    );
-    link = linksArray.join(' -- ');
-  } else {
-    link = 'Not found!';
-  }
-  req.body.ticketID = ticket._id;
-  req.body.link = link;
+  // to send email if type is public
+  // if (req.body.type === 'public') {
+  //   let link = '';
+  //   if (req.files) {
+  //     const linksArray = req.files.map(
+  //       (item) => `https://wp.designal.cc/${item.filename}`
+  //     );
+  //     link = linksArray.join(' -- ');
+  //   } else {
+  //     link = 'Not found!';
+  //   }
+  //   req.body.ticketID = ticket._id;
+  //   req.body.link = link;
 
-  // await ticketUtilsHandler.notifyClientHandler(req, ticket);
+  //   // await ticketUtilsHandler.notifyClientHandler(req, ticket);
+  // }
 
   res.status(201).json({
     status: 'success',

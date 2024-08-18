@@ -76,7 +76,7 @@ exports.updateCategory = catchAsync(async (req, res, next) => {
   //   return next(new AppError("Couldn't update category with tickets!", 400));
   // }
 
-  const updatedBody = filterObj(req.body, 'name', 'description');
+  const updatedBody = filterObj(req.body, 'name', 'description', 'status');
 
   await TicketCategory.findByIdAndUpdate(req.params.categoryID, updatedBody, {
     new: true,
@@ -89,32 +89,32 @@ exports.updateCategory = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.updateCategoryStatus = catchAsync(async (req, res, next) => {
-  const category = await TicketCategory.findById(req.params.categoryID);
+// exports.updateCategoryStatus = catchAsync(async (req, res, next) => {
+//   const category = await TicketCategory.findById(req.params.categoryID);
 
-  if (!category) {
-    return next(new AppError('No ticket category found with that ID!', 404));
-  }
+//   if (!category) {
+//     return next(new AppError('No ticket category found with that ID!', 404));
+//   }
 
-  if (!req.body.status) {
-    return next(new AppError('No ticket status provided!', 400));
-  }
+//   if (!req.body.status) {
+//     return next(new AppError('No ticket status provided!', 400));
+//   }
 
-  if (req.body.status === category.status) {
-    return next(new AppError(`Category is already ${req.body.status}!`, 400));
-  }
+//   if (req.body.status === category.status) {
+//     return next(new AppError(`Category is already ${req.body.status}!`, 400));
+//   }
 
-  await TicketCategory.findByIdAndUpdate(
-    req.params.categoryID,
-    { status: req.body.status },
-    { runValidators: true, new: true }
-  );
+//   await TicketCategory.findByIdAndUpdate(
+//     req.params.categoryID,
+//     { status: req.body.status },
+//     { runValidators: true, new: true }
+//   );
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Category updated Successfully!',
-  });
-});
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Category updated Successfully!',
+//   });
+// });
 
 // exports.deleteCategory = catchAsync(async (req, res, next) => {
 //   const category = await TicketCategory.findById(req.params.categoryID);

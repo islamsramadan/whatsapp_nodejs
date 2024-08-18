@@ -10,4 +10,8 @@ router
   .get(authController.protect, fieldTypeController.getAllFieldTypes)
   .post(authController.protect, fieldTypeController.createFieldType);
 
+router
+  .route('/multi')
+  .post(authController.protect, fieldTypeController.createMultiFieldTypes);
+
 module.exports = router;

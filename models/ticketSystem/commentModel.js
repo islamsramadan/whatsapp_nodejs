@@ -17,6 +17,7 @@ const commentSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ['note', 'public'],
+      default: 'public',
     },
 
     user: {

@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const multer = require('multer');
 
 const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
@@ -11,60 +10,75 @@ const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const Form = require('../../models/ticketSystem/formModel');
 const Field = require('../../models/ticketSystem/fieldModel');
+const Team = require('../../models/teamModel');
 
-const multerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // console.log('file==============', file);
-
-    cb(null, 'public');
-  },
-  filename: (req, file, cb) => {
-    const ext =
-      file.mimetype.split('/')[0] === 'image' ||
-      file.mimetype.split('/')[0] === 'video' ||
-      file.mimetype.split('/')[0] === 'audio'
-        ? file.mimetype.split('/')[1]
-        : file.originalname.split('.')[file.originalname.split('.').length - 1];
-
-    cb(
-      null,
-      `ticket-${req.user.id}-${Date.now()}-${Math.floor(
-        Math.random() * 1000
-      )}.${ext}`
-    );
-  },
-});
-
-const multerFilter = (req, file, cb) => {
-  // if (file.mimetype.startsWith('image')) {
-  //   cb(null, true);
-  // } else {
-  //   cb(new AppError('Not an image! Please upload only images.', 400), false);
-  // }
-  cb(null, true);
+const filterObj = (obj, ...allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((el) => {
+    if (allowedFields.includes(el)) newObj[el] = obj[el];
+  });
+  return newObj;
 };
 
-const upload = multer({
-  storage: multerStorage,
-  fileFilter: multerFilter,
-});
-
-exports.uploadMultiFiles = upload.array('files');
-
 exports.getAllTickets = catchAsync(async (req, res, next) => {
-  const tickets = await Ticket.find()
+  const filteredBody = {};
+
+  if (req.query.order) {
+    filteredBody.order = req.query.order;
+  }
+
+  if (req.query.category) {
+    filteredBody.category = req.query.category;
+  }
+
+  if (req.query.status) {
+    filteredBody.status = req.query.status;
+  }
+
+  if (req.query.priority) {
+    filteredBody.priority = req.query.priority;
+  }
+
+  if (req.query.startDate) {
+    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
+  }
+  if (req.query.endDate) {
+    const endDate = new Date(req.query.endDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    filteredBody.createdAt = {
+      ...filteredBody.createdAt,
+      $lt: endDate,
+    };
+  }
+
+  if (req.query.assignee) {
+    filteredBody.assignee = req.query.assignee;
+  }
+
+  const page = req.query.page || 1;
+
+  const tickets = await Ticket.find(filteredBody)
     .populate('category', 'name')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
     .populate('status', 'name')
-    .populate('form', 'name')
-    .populate('questions.field', 'name');
+    // .populate('form', 'name')
+    // .populate('questions.field', 'name')
+    .skip((page - 1) * 20)
+    .limit(20);
+
+  const totalResults = await Ticket.count(filteredBody);
+  const totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
     results: tickets.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       tickets,
     },
   });
@@ -76,21 +90,62 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     return next(new AppError('No user found with that ID!', 404));
   }
 
-  const tickets = await Ticket.find({
+  const filteredBody = {
     $or: [{ creator: req.params.userID }, { assignee: req.params.userID }],
-  })
+  };
+
+  if (req.query.order) {
+    filteredBody.order = req.query.order;
+  }
+
+  if (req.query.category) {
+    filteredBody.category = req.query.category;
+  }
+
+  if (req.query.status) {
+    filteredBody.status = req.query.status;
+  }
+
+  if (req.query.priority) {
+    filteredBody.priority = req.query.priority;
+  }
+
+  if (req.query.startDate) {
+    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
+  }
+  if (req.query.endDate) {
+    const endDate = new Date(req.query.endDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    filteredBody.createdAt = {
+      ...filteredBody.createdAt,
+      $lt: endDate,
+    };
+  }
+
+  const page = req.query.page || 1;
+
+  const tickets = await Ticket.find(filteredBody)
     .populate('category', 'name')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
     .populate('status', 'name')
-    .populate('form', 'name')
-    .populate('questions.field', 'name');
+    // .populate('form', 'name')
+    // .populate('questions.field', 'name')
+    .skip((page - 1) * 20)
+    .limit(20);
+
+  const totalResults = await Ticket.count(filteredBody);
+  const totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
     results: tickets.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       tickets,
     },
   });
@@ -137,7 +192,6 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     !client ||
     (!client.email && !client.number) ||
     !priority ||
-    !status ||
     !form ||
     !questions ||
     questions.length === 0
@@ -163,6 +217,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     category,
     assignee,
     team,
+    users: [],
     client,
     priority,
     status,
@@ -170,13 +225,16 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     tags: [],
   };
 
-  // ----------> Adding attachments
-  if (req.files) {
-    const attachments = req.files.map((item) => ({
-      file: item.filename,
-      filename: item.originalname,
-    }));
-    newTicketData.attachments = attachments;
+  // ----------> Adding status
+  if (status) {
+    const statusDoc = await TicketStatus.findById(status);
+    if (!statusDoc || statusDoc.status === 'inactive') {
+      return next(new AppError('Invalid Status!', 400));
+    }
+    newTicketData.status = status;
+  } else {
+    const statusDoc = await TicketStatus.findOne({ default: true });
+    newTicketData.status = statusDoc._id;
   }
 
   // ----------> Adding questions
@@ -212,6 +270,12 @@ exports.createTicket = catchAsync(async (req, res, next) => {
   const ticketsTotalNumber = await Ticket.count();
   newTicketData.order = ticketsTotalNumber + 1;
 
+  // ----------> Add ticket users array
+  newTicketData.users.push(req.user._id);
+  if (!assignee.equals(req.user._id)) {
+    newTicketData.users.push(assignee);
+  }
+
   // ===============================> Create ticket in transaction session
 
   const transactionSession = await mongoose.startSession();
@@ -226,11 +290,11 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     // console.log('ticket', ticket);
 
     // =====================> Add ticket to the creator tickets
-    await User.findByIdAndUpdate(
-      req.user._id,
-      { $push: { tickets: ticket[0]._id } },
-      { new: true, runValidators: true, session: transactionSession }
-    );
+    // await User.findByIdAndUpdate(
+    //   req.user._id,
+    //   { $push: { tickets: ticket[0]._id } },
+    //   { new: true, runValidators: true, session: transactionSession }
+    // );
 
     // =====================> Add ticket to the assigned user tickets
     await User.findByIdAndUpdate(
@@ -386,85 +450,277 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
 exports.updateTicket = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
-
   if (!ticket) {
-    return next(new AppError('No ticket found with  that ID!', 404));
+    return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  if (!req.body.type) {
-    return next(new AppError('Update type is required!', 400));
+  if (req.body.status) {
+    const status = await TicketStatus.findById(req.body.status);
+    if (!status) {
+      return next(new AppError('No status found with that ID!', 400));
+    }
+    updatedBody.status = status._id;
   }
 
-  if (req.body.type === 'status') {
-    if (!req.body.status) {
-      return next(new AppError('No status found!', 400));
+  if (req.body.assignee) {
+    const assignee = await User.findById(req.body.assignee);
+    if (!assignee) {
+      return next(new AppError('No user found with that ID!', 400));
     }
 
-    await Ticket.findByIdAndUpdate(
-      req.params.ticketID,
-      { status: req.body.status },
-      { new: true, runValidators: true }
-    );
-  } else if (req.body.type === 'client') {
-    if (
-      !req.body.client ||
-      (!req.body.client.number && !req.body.client.email)
-    ) {
-      return next(new AppError('Client data is required!', 400));
-    }
-
-    await Ticket.findByIdAndUpdate(
-      req.params.ticketID,
-      { client: req.body.client },
-      { new: true, runValidators: true }
-    );
-  } else if (req.body.type === 'reassigned') {
-    const previousUser = ticket.assignee;
-    const reassignedUser = await User.findById(req.body.reassigned);
-
-    if (!reassignedUser || reassignedUser.deleted === true) {
-      return next(new AppError('Reassigned user not found!', 400));
-    }
-
-    if (!reassignedUser.tasks.includes('tickets')) {
+    if (!assignee.tasks.includes('tickets')) {
       return next(
-        new AppError("Reassigned user doesn't have this permission!", 400)
+        new AppError("Couldn't assignee to user without tickets task!", 400)
       );
     }
 
-    // --------------> Update the ticket with the new assigned user
-    await Ticket.findByIdAndUpdate(
-      req.params.ticketID,
-      { assignee: req.body.reassigned },
-      { new: true, runValidators: true }
-    );
+    updatedBody.assignee = assignee._id;
+  } else if (req.body.team) {
+    const team = await Team.findById(req.body.team);
+  }
 
-    // --------------> Remove the ticket from the previous assigned user
-    if (previousUser.tickets && previousUser.tickets.includes(ticket._id)) {
-      await User.findByIdAndUpdate(
-        previousUser._id,
-        { $pull: { tickets: ticket._id } },
-        { new: true, runValidators: true }
-      );
-    }
+  const updatedBody = filterObj(req.body, 'status', 'assignee', 'team');
 
-    // --------------> Add the ticket to the new assigned user
-    if (
-      !reassignedUser.tickets ||
-      !reassignedUser.tickets.includes(ticket._id)
-    ) {
-      await User.findByIdAndUpdate(
-        previousUser._id,
-        { $push: { tickets: ticket._id } },
-        { new: true, runValidators: true }
-      );
-    }
-  } else {
-    return next(new AppError('Update type is not recognized!', 400));
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  try {
+  } catch (err) {
+    await transactionSession.abortTransaction();
+    transactionSession.endSession();
   }
 
   res.status(200).json({
     status: 'success',
-    message: 'Ticket updated Successfully!',
+    message: 'Ticket updated successully!',
+  });
+});
+
+// exports.updateTicket = catchAsync(async (req, res, next) => {
+//   const ticket = await Ticket.findById(req.params.ticketID);
+
+//   if (!ticket) {
+//     return next(new AppError('No ticket found with  that ID!', 404));
+//   }
+
+//   if (!req.body.type) {
+//     return next(new AppError('Update type is required!', 400));
+//   }
+
+//   if (req.body.type === 'status') {
+//     if (!req.body.status || !(await TicketStatus.findById(req.body.status))) {
+//       return next(new AppError('No status found!', 400));
+//     }
+
+//     await Ticket.findByIdAndUpdate(
+//       req.params.ticketID,
+//       { status: req.body.status },
+//       { new: true, runValidators: true }
+//     );
+//   } else if (req.body.type === 'client') {
+//     if (
+//       !req.body.client ||
+//       (!req.body.client.number && !req.body.client.email)
+//     ) {
+//       return next(new AppError('Client data is required!', 400));
+//     }
+
+//     await Ticket.findByIdAndUpdate(
+//       req.params.ticketID,
+//       { client: req.body.client },
+//       { new: true, runValidators: true }
+//     );
+//   } else if (req.body.type === 'reassigned') {
+//     const previousUser = ticket.assignee;
+//     const reassignedUser = await User.findById(req.body.reassigned);
+
+//     if (!reassignedUser || reassignedUser.deleted === true) {
+//       return next(new AppError('Reassigned user not found!', 400));
+//     }
+
+//     if (!reassignedUser.tasks.includes('tickets')) {
+//       return next(
+//         new AppError("Reassigned user doesn't have this permission!", 400)
+//       );
+//     }
+
+//     // --------------> Update the ticket with the new assigned user
+//     await Ticket.findByIdAndUpdate(
+//       req.params.ticketID,
+//       { assignee: req.body.reassigned },
+//       { new: true, runValidators: true }
+//     );
+
+//     // --------------> Remove the ticket from the previous assigned user
+//     if (previousUser.tickets && previousUser.tickets.includes(ticket._id)) {
+//       await User.findByIdAndUpdate(
+//         previousUser._id,
+//         { $pull: { tickets: ticket._id } },
+//         { new: true, runValidators: true }
+//       );
+//     }
+
+//     // --------------> Add the ticket to the new assigned user
+//     if (
+//       !reassignedUser.tickets ||
+//       !reassignedUser.tickets.includes(ticket._id)
+//     ) {
+//       await User.findByIdAndUpdate(
+//         previousUser._id,
+//         { $push: { tickets: ticket._id } },
+//         { new: true, runValidators: true }
+//       );
+//     }
+//   } else {
+//     return next(new AppError('Update type is not recognized!', 400));
+//   }
+
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Ticket updated successully!',
+//   });
+// });
+
+exports.updateTicketInfo = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  // -----> Status validation
+  if (req.body.status) {
+    const status = await TicketStatus.findById(req.body.status);
+    if (!status || status.status === 'inactive') {
+      return next(new AppError('Invalid status!', 400));
+    }
+  }
+
+  const filteredBody = filterObj(req.body, 'priority', 'status');
+
+  await Ticket.findByIdAndUpdate(ticket._id, filteredBody, {
+    runValidators: true,
+    new: true,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Ticket updated successfully!',
+  });
+});
+
+exports.reassignTicket = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  const { reassignType } = req.body;
+
+  const updatedBody = {};
+
+  if (reassignType === 'user') {
+    if (!ticket.assignee.equals(req.body.assignee)) {
+      const assignee = await User.findById(req.body.assignee);
+
+      if (!assignee || assignee.tasks.includes('tickets')) {
+        return next(new AppError('Invalid assignee!', 400));
+      }
+
+      const team = await Team.findById(assignee.team);
+      if (!team) {
+        return next(new AppError('Assignee must belong to a valid team!'));
+      }
+
+      updatedBody.assignee = req.body.assignee;
+      updatedBody.team = team._id;
+    } else {
+      return next(new AppError("Couldn't reasign to the assignee user!", 400));
+    }
+  } else if (reassignType === 'team') {
+  } else {
+    return next(new AppError('Reasign type is required!', 400));
+  }
+
+  const previousAssignee = await User.findById(ticket.assignee);
+
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+  try {
+    if (updatedBody.assignee && !ticket.users.includes(updatedBody.assignee)) {
+      updatedBody[$push] = { users: updatedBody.assignee };
+    }
+
+    await Ticket.findByIdAndUpdate(ticket._id, updatedBody, {
+      runValidators: true,
+      new: true,
+      session: transactionSession,
+    });
+
+    if (!updatedBody.assignee.equals(previousAssignee._id)) {
+      // ======> Remove ticket from the previous assignee tickets array
+      await User.findByIdAndUpdate(
+        previousAssignee._id,
+        { $pull: { tickets: ticket[0]._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+
+      // ======> Add ticket to the new assignee tickets array
+      await User.findByIdAndUpdate(
+        updatedBody.assignee,
+        { $push: { tickets: ticket[0]._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+    }
+
+    await transactionSession.commitTransaction();
+  } catch (err) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      err
+    );
+  } finally {
+    transactionSession.endSession();
+  }
+
+  res.status(200).json({
+    status: 'success',
+    messgae: 'Ticket has been reassigned successully!',
+  });
+});
+
+exports.updateTicketForm = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Ticket form updated successfully!',
+  });
+});
+
+exports.updateTicketClientData = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.parmas.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  const { client } = req.body;
+  if (!client || (!client.email && !client.number)) {
+    return next(new AppError('Client data is required!', 400));
+  }
+
+  await Ticket.findByIdAndUpdate(
+    req.params.ticketID,
+    { client },
+    { runValidators: true, new: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Client data updated successully!',
   });
 });
