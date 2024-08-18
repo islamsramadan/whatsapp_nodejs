@@ -2,6 +2,7 @@ const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
 
 const Field = require('../../models/ticketSystem/fieldModel');
+const FieldType = require('../../models/ticketSystem/fieldTypeModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -59,6 +60,12 @@ exports.createField = catchAsync(async (req, res, next) => {
     return next(new AppError('Field data are required!', 400));
   }
 
+  // =============> Field type validation
+  const fieldType = await FieldType.findById(type);
+  if (!fieldType) {
+    return next(new AppError('No field type found with that ID', 400));
+  }
+
   if (
     values &&
     values.length > 0 &&
@@ -75,12 +82,16 @@ exports.createField = catchAsync(async (req, res, next) => {
     description,
     required,
     solveRequired,
-    tag,
     endUserView,
     values,
     defaultValue,
     endUserPermission,
   };
+
+  // =============> Adding tag in case of dropdown field
+  if (fieldType.value === 'dropdown') {
+    newFieldData.tag = tag;
+  }
 
   const newField = await Field.create(newFieldData);
 
