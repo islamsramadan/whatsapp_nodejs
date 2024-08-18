@@ -16,6 +16,7 @@ const broadcastRouter = require('./broadcastRoutes');
 const uploadRouter = require('./uploadRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
 const logRoutes = require('./logRoutes');
+const historyRoutes = require('./historyRoutes');
 
 // Ticket System
 const fieldTypeRouter = require('./ticketSystem/fieldTypeRoutes');
@@ -45,6 +46,7 @@ router.use('/broadcast', broadcastRouter);
 router.use('/upload', uploadRouter);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
 router.use('/logs', logRoutes);
+router.use('histories', historyRoutes);
 
 // Ticket System
 router.use('/fieldtypes', fieldTypeRouter);

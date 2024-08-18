@@ -4,11 +4,13 @@ const chatController = require('./../controllers/chatController');
 const authController = require('./../controllers/authController');
 const messageRouter = require('./messageRoutes');
 const noteRouter = require('./noteRoutes');
+const historyRouter = require('./historyRoutes');
 
 const router = express.Router();
 
 router.use('/:chatNumber/messages', messageRouter);
 router.use('/:chatNumber/notes', noteRouter);
+router.use('/:chatNumber/histories', historyRouter);
 
 router
   .route('/')
