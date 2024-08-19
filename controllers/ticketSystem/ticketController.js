@@ -174,21 +174,12 @@ exports.getTicket = catchAsync(async (req, res, next) => {
 });
 
 exports.createTicket = catchAsync(async (req, res, next) => {
-  const {
-    category,
-    team,
-    assignee,
-    client,
-    priority,
-    status,
-    form,
-    questions,
-  } = req.body;
+  let { category, team, assignee, client, priority, status, form, questions } =
+    req.body;
 
   if (
     !category ||
     !team ||
-    !assignee ||
     !client ||
     (!client.email && !client.number) ||
     !priority ||
@@ -199,17 +190,71 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     return next(new AppError('Ticket details are required!', 400));
   }
 
-  const assignedUser = await User.findById(assignee);
-  if (!assignedUser) {
-    return next(new AppError('No assigned user found with that ID!', 400));
-  }
-  if (!assignedUser.tasks.includes('tickets')) {
-    return next(
-      new AppError(
-        "Couldn't assign to a user with no permission to tickets",
-        400
-      )
-    );
+  // =======> Checking and selecting the assignee
+  if (assignee) {
+    const assignedUser = await User.findById(assignee);
+
+    if (!assignedUser) {
+      return next(new AppError('No assigned user found with that ID!', 400));
+    }
+
+    if (!assignedUser.team.equals(team)) {
+      return next(new AppError('Assigne must belong to the team!', 400));
+    }
+
+    if (!assignedUser.tasks.includes('tickets')) {
+      return next(
+        new AppError(
+          "Couldn't assign to a user with no permission to tickets",
+          400
+        )
+      );
+    }
+  } else {
+    // --------> Selecting the assignee
+
+    const teamDoc = await Team.findById(team);
+
+    let teamUsers = [];
+    for (let i = 0; i < teamDoc.users.length; i++) {
+      let teamUser = await User.findOne({
+        _id: team.users[i],
+        deleted: false,
+      });
+
+      if (teamUser.tasks.includes('tickets')) {
+        teamUsers = [...teamUsers, teamUser];
+      }
+    }
+
+    if (teamUsers.length === 0) {
+      return next(
+        new AppError(
+          "This team doesn't have any user to deal with tickets!",
+          400
+        )
+      );
+    }
+
+    // status sorting order
+    const statusSortingOrder = ['Online', 'Service hours', 'Offline', 'Away'];
+
+    // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    teamUsers = teamUsers.sort((a, b) => {
+      const orderA = statusSortingOrder.indexOf(a.status);
+      const orderB = statusSortingOrder.indexOf(b.status);
+
+      // If 'status' is the same, then sort by chats length
+      if (orderA === orderB) {
+        return a.tickets.length - b.tickets.length;
+      }
+
+      // Otherwise, sort by 'status'
+      return orderA - orderB;
+    });
+
+    // console.log('teamUsers=============', teamUsers);
+    assignee = teamUsers[0];
   }
 
   const newTicketData = {
@@ -313,16 +358,17 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     newTicket = ticket[0];
 
     await transactionSession.commitTransaction(); // Commit the transaction
-    transactionSession.endSession();
+
     console.log('New ticket created: ============', ticket[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
-    transactionSession.endSession();
 
     console.error(
       'Transaction aborted due to an error: ===========================',
       error
     );
+  } finally {
+    transactionSession.endSession();
   }
 
   if (newTicket) {

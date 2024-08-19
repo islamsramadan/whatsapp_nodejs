@@ -59,15 +59,15 @@ const fieldSchema = new mongoose.Schema(
 
     defaultValue: {
       type: String,
-      validate: {
-        validator: function (value) {
-          if (value && !this.values.includes(value)) {
-            return false;
-          }
-          return true;
-        },
-        message: 'Values must include default value!',
-      },
+      // validate: {
+      //   validator: function (value) {
+      //     if (value && !this.values.includes(value)) {
+      //       return false;
+      //     }
+      //     return true;
+      //   },
+      //   message: 'Values must include default value!',
+      // },
     },
 
     forms: [

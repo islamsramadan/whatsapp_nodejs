@@ -101,6 +101,7 @@ exports.createField = catchAsync(async (req, res, next) => {
 });
 
 exports.updateField = catchAsync(async (req, res, next) => {
+  console.log('req.body', req.body);
   const field = await Field.findById(req.params.fieldID);
 
   if (!field) {
