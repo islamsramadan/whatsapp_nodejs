@@ -11,7 +11,7 @@ router
   .post(authController.protect, ticketStatusController.createStatus);
 
 router
-  .route('/statusID')
+  .route('/:statusID')
   .get(authController.protect, ticketStatusController.getStatus)
   .patch(authController.protect, ticketStatusController.updateStatus);
 //   .delete(authController.protect, ticketStatusController.deleteStatus);
