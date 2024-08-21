@@ -178,7 +178,7 @@ exports.updateForm = catchAsync(async (req, res, next) => {
 
   try {
     // =============> Remove default from previous default form
-    if (updatedData.default) {
+    if (updatedData.default && previousDefaultForm) {
       await Form.findByIdAndUpdate(
         previousDefaultForm._id,
         { default: false },

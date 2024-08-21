@@ -2,9 +2,19 @@ const mongoose = require('mongoose');
 
 const ticketStatusSchema = new mongoose.Schema(
   {
-    name: {
+    creatorDisplayName: {
       type: String,
-      required: [true, 'Status name is required!'],
+      required: [true, 'Creator display name is required!'],
+    },
+
+    assigneeDisplayName: {
+      type: String,
+      required: [true, 'Assignee display name is required!'],
+    },
+
+    endUserDisplayName: {
+      type: String,
+      required: [true, 'End user display name is required!'],
     },
 
     description: {
@@ -17,9 +27,9 @@ const ticketStatusSchema = new mongoose.Schema(
       default: ['open'],
     },
 
-    endUserView: {
-      type: String,
-      required: true,
+    default: {
+      type: Boolean,
+      default: false,
     },
 
     status: {
