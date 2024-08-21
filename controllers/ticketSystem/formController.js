@@ -137,7 +137,7 @@ exports.updateForm = catchAsync(async (req, res, next) => {
 
   // Validate inactive with default forms
   if (
-    req.body.satus &&
+    req.body.status &&
     req.body.status === 'inactive' &&
     (form.default === true || req.body.default === true)
   ) {
