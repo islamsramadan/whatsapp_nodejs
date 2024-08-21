@@ -131,11 +131,26 @@ exports.updateForm = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Updating default forms
+  let previousDefaultForm = await Form.findOne({ default: true });
+  if (req.body.default && !form.default) {
+    updatedData.default = true;
+  }
+
   // *********** Updating Form ****************
   await Form.findByIdAndUpdate(req.params.formID, updatedData, {
     runValidators: true,
     new: true,
   });
+
+  // =========> Remove default from previous default form
+  if (updatedData.default) {
+    await Form.findById(
+      previousDefaultForm._id,
+      { default: false },
+      { new: true, runValidators: true }
+    );
+  }
 
   // *********** Updating Fields Forms Array ****************
   if (req.body.fields) {
