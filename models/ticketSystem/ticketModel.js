@@ -121,6 +121,40 @@ const ticketSchema = new mongoose.Schema(
       required: [true, 'Ticket status is required!'],
     },
 
+    refNo: {
+      type: String,
+      required: true,
+    },
+
+    requestNature: {
+      type: String,
+      enum: ['Request', 'Complaint', 'Inquiry'],
+      required: true,
+    },
+
+    requestType: {
+      type: String,
+      enum: [
+        'RD0',
+        'Edit RD0',
+        'Missing Data',
+        'Design Review',
+        'RD6',
+        'RD7',
+        'Finance',
+        'Inspection',
+        'MALATH Issue',
+        'MALATH Complaint',
+        'Other',
+      ],
+      required: true,
+    },
+
+    complaintReport: {
+      type: Boolean,
+      default: false,
+    },
+
     form: {
       type: mongoose.Schema.ObjectId,
       ref: 'Form',

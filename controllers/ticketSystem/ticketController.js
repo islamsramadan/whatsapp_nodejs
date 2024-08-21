@@ -174,8 +174,20 @@ exports.getTicket = catchAsync(async (req, res, next) => {
 });
 
 exports.createTicket = catchAsync(async (req, res, next) => {
-  let { category, team, assignee, client, priority, status, form, questions } =
-    req.body;
+  let {
+    category,
+    team,
+    assignee,
+    client,
+    priority,
+    status,
+    refNo,
+    requestNature,
+    requestType,
+    complaintReport,
+    form,
+    questions,
+  } = req.body;
 
   if (
     !category ||
@@ -183,6 +195,9 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     !client ||
     (!client.email && !client.number) ||
     !priority ||
+    !refNo ||
+    !requestNature ||
+    !requestType ||
     !form ||
     !questions ||
     questions.length === 0
@@ -199,7 +214,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     }
 
     if (!assignedUser.team.equals(team)) {
-      return next(new AppError('Assigne must belong to the team!', 400));
+      return next(new AppError('Assignee must belong to the team!', 400));
     }
 
     if (!assignedUser.tasks.includes('tickets')) {
@@ -212,13 +227,12 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     }
   } else {
     // --------> Selecting the assignee
-
     const teamDoc = await Team.findById(team);
 
     let teamUsers = [];
     for (let i = 0; i < teamDoc.users.length; i++) {
       let teamUser = await User.findOne({
-        _id: team.users[i],
+        _id: teamDoc.users[i],
         deleted: false,
       });
 
@@ -266,9 +280,17 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     client,
     priority,
     status,
+    refNo,
+    requestNature,
+    requestType,
     form,
     tags: [],
   };
+
+  // ----------> Adding complaint report ability
+  if (newTicketData.requestNature === 'Complaint') {
+    newTicketData.complaintReport = complaintReport;
+  }
 
   // ----------> Adding status
   if (status) {
@@ -317,7 +339,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
   // ----------> Add ticket users array
   newTicketData.users.push(req.user._id);
-  if (!assignee.equals(req.user._id)) {
+  if (!req.user._id.equals(assignee)) {
     newTicketData.users.push(assignee);
   }
 
@@ -660,31 +682,98 @@ exports.reassignTicket = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  const { reassignType } = req.body;
+  let { assignee, team } = req.body;
+
+  if (!team) {
+    return next(new AppError('No team provided', 400));
+  }
 
   const updatedBody = {};
 
-  if (reassignType === 'user') {
-    if (!ticket.assignee.equals(req.body.assignee)) {
-      const assignee = await User.findById(req.body.assignee);
-
-      if (!assignee || assignee.tasks.includes('tickets')) {
-        return next(new AppError('Invalid assignee!', 400));
-      }
-
-      const team = await Team.findById(assignee.team);
-      if (!team) {
-        return next(new AppError('Assignee must belong to a valid team!'));
-      }
-
-      updatedBody.assignee = req.body.assignee;
-      updatedBody.team = team._id;
-    } else {
-      return next(new AppError("Couldn't reasign to the assignee user!", 400));
+  if (assignee) {
+    if (ticket.assignee.equals(assignee)) {
+      return next(
+        new AppError('Ticket is already assigned to that user!', 400)
+      );
     }
-  } else if (reassignType === 'team') {
+
+    const assignedUser = await User.findById(assignee);
+    if (!assignedUser) {
+      return next(new AppError('No user found with that ID!', 404));
+    }
+
+    if (!assignedUser.team.equals(team)) {
+      return next(new AppError('Assignee must belong to the team!', 400));
+    }
+
+    if (!assignedUser.tasks.includes('tickets')) {
+      return next(
+        new AppError(
+          "Couldn't assign ticket to a user with no tickets task!",
+          400
+        )
+      );
+    }
+
+    updatedBody.assignee = assignee;
+    updatedBody.team = team;
   } else {
-    return next(new AppError('Reasign type is required!', 400));
+    if (ticket.team.equals(team)) {
+      return next(
+        new AppError('Ticket is already assigned to that team!', 400)
+      );
+    }
+
+    // --------> Selecting the assignee
+    const teamDoc = await Team.findById(team);
+
+    let teamUsers = [];
+    for (let i = 0; i < teamDoc.users.length; i++) {
+      let teamUser = await User.findOne({
+        _id: teamDoc.users[i],
+        deleted: false,
+      });
+
+      if (teamUser.tasks.includes('tickets')) {
+        teamUsers = [...teamUsers, teamUser];
+      }
+    }
+
+    if (teamUsers.length === 0) {
+      return next(
+        new AppError(
+          "This team doesn't have any user to deal with tickets!",
+          400
+        )
+      );
+    }
+
+    // status sorting order
+    const statusSortingOrder = ['Online', 'Service hours', 'Offline', 'Away'];
+
+    // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+    teamUsers = teamUsers.sort((a, b) => {
+      const orderA = statusSortingOrder.indexOf(a.status);
+      const orderB = statusSortingOrder.indexOf(b.status);
+
+      // If 'status' is the same, then sort by chats length
+      if (orderA === orderB) {
+        return a.tickets.length - b.tickets.length;
+      }
+
+      // Otherwise, sort by 'status'
+      return orderA - orderB;
+    });
+
+    // console.log('teamUsers=============', teamUsers);
+    assignee = teamUsers[0];
+
+    updatedBody.assignee = assignee;
+    updatedBody.team = team;
+  }
+
+  if (!ticket.users.includes(assignee)) {
+    updatedBody[$push] = { users: assignee };
   }
 
   const previousAssignee = await User.findById(ticket.assignee);
@@ -692,31 +781,25 @@ exports.reassignTicket = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
   try {
-    if (updatedBody.assignee && !ticket.users.includes(updatedBody.assignee)) {
-      updatedBody[$push] = { users: updatedBody.assignee };
-    }
-
     await Ticket.findByIdAndUpdate(ticket._id, updatedBody, {
       runValidators: true,
       new: true,
       session: transactionSession,
     });
 
-    if (!updatedBody.assignee.equals(previousAssignee._id)) {
-      // ======> Remove ticket from the previous assignee tickets array
-      await User.findByIdAndUpdate(
-        previousAssignee._id,
-        { $pull: { tickets: ticket[0]._id } },
-        { new: true, runValidators: true, session: transactionSession }
-      );
+    // ======> Remove ticket from the previous assignee tickets array
+    await User.findByIdAndUpdate(
+      previousAssignee._id,
+      { $pull: { tickets: ticket[0]._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
 
-      // ======> Add ticket to the new assignee tickets array
-      await User.findByIdAndUpdate(
-        updatedBody.assignee,
-        { $push: { tickets: ticket[0]._id } },
-        { new: true, runValidators: true, session: transactionSession }
-      );
-    }
+    // ======> Add ticket to the new assignee tickets array
+    await User.findByIdAndUpdate(
+      assignee,
+      { $push: { tickets: ticket[0]._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
 
     await transactionSession.commitTransaction();
   } catch (err) {
@@ -741,6 +824,8 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
   }
+
+  const { questions } = req.body;
 
   res.status(200).json({
     status: 'success',
