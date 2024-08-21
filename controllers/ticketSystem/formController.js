@@ -80,12 +80,25 @@ exports.createForm = catchAsync(async (req, res, next) => {
     fields: fieldsArray,
   };
 
+  // get the form order
   const formstotalNumber = await Form.count();
-
   newFormData.order = formstotalNumber + 1;
 
-  if (formstotalNumber === 0) {
+  // make default if the first form or no default found
+  const previousDefaultForm = await Form.findOne({ default: true });
+
+  if (formstotalNumber === 0 || !previousDefaultForm) {
     newFormData.default = true;
+  }
+
+  if (req.body.default === true) {
+    newFormData.default = true;
+
+    await Form.findByIdAndUpdate(
+      previousDefaultForm._id,
+      { default: false },
+      { new: true, runValidators: true }
+    );
   }
 
   const newForm = await Form.create(newFormData);
