@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
+
 const catchAsync = require('../../utils/catchAsync');
+const AppError = require('../../utils/appError');
 
 const Form = require('../../models/ticketSystem/formModel');
-const AppError = require('../../utils/appError');
 const Field = require('../../models/ticketSystem/fieldModel');
 
 const filterObj = (obj, ...allowedFields) => {
@@ -111,14 +113,29 @@ exports.updateForm = catchAsync(async (req, res, next) => {
     return next(new AppError('No form found with that ID!', 404));
   }
 
-  const updatedData = filterObj(req.body, 'name', 'description', 'fields');
+  const updatedData = filterObj(
+    req.body,
+    'name',
+    'description',
+    'fields',
+    'status'
+  );
   updatedData.updater = req.user._id;
+
+  // Validate inactive with default forms
+  if (
+    req.body.satus &&
+    req.body.status === 'inactive' &&
+    (form.default === true || req.body.default === true)
+  ) {
+    return next(new AppError("Couldn't deactivate default form!", 400));
+  }
 
   if (req.body.fields && req.body.fields.length === 0) {
     return next(new AppError('Form fields are required!', 400));
   }
 
-  // checking if field is active and return field with order
+  // checking if field is active
   if (req.body.fields) {
     await Promise.all(
       req.body.fields.map(async (item) => {
@@ -132,56 +149,75 @@ exports.updateForm = catchAsync(async (req, res, next) => {
   }
 
   // Updating default forms
-  let previousDefaultForm = await Form.findOne({ default: true });
+  const previousDefaultForm = await Form.findOne({ default: true });
   if (req.body.default && !form.default) {
+    if (form.status === 'inactive') {
+      return next(
+        new AppError("Couldn't make inactive form a default form!", 400)
+      );
+    }
+
     updatedData.default = true;
   }
 
-  // =========> Remove default from previous default form
-  if (updatedData.default) {
-    await Form.findByIdAndUpdate(
-      previousDefaultForm._id,
-      { default: false },
-      { new: true, runValidators: true }
-    );
-  }
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
 
-  // *********** Updating Form ****************
-  await Form.findByIdAndUpdate(req.params.formID, updatedData, {
-    runValidators: true,
-    new: true,
-  });
+  try {
+    // =============> Remove default from previous default form
+    if (updatedData.default) {
+      await Form.findByIdAndUpdate(
+        previousDefaultForm._id,
+        { default: false },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+    }
 
-  // *********** Updating Fields Forms Array ****************
-  if (req.body.fields) {
-    const fieldsArray = req.body.fields.map((item) => item.field);
-    const previousFieldsArray = previousFields.map((item) => item.field);
+    // =============> Updating form
+    await Form.findByIdAndUpdate(req.params.formID, updatedData, {
+      new: true,
+      runValidators: true,
+      session: transactionSession,
+    });
 
-    // Remove form from field forms array
-    await Promise.all(
-      previousFieldsArray.map(async (item) => {
-        if (!fieldsArray.includes(item)) {
-          await Field.findByIdAndUpdate(
-            item,
-            { $pull: { forms: form._id } },
-            { runValidators: true, new: true }
-          );
-        }
-      })
-    );
+    // =============> Updating Fields Forms Array
+    if (req.body.fields) {
+      const fieldsArray = req.body.fields.map((item) => item.field);
+      const previousFieldsArray = previousFields.map((item) => item.field);
 
-    // Add form to field forms array
-    await Promise.all(
-      fieldsArray.map(async (item) => {
-        if (!previousFieldsArray.includes(item)) {
-          await Field.findByIdAndUpdate(
-            item,
-            { $push: { forms: form._id } },
-            { runValidators: true, new: true }
-          );
-        }
-      })
-    );
+      // Remove form from field forms array
+      await Promise.all(
+        previousFieldsArray.map(async (item) => {
+          if (!fieldsArray.includes(item)) {
+            await Field.findByIdAndUpdate(
+              item,
+              { $pull: { forms: form._id } },
+              { runValidators: true, new: true, session: transactionSession }
+            );
+          }
+        })
+      );
+
+      // Add form to field forms array
+      await Promise.all(
+        fieldsArray.map(async (item) => {
+          if (!previousFieldsArray.includes(item)) {
+            await Field.findByIdAndUpdate(
+              item,
+              { $push: { forms: form._id } },
+              { runValidators: true, new: true, session: transactionSession }
+            );
+          }
+        })
+      );
+    }
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+  } catch (err) {
+    await transactionSession.abortTransaction(); // Abort the transaction
+    console.error('Transaction aborted due to an error:', err);
+  } finally {
+    transactionSession.endSession();
   }
 
   res.status(200).json({
@@ -190,51 +226,51 @@ exports.updateForm = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.updateDefaultForm = catchAsync(async (req, res, next) => {
-  const form = await Form.findById(req.params.formID);
+// exports.updateDefaultForm = catchAsync(async (req, res, next) => {
+//   const form = await Form.findById(req.params.formID);
 
-  if (!form) {
-    return next(new AppError('No form found with that ID!', 404));
-  }
+//   if (!form) {
+//     return next(new AppError('No form found with that ID!', 404));
+//   }
 
-  if (form.default) {
-    return next(new AppError('This is the default form!', 400));
-  }
+//   if (form.default) {
+//     return next(new AppError('This is the default form!', 400));
+//   }
 
-  if (form.status === 'inactive') {
-    return next(new AppError("Couldn't update inactive forms to default!"));
-  }
+//   if (form.status === 'inactive') {
+//     return next(new AppError("Couldn't update inactive forms to default!"));
+//   }
 
-  const previousDefault = await Form.findOne({ default: true });
+//   const previousDefault = await Form.findOne({ default: true });
 
-  const updatedForm = await Form.findByIdAndUpdate(
-    req.params.formID,
-    { default: true, updater: req.user._id },
-    { runValidators: true, new: true }
-  );
+//   const updatedForm = await Form.findByIdAndUpdate(
+//     req.params.formID,
+//     { default: true, updater: req.user._id },
+//     { runValidators: true, new: true }
+//   );
 
-  //remove previous default
-  if (previousDefault) {
-    await Form.findByIdAndUpdate(
-      previousDefault._id,
-      { default: false },
-      { runValidators: true, new: true }
-    );
-  }
+//   //remove previous default
+//   if (previousDefault) {
+//     await Form.findByIdAndUpdate(
+//       previousDefault._id,
+//       { default: false },
+//       { runValidators: true, new: true }
+//     );
+//   }
 
-  //Sending all forms
-  const forms = await Form.find()
-    .sort('order')
-    .select('name order default status');
+//   //Sending all forms
+//   const forms = await Form.find()
+//     .sort('order')
+//     .select('name order default status');
 
-  res.status(200).json({
-    status: 'success',
-    data: {
-      form: updatedForm,
-      forms,
-    },
-  });
-});
+//   res.status(200).json({
+//     status: 'success',
+//     data: {
+//       form: updatedForm,
+//       forms,
+//     },
+//   });
+// });
 
 exports.updateFormsOrder = catchAsync(async (req, res, next) => {
   // req.body.forms =[{form:"formID",order:1}, {}, ...]
@@ -288,35 +324,35 @@ exports.updateFormsOrder = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.updateFormStatus = catchAsync(async (req, res, next) => {
-  const form = await Form.findById(req.params.formID);
-  if (!form) {
-    return next(new AppError('No form found with that ID!', 404));
-  }
+// exports.updateFormStatus = catchAsync(async (req, res, next) => {
+//   const form = await Form.findById(req.params.formID);
+//   if (!form) {
+//     return next(new AppError('No form found with that ID!', 404));
+//   }
 
-  if (!req.body.status) {
-    return next(new AppError('Form status is required!', 400));
-  }
+//   if (!req.body.status) {
+//     return next(new AppError('Form status is required!', 400));
+//   }
 
-  if (form.default === true && req.body.status === 'inactive') {
-    return next(new AppError("Couldn't deactivate default form!"));
-  }
+//   if (form.default === true && req.body.status === 'inactive') {
+//     return next(new AppError("Couldn't deactivate default form!"));
+//   }
 
-  if (form.status === req.body.status) {
-    return next(new AppError(`Form is already ${form.status}!`, 400));
-  }
+//   if (form.status === req.body.status) {
+//     return next(new AppError(`Form is already ${form.status}!`, 400));
+//   }
 
-  await Form.findByIdAndUpdate(
-    req.params.formID,
-    { status: req.body.status },
-    { runValidators: true, new: true }
-  );
+//   await Form.findByIdAndUpdate(
+//     req.params.formID,
+//     { status: req.body.status },
+//     { runValidators: true, new: true }
+//   );
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Form updated successfully!',
-  });
-});
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Form updated successfully!',
+//   });
+// });
 
 // exports.deleteForm = catchAsync(async (req, res, next) => {
 //   const form = await Form.findById(req.params.formID);
