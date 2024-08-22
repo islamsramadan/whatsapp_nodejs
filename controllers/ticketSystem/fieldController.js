@@ -158,29 +158,3 @@ exports.updateField = catchAsync(async (req, res, next) => {
     message: 'Field updated successfully!',
   });
 });
-
-// exports.deleteField = catchAsync(async (req, res, next) => {
-//   const field = await Field.findById(req.params.fieldID);
-
-//   if (!field) {
-//     return next(new AppError('No field found with that ID!', 404));
-//   }
-
-//   if (field.forms && field.forms.length > 0) {
-//     return next(
-//       new AppError("Couldn't delete field used in active forms!", 400)
-//     );
-//   }
-
-//   // await Field.findByIdAndDelete(req.params.fieldID);
-//   await Field.findByIdAndUpdate(
-//     req.params.fieldID,
-//     { status: 'inactive' },
-//     { runValidators: true, new: true }
-//   );
-
-//   res.status(200).json({
-//     status: 'success',
-//     message: 'Field deleted successfully!',
-//   });
-// });

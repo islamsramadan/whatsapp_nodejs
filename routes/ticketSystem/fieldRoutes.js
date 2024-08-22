@@ -14,6 +14,5 @@ router
   .route('/:fieldID')
   .get(authController.protect, fieldController.getField)
   .patch(authController.protect, fieldController.updateField);
-// .delete(authController.protect, fieldController.deleteField);
 
 module.exports = router;
