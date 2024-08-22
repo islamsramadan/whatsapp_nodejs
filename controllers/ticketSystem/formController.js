@@ -35,7 +35,14 @@ exports.getAllForms = catchAsync(async (req, res, next) => {
 });
 
 exports.getForm = catchAsync(async (req, res, next) => {
-  const form = await Form.findById(req.params.formID);
+  const form = await Form.findById(req.params.formID).populate({
+    path: 'fields.field',
+    select: '-forms -createdAt -updatedAt',
+    populate: {
+      path: 'type',
+      select: 'name value',
+    },
+  });
 
   if (!form) {
     return next(new AppError('No form found with that ID!', 404));
