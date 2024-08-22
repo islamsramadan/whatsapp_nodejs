@@ -45,8 +45,17 @@ io.use(async (socket, next) => {
   }
 
   // 2) Verification token
-  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-  // console.log('decoded', decoded);
+  // const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+  // // console.log('decoded', decoded);
+
+  let decoded;
+  try {
+    decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    console.log('decoded', decoded);
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return;
+  }
 
   // 3) Check if user still exists
   const currentUser = await User.findOne({
