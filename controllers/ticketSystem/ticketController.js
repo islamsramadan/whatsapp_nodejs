@@ -412,243 +412,6 @@ exports.createTicket = catchAsync(async (req, res, next) => {
   }
 });
 
-// exports.createTicket = catchAsync(async (req, res, next) => {
-//   const { category, name, description, assignee, client } = req.body;
-
-//   if (
-//     !category ||
-//     !name ||
-//     !description ||
-//     !assignee ||
-//     !client ||
-//     (!client.email && !client.number)
-//   ) {
-//     return next(new AppError('Ticket details are required!', 400));
-//   }
-
-//   const assignedUser = await User.findById(assignee);
-//   if (!assignedUser) {
-//     return next(new AppError('No assigned user found with that ID!', 400));
-//   }
-//   if (!assignedUser.tasks.includes('tickets')) {
-//     return next(
-//       new AppError(
-//         "Couldn't assign to a user with no permission to tickets",
-//         400
-//       )
-//     );
-//   }
-
-//   const newTicketData = {
-//     creator: req.user._id,
-//     category,
-//     name,
-//     description,
-//     assignee,
-//     client,
-//     type: 'manual',
-//     status: 'open',
-//   };
-
-//   const transactionSession = await mongoose.startSession();
-//   transactionSession.startTransaction();
-
-//   let newTicket;
-//   try {
-//     // =====================> Create Ticket
-//     const ticket = await Ticket.create([newTicketData], {
-//       session: transactionSession,
-//     });
-//     // console.log('ticket', ticket);
-
-//     // =====================> Add ticket to the creator tickets
-//     await User.findByIdAndUpdate(
-//       req.user._id,
-//       { $push: { tickets: ticket[0]._id } },
-//       { new: true, runValidators: true, session: transactionSession }
-//     );
-
-//     // =====================> Add ticket to the assigned user tickets
-//     await User.findByIdAndUpdate(
-//       assignee,
-//       { $push: { tickets: ticket[0]._id } },
-//       { new: true, runValidators: true, session: transactionSession }
-//     );
-
-//     // =====================> Add ticket to the category
-//     await TicketCategory.findByIdAndUpdate(
-//       category,
-//       { $push: { tickets: ticket[0]._id } },
-//       { new: true, runValidators: true, session: transactionSession }
-//     );
-
-//     newTicket = ticket[0];
-
-//     await transactionSession.commitTransaction(); // Commit the transaction
-//     transactionSession.endSession();
-//     console.log('New ticket created: ============', ticket[0]._id);
-//   } catch (error) {
-//     await transactionSession.abortTransaction();
-//     transactionSession.endSession();
-
-//     console.error(
-//       'Transaction aborted due to an error: ===========================',
-//       error
-//     );
-//   }
-
-//   if (newTicket) {
-//     req.body.ticketID = newTicket._id;
-//     req.body.link = 'Not found!';
-//     await ticketUtilsHandler.notifyClientHandler(req, newTicket);
-
-//     res.status(201).json({
-//       status: 'success',
-//       data: {
-//         ticket: newTicket,
-//       },
-//     });
-//   } else {
-//     res.status(400).json({
-//       status: 'fail',
-//       message: "Couldn't create the ticket!",
-//     });
-//   }
-// });
-
-exports.updateTicket = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
-  if (!ticket) {
-    return next(new AppError('No ticket found with that ID!', 404));
-  }
-
-  if (req.body.status) {
-    const status = await TicketStatus.findById(req.body.status);
-    if (!status) {
-      return next(new AppError('No status found with that ID!', 400));
-    }
-    updatedBody.status = status._id;
-  }
-
-  if (req.body.assignee) {
-    const assignee = await User.findById(req.body.assignee);
-    if (!assignee) {
-      return next(new AppError('No user found with that ID!', 400));
-    }
-
-    if (!assignee.tasks.includes('tickets')) {
-      return next(
-        new AppError("Couldn't assignee to user without tickets task!", 400)
-      );
-    }
-
-    updatedBody.assignee = assignee._id;
-  } else if (req.body.team) {
-    const team = await Team.findById(req.body.team);
-  }
-
-  const updatedBody = filterObj(req.body, 'status', 'assignee', 'team');
-
-  const transactionSession = await mongoose.startSession();
-  transactionSession.startTransaction();
-
-  try {
-  } catch (err) {
-    await transactionSession.abortTransaction();
-    transactionSession.endSession();
-  }
-
-  res.status(200).json({
-    status: 'success',
-    message: 'Ticket updated successully!',
-  });
-});
-
-// exports.updateTicket = catchAsync(async (req, res, next) => {
-//   const ticket = await Ticket.findById(req.params.ticketID);
-
-//   if (!ticket) {
-//     return next(new AppError('No ticket found with  that ID!', 404));
-//   }
-
-//   if (!req.body.type) {
-//     return next(new AppError('Update type is required!', 400));
-//   }
-
-//   if (req.body.type === 'status') {
-//     if (!req.body.status || !(await TicketStatus.findById(req.body.status))) {
-//       return next(new AppError('No status found!', 400));
-//     }
-
-//     await Ticket.findByIdAndUpdate(
-//       req.params.ticketID,
-//       { status: req.body.status },
-//       { new: true, runValidators: true }
-//     );
-//   } else if (req.body.type === 'client') {
-//     if (
-//       !req.body.client ||
-//       (!req.body.client.number && !req.body.client.email)
-//     ) {
-//       return next(new AppError('Client data is required!', 400));
-//     }
-
-//     await Ticket.findByIdAndUpdate(
-//       req.params.ticketID,
-//       { client: req.body.client },
-//       { new: true, runValidators: true }
-//     );
-//   } else if (req.body.type === 'reassigned') {
-//     const previousUser = ticket.assignee;
-//     const reassignedUser = await User.findById(req.body.reassigned);
-
-//     if (!reassignedUser || reassignedUser.deleted === true) {
-//       return next(new AppError('Reassigned user not found!', 400));
-//     }
-
-//     if (!reassignedUser.tasks.includes('tickets')) {
-//       return next(
-//         new AppError("Reassigned user doesn't have this permission!", 400)
-//       );
-//     }
-
-//     // --------------> Update the ticket with the new assigned user
-//     await Ticket.findByIdAndUpdate(
-//       req.params.ticketID,
-//       { assignee: req.body.reassigned },
-//       { new: true, runValidators: true }
-//     );
-
-//     // --------------> Remove the ticket from the previous assigned user
-//     if (previousUser.tickets && previousUser.tickets.includes(ticket._id)) {
-//       await User.findByIdAndUpdate(
-//         previousUser._id,
-//         { $pull: { tickets: ticket._id } },
-//         { new: true, runValidators: true }
-//       );
-//     }
-
-//     // --------------> Add the ticket to the new assigned user
-//     if (
-//       !reassignedUser.tickets ||
-//       !reassignedUser.tickets.includes(ticket._id)
-//     ) {
-//       await User.findByIdAndUpdate(
-//         previousUser._id,
-//         { $push: { tickets: ticket._id } },
-//         { new: true, runValidators: true }
-//       );
-//     }
-//   } else {
-//     return next(new AppError('Update type is not recognized!', 400));
-//   }
-
-//   res.status(200).json({
-//     status: 'success',
-//     message: 'Ticket updated successully!',
-//   });
-// });
-
 exports.updateTicketInfo = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
@@ -662,10 +425,17 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       return next(new AppError('Invalid status!', 400));
     }
   }
+  // -----> Category validation
+  if (req.body.category && !ticket.category.equals(req.body.category)) {
+    const category = await TicketCategory.findById(req.body.category);
+    if (!category || category.status === 'inactive') {
+      return next(new AppError('Invalid category!', 400));
+    }
+  }
 
-  const filteredBody = filterObj(req.body, 'priority', 'status');
+  const filteredBody = filterObj(req.body, 'priority', 'status', 'category');
 
-  await Ticket.findByIdAndUpdate(ticket._id, filteredBody, {
+  await Ticket.findByIdAndUpdate(req.params.ticketID, filteredBody, {
     runValidators: true,
     new: true,
   });
@@ -691,9 +461,9 @@ exports.reassignTicket = catchAsync(async (req, res, next) => {
   const updatedBody = {};
 
   if (assignee) {
-    if (ticket.assignee.equals(assignee)) {
+    if (ticket.assignee.equals(assignee) && ticket.team.equals(team)) {
       return next(
-        new AppError('Ticket is already assigned to that user!', 400)
+        new AppError('Ticket is already assigned to the same user!', 400)
       );
     }
 
@@ -781,7 +551,7 @@ exports.reassignTicket = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
   try {
-    await Ticket.findByIdAndUpdate(ticket._id, updatedBody, {
+    await Ticket.findByIdAndUpdate(req.params.ticketID, updatedBody, {
       runValidators: true,
       new: true,
       session: transactionSession,
@@ -826,6 +596,40 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
   }
 
   const { questions } = req.body;
+
+  if (questions.length !== ticket.questions.length) {
+    return next(
+      new AppError('Invalid questions depending on form fields!', 400)
+    );
+  }
+
+  const tags = [];
+
+  // ----------> Field validation and Adding Tags
+  await Promise.all(
+    questions.map(async (item) => {
+      const field = await Field.findById(item.field);
+      if (!field) {
+        return next(new AppError('Invalid field!', 400));
+      }
+
+      if (field.required && (!item.answer || item.answer.length === 0)) {
+        return next(new AppError('Answer is required!', 400));
+      }
+
+      // ----------> Adding tags
+      if (field.tag && !tags.includes(item.answer[0])) {
+        tags.push(item.answer[0]);
+      }
+    })
+  );
+
+  // ----------> Updating ticket doc
+  await Ticket.findByIdAndUpdate(
+    req.params.ticketID,
+    { questions, tags },
+    { new: true, runValidators: true }
+  );
 
   res.status(200).json({
     status: 'success',

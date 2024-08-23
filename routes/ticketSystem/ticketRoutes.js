@@ -34,19 +34,22 @@ router
     authController.protect,
     authController.restrictToTasks('tickets'),
     ticketController.getTicket
-  )
-  .patch(
-    authController.protect,
-    authController.restrictToTasks('tickets'),
-    ticketController.updateTicket
   );
 
 router
-  .route('/:ticketID/client')
+  .route('/:ticketID/info')
   .patch(
     authController.protect,
     authController.restrictToTasks('tickets'),
-    ticketController.updateTicketClientData
+    ticketController.updateTicketInfo
+  );
+
+router
+  .route('/:ticketID/reassign')
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.reassignTicket
   );
 
 router
@@ -55,6 +58,14 @@ router
     authController.protect,
     authController.restrictToTasks('tickets'),
     ticketController.updateTicketForm
+  );
+
+router
+  .route('/:ticketID/client')
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.updateTicketClientData
   );
 
 module.exports = router;

@@ -6,17 +6,12 @@ const questionSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'Field',
     required: true,
-    // unique: true,
   },
   answer: [
     {
       type: String,
     },
   ],
-  // order: {
-  //   type: Number,
-  //   required: true,
-  // },
 });
 
 const ticketSchema = new mongoose.Schema(
