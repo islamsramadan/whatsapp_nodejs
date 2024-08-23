@@ -48,6 +48,25 @@ const userSchema = new mongoose.Schema(
       default: ['Messages'],
     },
 
+    ticketRequests: [
+      {
+        type: String,
+        enum: [
+          'RD0',
+          'Edit RD0',
+          'Missing Data',
+          'Design Review',
+          'RD6',
+          'RD7',
+          'Finance',
+          'Inspection',
+          'MALATH Issue',
+          'MALATH Complaint',
+          'Other',
+        ],
+      },
+    ],
+
     team: {
       type: mongoose.Schema.ObjectId,
       ref: 'Team',

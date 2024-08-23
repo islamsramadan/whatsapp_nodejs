@@ -177,6 +177,28 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
         users,
       },
     });
+  } else if (req.query.type === 'ticketCreate') {
+    const team = await Team.find(req.query.teamID);
+    if (!team) {
+      return next(new AppError('No team provided!', 400));
+    }
+
+    const users = await User.find({
+      bot: false,
+      deleted: false,
+      team: team._id,
+      tasks: 'tickets',
+    })
+      .select(select)
+      .populate(populate);
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users,
+      },
+    });
   } else {
     // ------------> Active and Inactive filters users
     if (req.query.active === 'true') {
