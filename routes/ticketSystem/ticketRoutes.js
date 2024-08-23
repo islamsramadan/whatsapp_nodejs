@@ -29,6 +29,14 @@ router
   );
 
 router
+  .route('/past-tickets/:refNo')
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.getAllPastTickets
+  );
+
+router
   .route('/:ticketID')
   .get(
     authController.protect,

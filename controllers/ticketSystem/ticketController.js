@@ -151,6 +151,23 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getAllPastTickets = catchAsync(async (req, res, next) => {
+  const tickets = await Ticket.find({ refNo: req.query.refNo })
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name');
+
+  res.status(200).json({
+    status: 'success',
+    results: tickets.length,
+    data: {
+      tickets,
+    },
+  });
+});
+
 exports.getTicket = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID)
     .populate('category', 'name')
