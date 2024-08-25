@@ -178,7 +178,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
       },
     });
   } else if (req.query.type === 'ticketCreate') {
-    const team = await Team.find(req.query.teamID);
+    const team = await Team.findById(req.query.teamID);
     if (!team) {
       return next(new AppError('No team provided!', 400));
     }
