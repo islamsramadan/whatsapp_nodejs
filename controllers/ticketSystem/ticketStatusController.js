@@ -47,26 +47,14 @@ exports.getStatus = catchAsync(async (req, res, next) => {
 });
 
 exports.createStatus = catchAsync(async (req, res, next) => {
-  const {
-    creatorDisplayName,
-    assigneeDisplayName,
-    endUserDisplayName,
-    description,
-    category,
-  } = req.body;
+  const { name, endUserDisplayName, description, category } = req.body;
 
-  if (
-    !creatorDisplayName ||
-    !assigneeDisplayName ||
-    !endUserDisplayName ||
-    !category
-  ) {
+  if (!name || !endUserDisplayName || !category) {
     return next(new AppError('Status details are required!', 400));
   }
 
   const newStatusData = {
-    creatorDisplayName,
-    assigneeDisplayName,
+    name,
     endUserDisplayName,
     description,
     category,
@@ -140,8 +128,7 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
 
   const updatedData = filterObj(
     req.body,
-    'creatorDisplayName',
-    'assigneeDisplayName',
+    'name',
     'endUserDisplayName',
     'description',
     'category',

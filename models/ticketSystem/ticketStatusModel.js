@@ -2,14 +2,9 @@ const mongoose = require('mongoose');
 
 const ticketStatusSchema = new mongoose.Schema(
   {
-    creatorDisplayName: {
+    name: {
       type: String,
-      required: [true, 'Creator display name is required!'],
-    },
-
-    assigneeDisplayName: {
-      type: String,
-      required: [true, 'Assignee display name is required!'],
+      required: [true, 'Status name is required!'],
     },
 
     endUserDisplayName: {
