@@ -160,7 +160,7 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
   // Updating default status
   const previousDefaultStatus = await TicketStatus.findOne({ default: true });
   if (req.body.default && !status.default) {
-    if (status.status === 'inactive') {
+    if (req.body.status === 'inactive') {
       return next(
         new AppError("Couldn't make inactive status a default status!", 400)
       );
