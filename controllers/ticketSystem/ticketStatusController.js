@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const catchAsync = require('../../utils/catchAsync');
 
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
+const AppError = require('../../utils/appError');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
