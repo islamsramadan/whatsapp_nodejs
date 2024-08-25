@@ -171,7 +171,7 @@ exports.updateForm = catchAsync(async (req, res, next) => {
   // Updating default forms
   const previousDefaultForm = await Form.findOne({ default: true });
   if (req.body.default && !form.default) {
-    if (form.status === 'inactive') {
+    if (req.body.status === 'inactive') {
       return next(
         new AppError("Couldn't make inactive form a default form!", 400)
       );
