@@ -20,6 +20,134 @@ const filterObj = (obj, ...allowedFields) => {
   return newObj;
 };
 
+exports.getAllTicketsFilters = catchAsync(async (req, res, next) => {
+  // console.log('req.user', req.user);
+
+  const teams = req.query.teams.split(',');
+
+  const userTickets = await Ticket.find({
+    $or: [
+      { creator: new mongoose.Types.ObjectId(req.user._id) },
+      { assignee: new mongoose.Types.ObjectId(req.user._id) },
+    ],
+  }).populate('status', 'category');
+
+  const userTicketsfilters = {
+    all: userTickets.length,
+    pending: userTickets.filter(
+      (ticket) => ticket.status.category === 'pending'
+    ).length,
+    new: userTickets.filter((ticket) => ticket.status.category === 'new')
+      .length,
+    open: userTickets.filter((ticket) => ticket.status.category === 'open')
+      .length,
+    solved: userTickets.filter((ticket) => ticket.status.category === 'solved')
+      .length,
+  };
+
+  const teamTickets = await Ticket.find({
+    team: { $in: teams },
+  }).populate('status', 'category');
+
+  const teamTicketsfilters = {
+    all: teamTickets.length,
+    pending: teamTickets.filter(
+      (ticket) => ticket.status.category === 'pending'
+    ).length,
+    new: teamTickets.filter((ticket) => ticket.status.category === 'new')
+      .length,
+    open: teamTickets.filter((ticket) => ticket.status.category === 'open')
+      .length,
+    solved: teamTickets.filter((ticket) => ticket.status.category === 'solved')
+      .length,
+  };
+
+  const getUserStatusCount = async (statusCategory) => {
+    const result = await Ticket.aggregate([
+      {
+        $lookup: {
+          from: 'ticketstatuses',
+          localField: 'status',
+          foreignField: '_id',
+          as: 'statusDetails',
+        },
+      },
+      {
+        $unwind: '$statusDetails',
+      },
+      {
+        $match: {
+          'statusDetails.category': statusCategory,
+          $or: [
+            { creator: new mongoose.Types.ObjectId(req.user._id) },
+            { assignee: new mongoose.Types.ObjectId(req.user._id) },
+          ],
+        },
+      },
+      {
+        $count: 'ticketCount',
+      },
+    ]);
+
+    const ticketCount = result.length > 0 ? result[0].ticketCount : 0;
+
+    return ticketCount;
+  };
+
+  // const ticketsUserFilters = {
+  //   pendingTickets: await getUserStatusCount('pending'),
+  //   newTickets: await getUserStatusCount('new'),
+  //   openTickets: await getUserStatusCount('open'),
+  //   solvedTickets: await getUserStatusCount('solved'),
+  // };
+
+  // const getTeamsStatusCount = async (statusCategory) => {
+  //   const result = await Ticket.aggregate([
+  //     {
+  //       $lookup: {
+  //         from: 'ticketstatuses',
+  //         localField: 'status',
+  //         foreignField: '_id',
+  //         as: 'statusDetails',
+  //       },
+  //     },
+  //     {
+  //       $unwind: '$statusDetails',
+  //     },
+  //     {
+  //       $match: {
+  //         'statusDetails.category': statusCategory,
+  //         team: new mongoose.Types.ObjectId(req.query.team),
+  //       },
+  //     },
+  //     {
+  //       $count: 'ticketCount',
+  //     },
+  //   ]);
+
+  //   const ticketCount = result.length > 0 ? result[0].ticketCount : 0;
+
+  //   return ticketCount;
+  // };
+
+  // const ticketsTeamsFilters = {
+  //   pendingTickets: await getTeamsStatusCount('pending'),
+  //   newTickets: await getTeamsStatusCount('new'),
+  //   openTickets: await getTeamsStatusCount('open'),
+  //   solvedTickets: await getTeamsStatusCount('solved'),
+  // };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      // ticketsUserFilters,
+      // ticketsTeamsFilters,
+      userTicketsfilters,
+      teamTicketsfilters,
+    },
+  });
+});
+
 exports.getAllTickets = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
@@ -66,6 +194,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     .populate('status', 'name')
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
+    .select('-questions -client -users -type')
     .skip((page - 1) * 20)
     .limit(20);
 
@@ -622,6 +751,15 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 
   const tags = [];
 
+  // ----------> Status validation
+  let status;
+  if (req.body.status && !ticket.status.equals(req.body.status)) {
+    status = await TicketStatus.findById(req.body.status);
+    if (!status || status.status === 'inactive') {
+      return next(new AppError('Invalid status!', 400));
+    }
+  }
+
   // ----------> Field validation and Adding Tags
   await Promise.all(
     questions.map(async (item) => {
@@ -630,7 +768,18 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
         return next(new AppError('Invalid field!', 400));
       }
 
+      // ------> field required answer
       if (field.required && (!item.answer || item.answer.length === 0)) {
+        return next(new AppError('Answer is required!', 400));
+      }
+
+      // ------> field required answer for solved status
+      if (
+        status &&
+        status.category === 'solved' &&
+        field.solveRequired &&
+        (!item.answer || item.answer.length === 0)
+      ) {
         return next(new AppError('Answer is required!', 400));
       }
 
