@@ -55,6 +55,8 @@ exports.createCategory = catchAsync(async (req, res, next) => {
     creator: req.user._id,
   };
 
+  await TicketCategory.syncIndexes();
+
   const newCategory = await TicketCategory.create(newCategoryData);
 
   res.status(201).json({

@@ -34,7 +34,5 @@ const ticketCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-ticketCategorySchema.index({ name: 1 }, { unique: true });
-
 const TicketCategory = mongoose.model('TicketCategory', ticketCategorySchema);
 module.exports = TicketCategory;

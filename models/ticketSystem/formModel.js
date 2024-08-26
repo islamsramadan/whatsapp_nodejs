@@ -88,8 +88,6 @@ const formSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-formSchema.index({ name: 1 }, { unique: true });
-
 const Form = mongoose.model('Form', formSchema);
 
 module.exports = Form;

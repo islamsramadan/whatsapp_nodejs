@@ -81,6 +81,8 @@ exports.createStatus = catchAsync(async (req, res, next) => {
     newStatusData.default = true;
   }
 
+  await TicketStatus.syncIndexes();
+
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 

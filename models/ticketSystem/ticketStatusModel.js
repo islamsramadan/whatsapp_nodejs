@@ -5,6 +5,7 @@ const ticketStatusSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Status name is required!'],
+      unique: true,
     },
 
     endUserDisplayName: {
