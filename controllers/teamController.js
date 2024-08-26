@@ -78,8 +78,14 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
 });
 
 exports.createTeam = catchAsync(async (req, res, next) => {
-  const { name, supervisor, serviceHours, conversation, answersSets } =
-    req.body;
+  const {
+    name,
+    supervisor,
+    serviceHours,
+    conversation,
+    answersSets,
+    ticketRequests,
+  } = req.body;
 
   if (!name || !supervisor || !serviceHours || !conversation) {
     return next(
@@ -117,6 +123,7 @@ exports.createTeam = catchAsync(async (req, res, next) => {
     serviceHours,
     conversation,
     answersSets,
+    ticketRequests,
     creator: req.user._id,
   };
 
@@ -270,6 +277,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       'serviceHours',
       'answersSets',
       'conversation',
+      'ticketRequests',
       'default'
     );
 
