@@ -444,6 +444,12 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     if (!statusDoc || statusDoc.status === 'inactive') {
       return next(new AppError('Invalid Status!', 400));
     }
+
+    if (status.category === 'solved') {
+      return next(
+        new AppError("Couldn't create ticket with {{solved}} status!", 400)
+      );
+    }
     newTicketData.status = status;
   } else {
     const statusDoc = await TicketStatus.findOne({ default: true });
@@ -564,13 +570,6 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  // -----> Status validation
-  if (req.body.status) {
-    const status = await TicketStatus.findById(req.body.status);
-    if (!status || status.status === 'inactive') {
-      return next(new AppError('Invalid status!', 400));
-    }
-  }
   // -----> Category validation
   if (req.body.category && !ticket.category.equals(req.body.category)) {
     const category = await TicketCategory.findById(req.body.category);
@@ -579,7 +578,39 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
   }
 
-  const filteredBody = filterObj(req.body, 'priority', 'status', 'category');
+  const filteredBody = filterObj(req.body, 'priority', 'category');
+
+  // ----------> Status validation
+  let status;
+  if (req.body.status && !ticket.status.equals(req.body.status)) {
+    status = await TicketStatus.findById(req.body.status);
+
+    if (!status || status.status === 'inactive') {
+      return next(new AppError('Invalid status!', 400));
+    }
+
+    // ------> Adding status to updated body
+    updatedBody.status = status;
+  }
+
+  // ------> field required answer for solved status
+  if (status && status.category === 'solved') {
+    await Promise.all(
+      ticket.questions.map(async (item) => {
+        const field = await Field.findById(item.field);
+        if (!field) {
+          return next(new AppError('Invalid field!', 400));
+        }
+
+        if (
+          (field.required || field.solveRequired) &&
+          (!item.answer || item.answer.length === 0)
+        ) {
+          return next(new AppError('Field answer is required!', 400));
+        }
+      })
+    );
+  }
 
   await Ticket.findByIdAndUpdate(req.params.ticketID, filteredBody, {
     runValidators: true,
@@ -692,6 +723,40 @@ exports.reassignTicket = catchAsync(async (req, res, next) => {
     updatedBody[$push] = { users: assignee };
   }
 
+  // ----------> Status validation
+  let status;
+  if (req.body.status && !ticket.status.equals(req.body.status)) {
+    status = await TicketStatus.findById(req.body.status);
+
+    if (!status || status.status === 'inactive') {
+      return next(new AppError('Invalid status!', 400));
+    }
+  }
+
+  // ------> field required answer for solved status
+  if (status && status.category === 'solved') {
+    await Promise.all(
+      ticket.questions.map(async (item) => {
+        const field = await Field.findById(item.field);
+        if (!field) {
+          return next(new AppError('Invalid field!', 400));
+        }
+
+        if (
+          (field.required || field.solveRequired) &&
+          (!item.answer || item.answer.length === 0)
+        ) {
+          return next(new AppError('Field answer is required!', 400));
+        }
+      })
+    );
+  }
+
+  // ------> Adding status to updated body
+  if (status) {
+    updatedBody.status = status;
+  }
+
   const previousAssignee = await User.findById(ticket.assignee);
 
   const transactionSession = await mongoose.startSession();
@@ -770,7 +835,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 
       // ------> field required answer
       if (field.required && (!item.answer || item.answer.length === 0)) {
-        return next(new AppError('Answer is required!', 400));
+        return next(new AppError('Field answer is required!', 400));
       }
 
       // ------> field required answer for solved status
@@ -780,7 +845,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
         field.solveRequired &&
         (!item.answer || item.answer.length === 0)
       ) {
-        return next(new AppError('Answer is required!', 400));
+        return next(new AppError('Field answer is required!', 400));
       }
 
       // ----------> Adding tags

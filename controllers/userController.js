@@ -459,7 +459,8 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     filteredBody.$unset = { token: '' };
   }
 
-  console.log('filteredBody', filteredBody);
+  // console.log('filteredBody', filteredBody);
+
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(
     req.params.userID,
