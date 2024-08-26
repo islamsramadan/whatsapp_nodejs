@@ -293,6 +293,7 @@ exports.createUser = catchAsync(async (req, res, next) => {
     passwordConfirm: req.body.passwordConfirm,
     role: req.body.role,
     tasks: req.body.tasks,
+    ticketRequests: req.body.ticketRequests,
   };
 
   // Checking if there is a valid team with that teamID
@@ -394,8 +395,9 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     'phone',
     'role',
     'tasks',
-    'status'
-    // 'team'
+    'status',
+    // 'team',
+    'ticketRequests'
   );
 
   // Checking for password
