@@ -165,7 +165,7 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     updatedData.default = true;
   }
 
-  if (req.body.default && req.body.category === 'solved') {
+  if ((req.body.default || status.default) && req.body.category === 'solved') {
     return next(
       new AppError(
         "Couldn't make default status with {{solved}} category!",
