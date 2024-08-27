@@ -720,7 +720,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
   }
 
   if (!ticket.users.includes(assignee)) {
-    updatedBody[$push] = { users: assignee };
+    updatedBody.$push = { users: assignee };
   }
 
   // ----------> Status validation
@@ -771,14 +771,14 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     // ======> Remove ticket from the previous assignee tickets array
     await User.findByIdAndUpdate(
       previousAssignee._id,
-      { $pull: { tickets: ticket[0]._id } },
+      { $pull: { tickets: ticket._id } },
       { new: true, runValidators: true, session: transactionSession }
     );
 
     // ======> Add ticket to the new assignee tickets array
     await User.findByIdAndUpdate(
       assignee,
-      { $push: { tickets: ticket[0]._id } },
+      { $push: { tickets: ticket._id } },
       { new: true, runValidators: true, session: transactionSession }
     );
 
