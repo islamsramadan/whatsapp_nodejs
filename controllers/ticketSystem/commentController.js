@@ -8,6 +8,7 @@ const ticketUtilsHandler = require('../../utils/ticketsUtils');
 const Comment = require('../../models/ticketSystem/commentModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
+const Field = require('../../models/ticketSystem/fieldModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -132,6 +133,35 @@ exports.createComment = catchAsync(async (req, res, next) => {
     newCommentData.attachments = attachments;
   }
 
+  // ----------> Status validation
+  let status;
+  if (req.body.status && !ticket.status.equals(req.body.status)) {
+    status = await TicketStatus.findById(req.body.status);
+
+    if (!status || status.status === 'inactive') {
+      return next(new AppError('Invalid status!', 400));
+    }
+  }
+
+  // ------> field required answer for solved status
+  if (status && status.category === 'solved') {
+    await Promise.all(
+      ticket.questions.map(async (item) => {
+        const field = await Field.findById(item.field);
+        if (!field) {
+          return next(new AppError('Invalid field!', 400));
+        }
+
+        if (
+          (field.required || field.solveRequired) &&
+          (!item.answer || item.answer.length === 0)
+        ) {
+          return next(new AppError('Field answer is required!', 400));
+        }
+      })
+    );
+  }
+
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
@@ -145,12 +175,12 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
     newComment = comment[0];
 
-    if (
-      req.body.ticketStatus &&
-      (await TicketStatus.findById(req.body.ticketStatus))
-    ) {
-      ticket.status = req.body.ticketStatus;
-      await ticket.save({ session: transactionSession });
+    if (status) {
+      await Ticket.findByIdAndUpdate(
+        ticket._id,
+        { status: status._id },
+        { new: true, runValidators: true, session: transactionSession }
+      );
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
