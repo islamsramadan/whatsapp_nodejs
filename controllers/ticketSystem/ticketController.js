@@ -623,7 +623,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.reassignTicket = catchAsync(async (req, res, next) => {
+exports.transferTicket = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));

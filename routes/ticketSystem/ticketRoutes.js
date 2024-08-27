@@ -65,7 +65,7 @@ router
   .patch(
     authController.protect,
     authController.restrictToTasks('tickets'),
-    ticketController.reassignTicket
+    ticketController.transferTicket
   );
 
 router
