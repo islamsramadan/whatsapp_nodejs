@@ -311,9 +311,6 @@ exports.getTicket = catchAsync(async (req, res, next) => {
       populate: { path: 'type', select: 'name value description' },
     });
 
-  // .populate('questions.field')
-  // .populate('questions.field.type');
-
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
   }
@@ -557,10 +554,23 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     // req.body.link = 'Not found!';
     // await ticketUtilsHandler.notifyClientHandler(req, newTicket);
 
+    const updatedTicket = await Ticket.findById(newTicket._id)
+      .populate('category', 'name')
+      .populate('creator', 'firstName lastName photo')
+      .populate('assignee', 'firstName lastName photo')
+      .populate('team', 'name')
+      .populate('status', 'name')
+      .populate('form', 'name')
+      .populate({
+        path: 'questions.field',
+        select: '-updatedAt -createdAt -forms -creator',
+        populate: { path: 'type', select: 'name value description' },
+      });
+
     res.status(201).json({
       status: 'success',
       data: {
-        ticket: newTicket,
+        ticket: updatedTicket,
       },
     });
   } else {
@@ -624,9 +634,25 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     new: true,
   });
 
+  const updatedTicket = await Ticket.findById(req.params.ticketID)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
+
   res.status(200).json({
     status: 'success',
     message: 'Ticket updated successfully!',
+    data: {
+      ticket: updatedTicket,
+    },
   });
 });
 
@@ -801,9 +827,25 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     transactionSession.endSession();
   }
 
+  const updatedTicket = await Ticket.findById(req.params.ticketID)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
+
   res.status(200).json({
     status: 'success',
     messgae: 'Ticket has been reassigned successully!',
+    data: {
+      ticket: updatedTicket,
+    },
   });
 });
 
@@ -869,9 +911,25 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
+  const updatedTicket = await Ticket.findById(req.params.ticketID)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
+
   res.status(200).json({
     status: 'success',
     message: 'Ticket form updated successfully!',
+    data: {
+      ticket: updatedTicket,
+    },
   });
 });
 
@@ -892,8 +950,24 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     { runValidators: true, new: true }
   );
 
+  const updatedTicket = await Ticket.findById(req.params.ticketID)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
+
   res.status(200).json({
     status: 'success',
     message: 'Client data updated successully!',
+    data: {
+      ticket: updatedTicket,
+    },
   });
 });
