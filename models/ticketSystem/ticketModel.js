@@ -78,24 +78,24 @@ const ticketSchema = new mongoose.Schema(
       },
       email: {
         type: String,
-        required: function () {
-          if (!this.client.number) {
-            return [true, 'Client email is required!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (!this.client.number) {
+        //     return [true, 'Client email is required!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
         validate: [validator.isEmail, 'Invalid email!'],
       },
       number: {
         type: String,
-        required: function () {
-          if (!this.client.email) {
-            return [true, 'Client number is required!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (!this.client.email) {
+        //     return [true, 'Client number is required!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
         match: [/\d{10,}/, 'Invalid client whatsapp number!'],
       },
     },

@@ -869,7 +869,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTicketClientData = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.parmas.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
   }
