@@ -305,7 +305,14 @@ exports.getTicket = catchAsync(async (req, res, next) => {
     .populate('team', 'name')
     .populate('status', 'name')
     .populate('form', 'name')
-    .populate('questions.field');
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
+
+  // .populate('questions.field')
+  // .populate('questions.field.type');
 
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
