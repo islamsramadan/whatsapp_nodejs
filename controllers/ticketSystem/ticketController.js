@@ -578,7 +578,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
   }
 
-  const filteredBody = filterObj(req.body, 'priority', 'category');
+  const updatedBody = filterObj(req.body, 'priority', 'category');
 
   // ----------> Status validation
   let status;
@@ -612,7 +612,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     );
   }
 
-  await Ticket.findByIdAndUpdate(req.params.ticketID, filteredBody, {
+  await Ticket.findByIdAndUpdate(req.params.ticketID, updatedBody, {
     runValidators: true,
     new: true,
   });
