@@ -61,7 +61,7 @@ router
   );
 
 router
-  .route('/:ticketID/reassign')
+  .route('/:ticketID/transfer')
   .patch(
     authController.protect,
     authController.restrictToTasks('tickets'),
