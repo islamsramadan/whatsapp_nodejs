@@ -25,6 +25,7 @@ const formRouter = require('./ticketSystem/formRoutes');
 const ticketRouter = require('./ticketSystem/ticketRoutes');
 const ticketCategoryRouter = require('./ticketSystem/ticketCategoryRoutes');
 const ticketStatusRouter = require('./ticketSystem/ticketStatusRoutes');
+const ticketLogRouter = require('./ticketSystem/ticketLogRoutes');
 const commentRouter = require('./ticketSystem/commentRoutes');
 
 const router = express.Router();
@@ -56,5 +57,6 @@ router.use('/tickets', ticketRouter);
 router.use('/ticketCategories', ticketCategoryRouter);
 router.use('/ticketStatuses', ticketStatusRouter);
 router.use('/comments', commentRouter);
+router.use('/ticket-logs', ticketLogRouter);
 
 module.exports = router;

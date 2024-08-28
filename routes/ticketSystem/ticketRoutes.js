@@ -2,10 +2,12 @@ const express = require('express');
 const authController = require('./../../controllers/authController');
 const ticketController = require('./../../controllers/ticketSystem/ticketController');
 const commentRouter = require('./commentRoutes');
+const ticketLogRouter = require('./ticketLogRoutes');
 
 const router = express.Router();
 
 router.use('/:ticketID/comments', commentRouter);
+router.use('/:ticketID/ticket-logs', ticketLogRouter);
 
 router
   .route('/')
