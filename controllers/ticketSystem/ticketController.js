@@ -22,7 +22,7 @@ const filterObj = (obj, ...allowedFields) => {
 };
 
 const getPopulatedTicket = async (filterObj) => {
-  return await Ticket.find(filterObj)
+  return await Ticket.findOne(filterObj)
     .populate('category', 'name')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
