@@ -535,6 +535,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     await TicketLog.create(
       [
         {
+          ticket: ticket[0]._id,
           log: 'create',
           user: req.user._id,
           status: newTicketData.status,
@@ -549,6 +550,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     await TicketLog.create(
       [
         {
+          ticket: ticket[0]._id,
           log: 'assign',
           user: req.user._id,
           assignee: newTicketData.assignee,
@@ -563,7 +565,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
     await transactionSession.commitTransaction(); // Commit the transaction
 
-    console.log('New ticket created: ============', ticket[0]._id);
+    // console.log('New ticket created: ============', ticket[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
 
@@ -665,6 +667,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'priority',
             user: req.user._id,
             priority: req.body.priority,
@@ -681,6 +684,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'status',
             user: req.user._id,
             status: status._id,
@@ -697,6 +701,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'close',
             user: req.user._id,
           },
@@ -897,6 +902,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'status',
             user: req.user._id,
             status: updatedBody.status,
@@ -912,6 +918,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     await TicketLog.create(
       [
         {
+          ticket: req.params.ticketID,
           log: 'transfer',
           user: req.user._id,
           transfer: {
@@ -1040,6 +1047,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     await TicketLog.create(
       [
         {
+          ticket: req.params.ticketID,
           log: 'form',
           user: req.user._id,
         },
@@ -1054,6 +1062,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'status',
             user: req.user._id,
             status: status._id,
@@ -1070,6 +1079,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'close',
             user: req.user._id,
           },
@@ -1159,6 +1169,7 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
       await TicketLog.create(
         [
           {
+            ticket: req.params.ticketID,
             log: 'client',
             user: req.user._id,
             client,

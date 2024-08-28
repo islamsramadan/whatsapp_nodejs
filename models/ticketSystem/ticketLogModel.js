@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const ticketLogSchema = new mongoose.Schema(
   {
+    ticket: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Ticket',
+      required: [true, 'Ticket is required!'],
+    },
+
     type: {
       type: String,
       eunm: ['public', 'note'],
