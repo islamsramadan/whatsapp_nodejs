@@ -644,11 +644,6 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     );
   }
 
-  await Ticket.findByIdAndUpdate(req.params.ticketID, updatedBody, {
-    runValidators: true,
-    new: true,
-  });
-
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
@@ -713,8 +708,6 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
-
-    console.log('New ticket created: ============', ticket[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
 
@@ -722,6 +715,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       'Transaction aborted due to an error: ===========================',
       error
     );
+
+    return next(new AppError("Couldn't update the ticket! Try later.", 400));
   } finally {
     transactionSession.endSession();
   }
@@ -938,6 +933,8 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       'Transaction aborted due to an error: ===========================',
       err
     );
+
+    return next(new AppError("Couldn't update the ticket! Try later.", 400));
   } finally {
     transactionSession.endSession();
   }
@@ -1084,8 +1081,6 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
-
-    console.log('New ticket created: ============', ticket[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
 
@@ -1093,6 +1088,8 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
       'Transaction aborted due to an error: ===========================',
       error
     );
+
+    return next(new AppError("Couldn't update the ticket! Try later.", 400));
   } finally {
     transactionSession.endSession();
   }
@@ -1175,8 +1172,6 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
-
-    console.log('New ticket created: ============', ticket[0]._id);
   } catch (error) {
     await transactionSession.abortTransaction();
 
@@ -1184,6 +1179,8 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
       'Transaction aborted due to an error: ===========================',
       error
     );
+
+    return next(new AppError("Couldn't update the ticket! Try later.", 400));
   } finally {
     transactionSession.endSession();
   }
