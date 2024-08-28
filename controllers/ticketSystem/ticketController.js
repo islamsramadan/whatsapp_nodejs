@@ -11,6 +11,7 @@ const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const Form = require('../../models/ticketSystem/formModel');
 const Field = require('../../models/ticketSystem/fieldModel');
 const Team = require('../../models/teamModel');
+const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -18,6 +19,21 @@ const filterObj = (obj, ...allowedFields) => {
     if (allowedFields.includes(el)) newObj[el] = obj[el];
   });
   return newObj;
+};
+
+const getPopulatedTicket = async (filterObj) => {
+  return await Ticket.find(filterObj)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: '-updatedAt -createdAt -forms -creator',
+      populate: { path: 'type', select: 'name value description' },
+    });
 };
 
 exports.getAllTicketsFilters = catchAsync(async (req, res, next) => {
@@ -298,18 +314,7 @@ exports.getAllPastTickets = catchAsync(async (req, res, next) => {
 });
 
 exports.getTicket = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name')
-    .populate('form', 'name')
-    .populate({
-      path: 'questions.field',
-      select: '-updatedAt -createdAt -forms -creator',
-      populate: { path: 'type', select: 'name value description' },
-    });
+  const ticket = await getPopulatedTicket({ _id: req.params.ticketID });
 
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
@@ -512,13 +517,6 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     });
     // console.log('ticket', ticket);
 
-    // =====================> Add ticket to the creator tickets
-    // await User.findByIdAndUpdate(
-    //   req.user._id,
-    //   { $push: { tickets: ticket[0]._id } },
-    //   { new: true, runValidators: true, session: transactionSession }
-    // );
-
     // =====================> Add ticket to the assigned user tickets
     await User.findByIdAndUpdate(
       assignee,
@@ -531,6 +529,34 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       category,
       { $push: { tickets: ticket[0]._id } },
       { new: true, runValidators: true, session: transactionSession }
+    );
+
+    // =====================> Create Ticket Log
+    await TicketLog.create(
+      [
+        {
+          log: 'create',
+          user: req.user._id,
+          status: newTicketData.status,
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+
+    // =====================> Assign Ticket Log
+    await TicketLog.create(
+      [
+        {
+          log: 'assign',
+          user: req.user._id,
+          assignee: newTicketData.assignee,
+        },
+      ],
+      {
+        session: transactionSession,
+      }
     );
 
     newTicket = ticket[0];
@@ -554,18 +580,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     // req.body.link = 'Not found!';
     // await ticketUtilsHandler.notifyClientHandler(req, newTicket);
 
-    const updatedTicket = await Ticket.findById(newTicket._id)
-      .populate('category', 'name')
-      .populate('creator', 'firstName lastName photo')
-      .populate('assignee', 'firstName lastName photo')
-      .populate('team', 'name')
-      .populate('status', 'name')
-      .populate('form', 'name')
-      .populate({
-        path: 'questions.field',
-        select: '-updatedAt -createdAt -forms -creator',
-        populate: { path: 'type', select: 'name value description' },
-      });
+    const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
     res.status(201).json({
       status: 'success',
@@ -634,26 +649,101 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     new: true,
   });
 
-  const updatedTicket = await Ticket.findById(req.params.ticketID)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name')
-    .populate('form', 'name')
-    .populate({
-      path: 'questions.field',
-      select: '-updatedAt -createdAt -forms -creator',
-      populate: { path: 'type', select: 'name value description' },
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  let newUpdatedTicket;
+  try {
+    // =====================> Update Ticket Info
+    newUpdatedTicket = await Ticket.findByIdAndUpdate(
+      req.params.ticketID,
+      updatedBody,
+      {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      }
+    );
+
+    // =====================> Priority Ticket Log
+    if (req.body.priority && ticket.priority !== req.body.priority) {
+      await TicketLog.create(
+        [
+          {
+            log: 'priority',
+            user: req.user._id,
+            priority: req.body.priority,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // =====================> Status Ticket Log
+    if (status) {
+      await TicketLog.create(
+        [
+          {
+            log: 'status',
+            user: req.user._id,
+            status: status._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // =====================> Close Ticket Log
+    if (status && status.category === 'solved') {
+      await TicketLog.create(
+        [
+          {
+            log: 'close',
+            user: req.user._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+
+    console.log('New ticket created: ============', ticket[0]._id);
+  } catch (error) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      error
+    );
+  } finally {
+    transactionSession.endSession();
+  }
+
+  if (newUpdatedTicket) {
+    const updatedTicket = await getPopulatedTicket({
+      _id: req.params.ticketID,
     });
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Ticket updated successfully!',
-    data: {
-      ticket: updatedTicket,
-    },
-  });
+    res.status(200).json({
+      status: 'success',
+      message: 'Ticket updated successfully!',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't update the ticket! Try later.",
+    });
+  }
 });
 
 exports.transferTicket = catchAsync(async (req, res, next) => {
@@ -671,7 +761,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
   const updatedBody = {};
 
   if (assignee) {
-    if (ticket.assignee.equals(assignee) && ticket.team.equals(team)) {
+    if (ticket.assignee.equals(assignee)) {
       return next(
         new AppError('Ticket is already assigned to the same user!', 400)
       );
@@ -746,7 +836,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     });
 
     // console.log('teamUsers=============', teamUsers);
-    assignee = teamUsers[0];
+    assignee = teamUsers[0]._id;
 
     updatedBody.assignee = assignee;
     updatedBody.team = team;
@@ -764,42 +854,34 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     if (!status || status.status === 'inactive') {
       return next(new AppError('Invalid status!', 400));
     }
+
+    // ------> Adding status to updated body
+    updatedBody.status = status._id;
   }
 
   // ------> field required answer for solved status
   if (status && status.category === 'solved') {
-    await Promise.all(
-      ticket.questions.map(async (item) => {
-        const field = await Field.findById(item.field);
-        if (!field) {
-          return next(new AppError('Invalid field!', 400));
-        }
-
-        if (
-          (field.required || field.solveRequired) &&
-          (!item.answer || item.answer.length === 0)
-        ) {
-          return next(new AppError('Field answer is required!', 400));
-        }
-      })
+    return next(
+      new AppError("Couldn't transfer ticket with {{solved}} status!", 400)
     );
-  }
-
-  // ------> Adding status to updated body
-  if (status) {
-    updatedBody.status = status;
   }
 
   const previousAssignee = await User.findById(ticket.assignee);
 
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
+
+  let newUpdatedTicket;
   try {
-    await Ticket.findByIdAndUpdate(req.params.ticketID, updatedBody, {
-      runValidators: true,
-      new: true,
-      session: transactionSession,
-    });
+    newUpdatedTicket = await Ticket.findByIdAndUpdate(
+      req.params.ticketID,
+      updatedBody,
+      {
+        runValidators: true,
+        new: true,
+        session: transactionSession,
+      }
+    );
 
     // ======> Remove ticket from the previous assignee tickets array
     await User.findByIdAndUpdate(
@@ -815,6 +897,39 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       { new: true, runValidators: true, session: transactionSession }
     );
 
+    // ======> Status Ticket Log
+    if (updatedBody.status) {
+      await TicketLog.create(
+        [
+          {
+            log: 'status',
+            user: req.user._id,
+            status: updatedBody.status,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // ======> Transfer Ticket Log
+    await TicketLog.create(
+      [
+        {
+          log: 'transfer',
+          user: req.user._id,
+          transfer: {
+            from: { user: previousAssignee._id, team: ticket.team },
+            to: { user: assignee, team },
+          },
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+
     await transactionSession.commitTransaction();
   } catch (err) {
     await transactionSession.abortTransaction();
@@ -827,26 +942,24 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     transactionSession.endSession();
   }
 
-  const updatedTicket = await Ticket.findById(req.params.ticketID)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name')
-    .populate('form', 'name')
-    .populate({
-      path: 'questions.field',
-      select: '-updatedAt -createdAt -forms -creator',
-      populate: { path: 'type', select: 'name value description' },
+  if (newUpdatedTicket) {
+    const updatedTicket = await getPopulatedTicket({
+      _id: req.params.ticketID,
     });
 
-  res.status(200).json({
-    status: 'success',
-    messgae: 'Ticket has been reassigned successully!',
-    data: {
-      ticket: updatedTicket,
-    },
-  });
+    res.status(200).json({
+      status: 'success',
+      messgae: 'Ticket has been reassigned successully!',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't update the ticket! Try later.",
+    });
+  }
 });
 
 exports.updateTicketForm = catchAsync(async (req, res, next) => {
@@ -904,33 +1017,104 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     })
   );
 
-  // ----------> Updating ticket doc
-  await Ticket.findByIdAndUpdate(
-    req.params.ticketID,
-    { questions, tags },
-    { new: true, runValidators: true }
-  );
+  const updatedBody = { questions, tags };
 
-  const updatedTicket = await Ticket.findById(req.params.ticketID)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name')
-    .populate('form', 'name')
-    .populate({
-      path: 'questions.field',
-      select: '-updatedAt -createdAt -forms -creator',
-      populate: { path: 'type', select: 'name value description' },
+  if (status) {
+    updatedBody.status = status._id;
+  }
+
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  let newUpdatedTicket;
+  try {
+    // =====================> Update Ticket Info
+    newUpdatedTicket = await Ticket.findByIdAndUpdate(
+      req.params.ticketID,
+      updatedBody,
+      {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      }
+    );
+
+    // =====================> Form Ticket Log
+    await TicketLog.create(
+      [
+        {
+          log: 'form',
+          user: req.user._id,
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+
+    // =====================> Status Ticket Log
+    if (status) {
+      await TicketLog.create(
+        [
+          {
+            log: 'status',
+            user: req.user._id,
+            status: status._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // =====================> Close Ticket Log
+    if (status && status.category === 'solved') {
+      await TicketLog.create(
+        [
+          {
+            log: 'close',
+            user: req.user._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+
+    console.log('New ticket created: ============', ticket[0]._id);
+  } catch (error) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      error
+    );
+  } finally {
+    transactionSession.endSession();
+  }
+
+  if (newUpdatedTicket) {
+    const updatedTicket = await getPopulatedTicket({
+      _id: req.params.ticketID,
     });
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Ticket form updated successfully!',
-    data: {
-      ticket: updatedTicket,
-    },
-  });
+    res.status(200).json({
+      status: 'success',
+      message: 'Ticket form updated successfully!',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't update the ticket! Try later.",
+    });
+  }
 });
 
 exports.updateTicketClientData = catchAsync(async (req, res, next) => {
@@ -950,24 +1134,76 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     { runValidators: true, new: true }
   );
 
-  const updatedTicket = await Ticket.findById(req.params.ticketID)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name')
-    .populate('form', 'name')
-    .populate({
-      path: 'questions.field',
-      select: '-updatedAt -createdAt -forms -creator',
-      populate: { path: 'type', select: 'name value description' },
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  let newUpdatedTicket;
+  try {
+    // =====================> Update Ticket Info
+    newUpdatedTicket = await Ticket.findByIdAndUpdate(
+      req.params.ticketID,
+      { client },
+      {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      }
+    );
+
+    // =====================> Client Data Ticket Log
+    const clientDataUpdate = {};
+    if (client.name !== ticket.client.name) clientDataUpdate.name = client.name;
+    if (client.email !== ticket.client.email)
+      clientDataUpdate.email = client.email;
+    if (client.number !== ticket.client.number)
+      clientDataUpdate.number = client.number;
+
+    if (Object.entries(clientDataUpdate).length > 0) {
+      await TicketLog.create(
+        [
+          {
+            log: 'client',
+            user: req.user._id,
+            client,
+            // client: clientDataUpdate,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+
+    console.log('New ticket created: ============', ticket[0]._id);
+  } catch (error) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      error
+    );
+  } finally {
+    transactionSession.endSession();
+  }
+
+  if (newUpdatedTicket) {
+    const updatedTicket = await getPopulatedTicket({
+      _id: req.params.ticketID,
     });
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Client data updated successully!',
-    data: {
-      ticket: updatedTicket,
-    },
-  });
+    res.status(200).json({
+      status: 'success',
+      message: 'Client data updated successully!',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't update client data! Try later.",
+    });
+  }
 });

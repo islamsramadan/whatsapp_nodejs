@@ -4,12 +4,19 @@ const ticketLogSchema = new mongoose.Schema(
   {
     type: {
       type: String,
+      eunm: ['public', 'note'],
+      default: 'public',
+    },
+
+    log: {
+      type: String,
       enum: [
         'create',
         'assign',
         'transfer',
         'close',
         'comment',
+        'form',
         'status',
         'priority',
         'client',
@@ -30,12 +37,12 @@ const ticketLogSchema = new mongoose.Schema(
 
     transfer: {
       from: {
-        type: mongoose.Schema.ObjectId,
-        ref: 'User',
+        user: { type: mongoose.Schema.ObjectId, ref: 'User' },
+        team: { type: mongoose.Schema.ObjectId, ref: 'Team' },
       },
       to: {
-        type: mongoose.Schema.ObjectId,
-        ref: 'User',
+        user: { type: mongoose.Schema.ObjectId, ref: 'User' },
+        team: { type: mongoose.Schema.ObjectId, ref: 'Team' },
       },
     },
 
@@ -46,6 +53,12 @@ const ticketLogSchema = new mongoose.Schema(
 
     priority: {
       type: String,
+    },
+
+    client: {
+      name: { type: String },
+      email: { type: String },
+      number: { type: String },
     },
   },
   { timestamps: true }
