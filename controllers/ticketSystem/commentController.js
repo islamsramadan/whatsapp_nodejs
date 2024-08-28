@@ -9,6 +9,7 @@ const Comment = require('../../models/ticketSystem/commentModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const Field = require('../../models/ticketSystem/fieldModel');
+const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -183,9 +184,53 @@ exports.createComment = catchAsync(async (req, res, next) => {
       );
     }
 
-    await transactionSession.commitTransaction(); // Commit the transaction
+    // =====================> Comment Ticket Log
+    await TicketLog.create(
+      [
+        {
+          ticket: req.params.ticketID,
+          log: 'comment',
+          user: req.user._id,
+        },
+      ],
+      { session: transactionSession }
+    );
+
+    // =====================> Status Ticket Log
+    if (status) {
+      await TicketLog.create(
+        [
+          {
+            ticket: req.params.ticketID,
+            log: 'status',
+            user: req.user._id,
+            status: status._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // =====================> Close Ticket Log
+    if (status && status.category === 'solved') {
+      await TicketLog.create(
+        [
+          {
+            ticket: req.params.ticketID,
+            log: 'close',
+            user: req.user._id,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
 
     console.log('New comment created: ============', comment[0]._id);
+    await transactionSession.commitTransaction(); // Commit the transaction
   } catch (error) {
     await transactionSession.abortTransaction();
 
