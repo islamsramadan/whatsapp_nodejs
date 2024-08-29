@@ -297,7 +297,14 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllPastTickets = catchAsync(async (req, res, next) => {
-  const tickets = await Ticket.find({ refNo: req.query.refNo })
+  const ticket = await Ticket.findById(req.params.ticketID);
+
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 400));
+  }
+
+  const tickets = await Ticket.find({ refNo: ticket.refNo })
+    .select('-questions -client -users -type')
     .populate('category', 'name')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
