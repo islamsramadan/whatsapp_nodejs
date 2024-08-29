@@ -200,6 +200,22 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     filteredBody.assignee = req.query.assignee;
   }
 
+  if (req.query.team) {
+    filteredBody.team = req.query.team;
+  }
+
+  if (req.query.refNo) {
+    filteredBody.refNo = req.query.refNo;
+  }
+
+  if (req.query.requestNature) {
+    filteredBody.requestNature = req.query.requestNature;
+  }
+
+  if (req.query.requestType) {
+    filteredBody.requestType = req.query.requestType;
+  }
+
   const page = req.query.page || 1;
 
   const tickets = await Ticket.find(filteredBody)
@@ -266,6 +282,22 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
       ...filteredBody.createdAt,
       $lt: endDate,
     };
+  }
+
+  if (req.query.team) {
+    filteredBody.team = req.query.team;
+  }
+
+  if (req.query.refNo) {
+    filteredBody.refNo = req.query.refNo;
+  }
+
+  if (req.query.requestNature) {
+    filteredBody.requestNature = req.query.requestNature;
+  }
+
+  if (req.query.requestType) {
+    filteredBody.requestType = req.query.requestType;
   }
 
   const page = req.query.page || 1;
