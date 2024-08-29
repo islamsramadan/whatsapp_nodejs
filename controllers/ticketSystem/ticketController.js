@@ -27,7 +27,7 @@ const getPopulatedTicket = async (filterObj) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name')
+    .populate('status', 'name category')
     .populate('form', 'name')
     .populate({
       path: 'questions.field',
@@ -207,7 +207,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name')
+    .populate('status', 'name category')
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
     .select('-questions -client -users -type')
@@ -275,7 +275,7 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name')
+    .populate('status', 'name category')
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
     .skip((page - 1) * 20)
@@ -309,7 +309,7 @@ exports.getAllPastTickets = catchAsync(async (req, res, next) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name');
+    .populate('status', 'name category');
 
   res.status(200).json({
     status: 'success',
