@@ -227,11 +227,11 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
     .select('-questions -client -users -type')
-    .skip((page - 1) * 20)
-    .limit(20);
+    .skip((page - 1) * 5)
+    .limit(5);
 
   const totalResults = await Ticket.count(filteredBody);
-  const totalPages = Math.ceil(totalResults / 20);
+  const totalPages = Math.ceil(totalResults / 5);
 
   res.status(200).json({
     status: 'success',
