@@ -177,11 +177,15 @@ exports.createComment = catchAsync(async (req, res, next) => {
     newComment = comment[0];
 
     if (status) {
-      await Ticket.findByIdAndUpdate(
-        ticket._id,
-        { status: status._id },
-        { new: true, runValidators: true, session: transactionSession }
-      );
+      const ticketUpdatedBody = { status: status._id };
+      if (status.category === 'solved')
+        ticketUpdatedBody.solvingTime = new Date();
+
+      await Ticket.findByIdAndUpdate(ticket._id, ticketUpdatedBody, {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      });
     }
 
     // =====================> Comment Ticket Log

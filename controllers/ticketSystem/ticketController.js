@@ -227,11 +227,11 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
     .select('-questions -client -users -type')
-    .skip((page - 1) * 5)
-    .limit(5);
+    .skip((page - 1) * 20)
+    .limit(20);
 
   const totalResults = await Ticket.count(filteredBody);
-  const totalPages = Math.ceil(totalResults / 5);
+  const totalPages = Math.ceil(totalResults / 20);
 
   res.status(200).json({
     status: 'success',
@@ -683,6 +683,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
         }
       })
     );
+
+    updatedBody.solvingTime = new Date();
   }
 
   const transactionSession = await mongoose.startSession();
@@ -1064,6 +1066,10 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 
   if (status) {
     updatedBody.status = status._id;
+
+    if (status.category === 'solved') {
+      updatedBody.solvingTime = new Date();
+    }
   }
 
   const transactionSession = await mongoose.startSession();

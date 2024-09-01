@@ -165,6 +165,10 @@ const ticketSchema = new mongoose.Schema(
     questions: {
       type: [questionSchema],
     },
+
+    solvingTime: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
