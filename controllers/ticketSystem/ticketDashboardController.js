@@ -24,7 +24,7 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
   }
 
   const tickets = await Ticket.find(filteredBody)
-    .select('status')
+    .select('status createdAt solvingTime')
     .populate('status', 'category');
 
   // =================> Total tickets
@@ -33,19 +33,35 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
   // =================> Solved tickets
   const solvedTickets = tickets.filter(
     (ticket) => ticket.status.category === 'solved'
-  ).length;
+  );
 
   // =================> Unsolved tickets
-  const unsolvedTickets = totalTickets - solvedTickets;
+  const unsolvedTickets = totalTickets - solvedTickets.length;
 
   // =================> Solved time average
-  const solvedTicketsTime = tickets.map((ticket) => {
-    if (ticket.status.category === 'solved' && ticket.solvingTime) {
-      const creationTime = ticket.createdAt;
-      const solvingTime = ticket.solvingTime;
-      return solvingTime - creationTime;
-    }
-  });
+  const solvedTicketsTime = solvedTickets
+    .filter(
+      (ticket) => ticket.status.category === 'solved' && ticket.solvingTime
+    )
+    .map((item) => item.solvingTime - item.createdAt);
+
+  //   console.log('solvedTicketsTime', solvedTicketsTime);
+
+  function convertMillisecondsToHoursMinutes(milliseconds) {
+    // Convert milliseconds to total seconds
+    const totalSeconds = Math.floor(milliseconds / 1000);
+
+    // Calculate total minutes from total seconds
+    const totalMinutes = Math.floor(totalSeconds / 60);
+
+    // Calculate hours from total minutes
+    const hours = Math.floor(totalMinutes / 60);
+
+    // Remaining minutes after converting to hours
+    const minutes = totalMinutes % 60;
+
+    return { hours, minutes };
+  }
 
   let solvedTimeAverage;
   if (solvedTicketsTime.length > 0) {
@@ -53,13 +69,15 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
       solvedTicketsTime.reduce((acc, cur) => {
         return acc + cur;
       }, 0) / solvedTicketsTime.length;
+
+    solvedTimeAverage = convertMillisecondsToHoursMinutes(solvedTimeAverage);
   }
 
   res.status(200).json({
     status: 'success',
     data: {
       totalTickets,
-      solvedTickets,
+      solvedTickets: solvedTickets.length,
       unsolvedTickets,
       solvedTimeAverage,
     },
@@ -84,10 +102,14 @@ exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
 
   const tickets = await Ticket.find(filteredBody).select('priority');
 
-  const Urgent = tickets.map((ticket) => ticket.priority === 'Urgent').length;
-  const High = tickets.map((ticket) => ticket.priority === 'High').length;
-  const Normal = tickets.map((ticket) => ticket.priority === 'Normal').length;
-  const Low = tickets.map((ticket) => ticket.priority === 'Low').length;
+  const Urgent = tickets.filter(
+    (ticket) => ticket.priority === 'Urgent'
+  ).length;
+  const High = tickets.filter((ticket) => ticket.priority === 'High').length;
+  const Normal = tickets.filter(
+    (ticket) => ticket.priority === 'Normal'
+  ).length;
+  const Low = tickets.filter((ticket) => ticket.priority === 'Low').length;
 
   res.status(200).json({
     status: 'success',
@@ -119,13 +141,13 @@ exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
 
   const tickets = await Ticket.find(filteredBody).select('requestNature');
 
-  const Request = tickets.map(
+  const Request = tickets.filter(
     (ticket) => ticket.requestNature === 'Request'
   ).length;
-  const Complaint = tickets.map(
+  const Complaint = tickets.filter(
     (ticket) => ticket.requestNature === 'Complaint'
   ).length;
-  const Inquiry = tickets.map(
+  const Inquiry = tickets.filter(
     (ticket) => ticket.requestNature === 'Inquiry'
   ).length;
 
@@ -158,31 +180,33 @@ exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
 
   const tickets = await Ticket.find(filteredBody).select('requestType');
 
-  const RD0 = tickets.map((ticket) => ticket.requestType === 'RD0').length;
-  const EditRD0 = tickets.map(
+  const RD0 = tickets.filter((ticket) => ticket.requestType === 'RD0').length;
+  const EditRD0 = tickets.filter(
     (ticket) => ticket.requestType === 'Edit RD0'
   ).length;
-  const MissingData = tickets.map(
+  const MissingData = tickets.filter(
     (ticket) => ticket.requestType === 'Missing Data'
   ).length;
-  const DesignReview = tickets.map(
+  const DesignReview = tickets.filter(
     (ticket) => ticket.requestType === 'Design Review'
   ).length;
-  const RD6 = tickets.map((ticket) => ticket.requestType === 'RD6').length;
-  const RD7 = tickets.map((ticket) => ticket.requestType === 'RD7').length;
-  const Finance = tickets.map(
+  const RD6 = tickets.filter((ticket) => ticket.requestType === 'RD6').length;
+  const RD7 = tickets.filter((ticket) => ticket.requestType === 'RD7').length;
+  const Finance = tickets.filter(
     (ticket) => ticket.requestType === 'Finance'
   ).length;
-  const Inspection = tickets.map(
+  const Inspection = tickets.filter(
     (ticket) => ticket.requestType === 'Inspection'
   ).length;
-  const MALATHIssue = tickets.map(
+  const MALATHIssue = tickets.filter(
     (ticket) => ticket.requestType === 'MALATH Issue'
   ).length;
-  const MALATHComplaint = tickets.map(
+  const MALATHComplaint = tickets.filter(
     (ticket) => ticket.requestType === 'MALATH Complaint'
   ).length;
-  const Other = tickets.map((ticket) => ticket.requestType === 'Other').length;
+  const Other = tickets.filter(
+    (ticket) => ticket.requestType === 'Other'
+  ).length;
 
   res.status(200).json({
     status: 'success',
@@ -223,9 +247,15 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
 
   const responsesReceived = tickets.map((ticket) => ticket.rating).length;
 
-  const Positive = tickets.map((ticket) => ticket.rating === 'Positive').length;
-  const Negative = tickets.map((ticket) => ticket.rating === 'Negative').length;
-  const Neutral = tickets.map((ticket) => ticket.rating === 'Neutral').length;
+  const Positive = tickets.filter(
+    (ticket) => ticket.rating === 'Positive'
+  ).length;
+  const Negative = tickets.filter(
+    (ticket) => ticket.rating === 'Negative'
+  ).length;
+  const Neutral = tickets.filter(
+    (ticket) => ticket.rating === 'Neutral'
+  ).length;
 
   res.status(200).json({
     status: 'success',
