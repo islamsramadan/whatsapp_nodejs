@@ -20,6 +20,9 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
     };
   }
 
+  if (req.query.startDate) {
+  }
+
   const tickets = await Ticket.find(filteredBody)
     .select('status')
     .populate('status', 'category');
@@ -28,7 +31,7 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
   const totalTickets = tickets.length;
 
   // =================> Solved tickets
-  const solvedTickets = tickets.map(
+  const solvedTickets = tickets.filter(
     (ticket) => ticket.status.category === 'solved'
   ).length;
 
