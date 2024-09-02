@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const json2xls = require('json2xls');
+const fs = require('fs');
 
 const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
@@ -216,33 +218,118 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     filteredBody.requestType = req.query.requestType;
   }
 
-  const page = req.query.page || 1;
-
-  const tickets = await Ticket.find(filteredBody)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name category')
+  if (req.query.type === 'download') {
+    let tickets = await Ticket.find(filteredBody)
+      .populate('category', 'name')
+      .populate('creator', 'firstName lastName photo')
+      .populate('assignee', 'firstName lastName photo')
+      .populate('team', 'name')
+      .populate('status', 'name category')
+      .populate({
+        path: 'questions.field',
+        select: '-updatedAt -createdAt -forms -creator',
+        populate: { path: 'type', select: 'name value description' },
+      });
     // .populate('form', 'name')
     // .populate('questions.field', 'name')
-    .select('-questions -client -users -type')
-    .skip((page - 1) * 20)
-    .limit(20);
+    // .select('-questions -client -users -type');
 
-  const totalResults = await Ticket.count(filteredBody);
-  const totalPages = Math.ceil(totalResults / 20);
+    const keys = [];
+    tickets.map((ticket) => {
+      const questions = ticket.questions.map((question) => ({
+        [question.field.name]: question.answer[0],
+      }));
 
-  res.status(200).json({
-    status: 'success',
-    results: tickets.length,
-    data: {
-      totalResults,
-      totalPages,
-      page,
-      tickets,
-    },
-  });
+      // console.log('questions', questions);
+      const questionKeys = questions.map((item) => Object.keys(item));
+      questionKeys.map((item) => {
+        if (!keys.includes(item[0])) keys.push(item[0]);
+      });
+      // questionKeys = questionKeys.map((item) => item[0]);
+      // console.log('questionKeys', questionKeys);
+    });
+
+    console.log('keys', keys);
+
+    tickets = tickets.map((ticket) => {
+      const fieldsNames = ticket.questions.map((item) => item.field.name);
+      const questions = {};
+      keys.map((key) => {
+        if (fieldsNames.includes(key)) {
+          const answer = ticket.questions.filter(
+            (item) => item.field.name === key
+          )[0].answer;
+
+          console.log('answer', answer);
+
+          questions[key] = answer && answer.length > 0 ? answer[0] : '';
+        } else {
+          questions[key] = '';
+        }
+      });
+
+      // console.log('questions', questions);
+      return {
+        id: ticket._id,
+        order: ticket.order,
+        category: ticket.category.name,
+        priority: ticket.priority,
+        creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+        assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
+        department: ticket.team.name,
+        status: ticket.status.name,
+        refNo: ticket.refNo,
+        requestNature: ticket.requestNature,
+        requestType: ticket.requestType,
+        ...questions,
+      };
+    });
+
+    // console.log('tickets', tickets);
+
+    // Convert JSON to Excel
+    const xls = json2xls(tickets);
+
+    // Generate a unique filename
+    const fileName = `tickets_${Date.now()}.xlsx`;
+
+    // Write the Excel file to disk
+    fs.writeFileSync(fileName, xls, 'binary');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    const page = req.query.page || 1;
+
+    const tickets = await Ticket.find(filteredBody)
+      .populate('category', 'name')
+      .populate('creator', 'firstName lastName photo')
+      .populate('assignee', 'firstName lastName photo')
+      .populate('team', 'name')
+      .populate('status', 'name category')
+      // .populate('form', 'name')
+      // .populate('questions.field', 'name')
+      .select('-questions -client -users -type')
+      .skip((page - 1) * 20)
+      .limit(20);
+
+    const totalResults = await Ticket.count(filteredBody);
+    const totalPages = Math.ceil(totalResults / 20);
+
+    res.status(200).json({
+      status: 'success',
+      results: tickets.length,
+      data: {
+        totalResults,
+        totalPages,
+        page,
+        tickets,
+      },
+    });
+  }
 });
 
 exports.getAllUserTickets = catchAsync(async (req, res, next) => {
@@ -966,6 +1053,129 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
             from: { user: previousAssignee._id, team: ticket.team },
             to: { user: assignee, team },
           },
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+
+    await transactionSession.commitTransaction();
+  } catch (err) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      err
+    );
+
+    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+  } finally {
+    transactionSession.endSession();
+  }
+
+  if (newUpdatedTicket) {
+    const updatedTicket = await getPopulatedTicket({
+      _id: req.params.ticketID,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      messgae: 'Ticket has been reassigned successully!',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't update the ticket! Try later.",
+    });
+  }
+});
+
+exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (!req.user.tasks.includes('tickets')) {
+    return next(
+      new AppError(
+        "User with no tickets task couldn't take ticket ownership!",
+        400
+      )
+    );
+  }
+
+  const team = await Team.findById(req.user.team);
+  if (!team) {
+    return next(
+      new AppError("Ticket couldn't transfer to a user with no team!", 400)
+    );
+  }
+
+  const previousAssignee = await User.findById(ticket.assignee);
+
+  const updatedBody = {
+    assignee: req.user._id,
+    team: req.user.team,
+  };
+
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  let newUpdatedTicket;
+  try {
+    newUpdatedTicket = await Ticket.findByIdAndUpdate(
+      req.params.ticketID,
+      updatedBody,
+      {
+        runValidators: true,
+        new: true,
+        session: transactionSession,
+      }
+    );
+
+    // ======> Remove ticket from the previous assignee tickets array
+    await User.findByIdAndUpdate(
+      previousAssignee._id,
+      { $pull: { tickets: ticket._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
+
+    // ======> Add ticket to the new assignee tickets array
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $push: { tickets: ticket._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
+
+    // ======> Status Ticket Log
+    if (updatedBody.status) {
+      await TicketLog.create(
+        [
+          {
+            ticket: req.params.ticketID,
+            log: 'status',
+            user: req.user._id,
+            status: updatedBody.status,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+    }
+
+    // ======> Transfer Ticket Log
+    await TicketLog.create(
+      [
+        {
+          ticket: req.params.ticketID,
+          log: 'takeOwnership',
+          user: req.user._id,
         },
       ],
       {

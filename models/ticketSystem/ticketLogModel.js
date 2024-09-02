@@ -26,6 +26,7 @@ const ticketLogSchema = new mongoose.Schema(
         'status',
         'priority',
         'client',
+        'takeOwnership',
       ],
       required: [true, 'Ticket log type is required!'],
     },

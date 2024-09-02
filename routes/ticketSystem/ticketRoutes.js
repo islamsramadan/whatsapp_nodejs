@@ -12,8 +12,8 @@ router.use('/:ticketID/ticket-logs', ticketLogRouter);
 router
   .route('/')
   .get(
-    authController.protect,
-    authController.restrictToTasks('tickets'),
+    // authController.protect,
+    // authController.restrictToTasks('tickets'),
     ticketController.getAllTickets
   )
   .post(
@@ -60,6 +60,14 @@ router
     authController.protect,
     authController.restrictToTasks('tickets'),
     ticketController.transferTicket
+  );
+
+router
+  .route('/:ticketID/take-ownership')
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    ticketController.takeTicketOwnership
   );
 
 router
