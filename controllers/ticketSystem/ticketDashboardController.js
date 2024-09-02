@@ -251,7 +251,7 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
 
   const tickets = await Ticket.find(filteredBody).select('rating');
 
-  const responsesReceived = tickets.map((ticket) => ticket.rating).length;
+  const responsesReceived = tickets.filter((ticket) => ticket.rating).length;
 
   const Positive = tickets.filter(
     (ticket) => ticket.rating === 'Positive'
