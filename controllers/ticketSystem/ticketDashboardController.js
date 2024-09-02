@@ -54,13 +54,19 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
     // Calculate total minutes from total seconds
     const totalMinutes = Math.floor(totalSeconds / 60);
 
-    // Calculate hours from total minutes
-    const hours = Math.floor(totalMinutes / 60);
+    // Calculate total hours from total minutes
+    const totalHours = Math.floor(totalMinutes / 60);
+
+    // Calculate days from total hours
+    const days = Math.floor(totalHours / 24);
+
+    // Remaining hours after converting to days
+    const hours = totalHours % 24;
 
     // Remaining minutes after converting to hours
     const minutes = totalMinutes % 60;
 
-    return { hours, minutes };
+    return { days, hours, minutes };
   }
 
   let solvedTimeAverage;
