@@ -266,10 +266,10 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      responsesReceived,
-      Positive,
-      Negative,
-      Neutral,
+      responsesReceived: 23,
+      Positive: 10,
+      Negative: 5,
+      Neutral: 8,
     },
   });
 });
