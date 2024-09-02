@@ -169,6 +169,11 @@ const ticketSchema = new mongoose.Schema(
     solvingTime: {
       type: Date,
     },
+
+    rating: {
+      type: String,
+      enum: ['Positive', 'Negative', 'Neutral'],
+    },
   },
   { timestamps: true }
 );

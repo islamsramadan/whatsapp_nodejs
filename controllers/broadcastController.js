@@ -660,17 +660,18 @@ exports.getAllBroadcasts = catchAsync(async (req, res, next) => {
     filterObj.template = { $in: templates };
   }
 
-  if (req.query.startDate)
-    filterObj.createdAt = {
-      ...filterObj.createdAt,
-      $gt: new Date(req.query.startDate),
-    };
+  if (req.query.startDate) {
+    filterObj.createdAt = { $gt: new Date(req.query.startDate) };
+  }
+  if (req.query.endDate) {
+    const endDate = new Date(req.query.endDate);
+    endDate.setDate(endDate.getDate() + 1);
 
-  if (req.query.endDate)
     filterObj.createdAt = {
       ...filterObj.createdAt,
-      $lt: new Date(req.query.endDate),
+      $lt: endDate,
     };
+  }
 
   broadcasts = await Broadcast.find(filterObj)
     .populate('user', 'firstName lastName')
