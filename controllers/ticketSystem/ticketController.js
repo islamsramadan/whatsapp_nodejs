@@ -1152,23 +1152,6 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
       { new: true, runValidators: true, session: transactionSession }
     );
 
-    // ======> Status Ticket Log
-    if (updatedBody.status) {
-      await TicketLog.create(
-        [
-          {
-            ticket: req.params.ticketID,
-            log: 'status',
-            user: req.user._id,
-            status: updatedBody.status,
-          },
-        ],
-        {
-          session: transactionSession,
-        }
-      );
-    }
-
     // ======> Transfer Ticket Log
     await TicketLog.create(
       [
