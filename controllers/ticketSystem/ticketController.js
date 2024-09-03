@@ -225,12 +225,12 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       .populate('assignee', 'firstName lastName photo')
       .populate('team', 'name')
       .populate('status', 'name category')
+      .populate('form', 'name')
       .populate({
         path: 'questions.field',
         select: '-updatedAt -createdAt -forms -creator',
         populate: { path: 'type', select: 'name value description' },
       });
-    // .populate('form', 'name')
     // .populate('questions.field', 'name')
     // .select('-questions -client -users -type');
 
@@ -281,6 +281,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
         refNo: ticket.refNo,
         requestNature: ticket.requestNature,
         requestType: ticket.requestType,
+        form: ticket.form.name,
         ...questions,
       };
     });
@@ -333,13 +334,15 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllUserTickets = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.userID);
-  if (!user) {
-    return next(new AppError('No user found with that ID!', 404));
+  const team = await Team.findById(req.user.team);
+  if (!team) {
+    return next(
+      new AppError('User must belong to a team to view ticket!', 400)
+    );
   }
 
   const filteredBody = {
-    $or: [{ creator: req.params.userID }, { assignee: req.params.userID }],
+    $or: [{ creator: req.user._id }, { assignee: req.user._id }],
   };
 
   if (req.query.order) {
@@ -387,32 +390,117 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     filteredBody.requestType = req.query.requestType;
   }
 
-  const page = req.query.page || 1;
+  if (req.query.type === 'download') {
+    let tickets = await Ticket.find(filteredBody)
+      .populate('category', 'name')
+      .populate('creator', 'firstName lastName photo')
+      .populate('assignee', 'firstName lastName photo')
+      .populate('team', 'name')
+      .populate('status', 'name category')
+      .populate('form', 'name')
+      .populate({
+        path: 'questions.field',
+        select: '-updatedAt -createdAt -forms -creator',
+        populate: { path: 'type', select: 'name value description' },
+      });
 
-  const tickets = await Ticket.find(filteredBody)
-    .populate('category', 'name')
-    .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
-    .populate('team', 'name')
-    .populate('status', 'name category')
-    // .populate('form', 'name')
-    // .populate('questions.field', 'name')
-    .skip((page - 1) * 20)
-    .limit(20);
+    const keys = [];
+    tickets.map((ticket) => {
+      const questions = ticket.questions.map((question) => ({
+        [question.field.name]: question.answer[0],
+      }));
 
-  const totalResults = await Ticket.count(filteredBody);
-  const totalPages = Math.ceil(totalResults / 20);
+      // console.log('questions', questions);
+      const questionKeys = questions.map((item) => Object.keys(item));
+      questionKeys.map((item) => {
+        if (!keys.includes(item[0])) keys.push(item[0]);
+      });
+      // questionKeys = questionKeys.map((item) => item[0]);
+      // console.log('questionKeys', questionKeys);
+    });
 
-  res.status(200).json({
-    status: 'success',
-    results: tickets.length,
-    data: {
-      totalResults,
-      totalPages,
-      page,
-      tickets,
-    },
-  });
+    console.log('keys', keys);
+
+    tickets = tickets.map((ticket) => {
+      const fieldsNames = ticket.questions.map((item) => item.field.name);
+      const questions = {};
+      keys.map((key) => {
+        if (fieldsNames.includes(key)) {
+          const answer = ticket.questions.filter(
+            (item) => item.field.name === key
+          )[0].answer;
+
+          console.log('answer', answer);
+
+          questions[key] = answer && answer.length > 0 ? answer[0] : '';
+        } else {
+          questions[key] = '';
+        }
+      });
+
+      // console.log('questions', questions);
+      return {
+        id: ticket._id,
+        order: ticket.order,
+        category: ticket.category.name,
+        priority: ticket.priority,
+        creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+        assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
+        department: ticket.team.name,
+        status: ticket.status.name,
+        refNo: ticket.refNo,
+        requestNature: ticket.requestNature,
+        requestType: ticket.requestType,
+        form: ticket.form.name,
+        ...questions,
+      };
+    });
+
+    // console.log('tickets', tickets);
+
+    // Convert JSON to Excel
+    const xls = json2xls(tickets);
+
+    // Generate a unique filename
+    const fileName = `tickets_${Date.now()}.xlsx`;
+
+    // Write the Excel file to disk
+    fs.writeFileSync(fileName, xls, 'binary');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    const page = req.query.page || 1;
+
+    const tickets = await Ticket.find(filteredBody)
+      .populate('category', 'name')
+      .populate('creator', 'firstName lastName photo')
+      .populate('assignee', 'firstName lastName photo')
+      .populate('team', 'name')
+      .populate('status', 'name category')
+      // .populate('form', 'name')
+      // .populate('questions.field', 'name')
+      .select('-questions -client -users -type')
+      .skip((page - 1) * 20)
+      .limit(20);
+
+    const totalResults = await Ticket.count(filteredBody);
+    const totalPages = Math.ceil(totalResults / 20);
+
+    res.status(200).json({
+      status: 'success',
+      results: tickets.length,
+      data: {
+        totalResults,
+        totalPages,
+        page,
+        tickets,
+      },
+    });
+  }
 });
 
 exports.getAllPastTickets = catchAsync(async (req, res, next) => {
