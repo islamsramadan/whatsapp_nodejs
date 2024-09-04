@@ -23,14 +23,6 @@ router
   );
 
 router
-  .route('/filters')
-  .get(
-    authController.protect,
-    authController.restrictToTasks('tickets'),
-    ticketController.getAllTicketsFilters
-  );
-
-router
   .route('/user-tickets')
   .get(
     authController.protect,
