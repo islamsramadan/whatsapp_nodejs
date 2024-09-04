@@ -6,6 +6,7 @@ const catchAsync = require('../../utils/catchAsync');
 const User = require('../../models/userModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const Team = require('../../models/teamModel');
+const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 
 exports.getAllTicketsFilters = catchAsync(async (req, res, next) => {
   // console.log('req.user', req.user);
@@ -194,42 +195,87 @@ exports.getAllTeamTickets = catchAsync(async (req, res, next) => {
     return next(new AppError('Teams IDs are required!', 400));
   }
 
-  let tickets = await Ticket.find({
-    team: { $in: teamsIDs },
-  }).populate('status', 'name category');
+  let page = req.query.page || 1;
+  let tickets, totalResults, totalPages;
 
-  tickets = tickets.filter((ticket) =>
-    statuses.includes(ticket.status.category)
+  let statusesIDs = await TicketStatus.find({ category: { $in: statuses } });
+  statusesIDs = statusesIDs.map(
+    (item) => new mongoose.Types.ObjectId(item._id)
   );
+
+  tickets = await Ticket.find({
+    team: { $in: teamsIDs },
+    status: { $in: statusesIDs },
+  })
+    .populate('status', 'name category')
+    .limit(page * 10);
+
+  totalResults = await Ticket.count({
+    team: { $in: teamsIDs },
+    status: { $in: statusesIDs },
+  });
+
+  totalPages = Math.ceil(totalResults / 10);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
 
   res.status(200).json({
     status: 'success',
     results: tickets.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       tickets,
     },
   });
 });
 
 exports.getAllUserTickets = catchAsync(async (req, res, next) => {
-  let statuses = req.query.status.split(',');
-  if (statuses.includes('all')) {
-    statuses = ['open', 'onTime', 'danger', 'tooLate'];
+  if (!req.query.status) {
+    return next(new AppError('Status is required', 400));
   }
 
-  let tickets = await Ticket.find({ assignee: req.user._id }).populate(
-    'status',
-    'name category'
+  let statuses = req.query.status.split(',');
+  if (statuses.includes('all')) {
+    statuses = ['open', 'new', 'pending', 'solved'];
+  }
+
+  let page = req.query.page || 1;
+  let tickets, totalResults, totalPages;
+
+  let statusesIDs = await TicketStatus.find({ category: { $in: statuses } });
+  statusesIDs = statusesIDs.map(
+    (item) => new mongoose.Types.ObjectId(item._id)
   );
 
-  tickets = tickets.filter((ticket) =>
-    statuses.includes(ticket.status.category)
-  );
+  tickets = await Ticket.find({
+    assignee: req.user._id,
+    status: { $in: statusesIDs },
+  })
+    .populate('status', 'name category')
+    .limit(page * 10);
+
+  totalResults = await Ticket.count({
+    assignee: req.user._id,
+    status: { $in: statusesIDs },
+  });
+
+  totalPages = Math.ceil(totalResults / 10);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
 
   res.status(200).json({
     status: 'success',
     results: tickets.length,
     data: {
+      totalResults,
+      totalPages,
+      page,
       tickets,
     },
   });
