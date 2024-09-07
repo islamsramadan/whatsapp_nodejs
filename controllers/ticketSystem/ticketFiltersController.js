@@ -207,6 +207,10 @@ exports.getAllTeamTickets = catchAsync(async (req, res, next) => {
     team: { $in: teamsIDs },
     status: { $in: statusesIDs },
   })
+    .select('-updatedAt -questions -users -solvingTime -form')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
     .populate('status', 'name category')
     .limit(page * 10);
 
@@ -255,6 +259,11 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     assignee: req.user._id,
     status: { $in: statusesIDs },
   })
+    .select('-updatedAt -questions -users -solvingTime -form')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
     .populate('status', 'name category')
     .limit(page * 10);
 

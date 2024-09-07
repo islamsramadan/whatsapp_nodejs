@@ -174,6 +174,10 @@ const ticketSchema = new mongoose.Schema(
       type: String,
       enum: ['Positive', 'Negative', 'Neutral'],
     },
+
+    feedback: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
