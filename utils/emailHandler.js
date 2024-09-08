@@ -55,10 +55,14 @@ exports.mailerSendEmail = async (emailDetails) => {
     apiKey: process.env.MAILERSEND_TOKEN,
   });
 
-  const sentFrom = new Sender(
-    'MS_UTHnaw@trial-pq3enl6e7x742vwr.mlsender.net',
-    'CPV Arabia'
-  );
+  // test mail sender
+  // const sentFrom = new Sender(
+  //   'MS_UTHnaw@trial-pq3enl6e7x742vwr.mlsender.net',
+  //   'CPV Arabia'
+  // );
+
+  // production mail sender
+  const sentFrom = new Sender('customercare@cpvarabia.com');
 
   const recipients = [
     // new Recipient('islamlaam@gmail.com'),
