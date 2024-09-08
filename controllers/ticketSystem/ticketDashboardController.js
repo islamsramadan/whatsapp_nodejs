@@ -8,19 +8,15 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
   if (req.query.startDate) {
-    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
-  }
-  if (req.query.endDate) {
-    const endDate = new Date(req.query.endDate);
-    endDate.setDate(endDate.getDate() + 1);
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
 
     filteredBody.createdAt = {
-      ...filteredBody.createdAt,
-      $lt: endDate,
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
     };
-  }
-
-  if (req.query.startDate) {
   }
 
   const tickets = await Ticket.find(filteredBody)
@@ -94,15 +90,14 @@ exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
   if (req.query.startDate) {
-    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
-  }
-  if (req.query.endDate) {
-    const endDate = new Date(req.query.endDate);
-    endDate.setDate(endDate.getDate() + 1);
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
 
     filteredBody.createdAt = {
-      ...filteredBody.createdAt,
-      $lt: endDate,
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
     };
   }
 
@@ -133,15 +128,14 @@ exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
   if (req.query.startDate) {
-    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
-  }
-  if (req.query.endDate) {
-    const endDate = new Date(req.query.endDate);
-    endDate.setDate(endDate.getDate() + 1);
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
 
     filteredBody.createdAt = {
-      ...filteredBody.createdAt,
-      $lt: endDate,
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
     };
   }
 
@@ -172,15 +166,14 @@ exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
   if (req.query.startDate) {
-    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
-  }
-  if (req.query.endDate) {
-    const endDate = new Date(req.query.endDate);
-    endDate.setDate(endDate.getDate() + 1);
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
 
     filteredBody.createdAt = {
-      ...filteredBody.createdAt,
-      $lt: endDate,
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
     };
   }
 
@@ -237,15 +230,14 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
   if (req.query.startDate) {
-    filteredBody.createdAt = { $gt: new Date(req.query.startDate) };
-  }
-  if (req.query.endDate) {
-    const endDate = new Date(req.query.endDate);
-    endDate.setDate(endDate.getDate() + 1);
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
 
     filteredBody.createdAt = {
-      ...filteredBody.createdAt,
-      $lt: endDate,
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
     };
   }
 
@@ -266,10 +258,10 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      responsesReceived: 23,
-      Positive: 10,
-      Negative: 5,
-      Neutral: 8,
+      responsesReceived,
+      Positive,
+      Negative,
+      Neutral,
     },
   });
 });
@@ -277,17 +269,27 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
 exports.getWeeklySolvedTickets = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
-  if (!req.query.startDate || !req.query.endDate) {
-    return next(new AppError('Date range is required!', 400));
+  if (req.query.startDate) {
+    const start = new Date(req.query.startDate);
+    const end = new Date(
+      req.query.endDate ? req.query.endDate : req.query.startDate
+    );
+
+    filteredBody.createdAt = {
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
+    };
+  } else {
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+
+    const end = new Date();
+
+    filteredBody.createdAt = {
+      $gte: getDateRange(start, end).start,
+      $lte: getDateRange(start, end).end,
+    };
   }
-
-  const start = new Date(req.query.startDate);
-  const end = new Date(req.query.endDate);
-
-  filteredBody.createdAt = {
-    $gte: getDateRange(start, end).start,
-    $lte: getDateRange(start, end).end,
-  };
 
   console.log('filteredBody', filteredBody);
 
