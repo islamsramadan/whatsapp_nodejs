@@ -10,6 +10,7 @@ const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const Field = require('../../models/ticketSystem/fieldModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
+const { mailerSendEmail } = require('../../utils/emailHandler');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -251,21 +252,33 @@ exports.createComment = catchAsync(async (req, res, next) => {
   // ===================> Notify client
 
   // to send email if type is public
-  // if (req.body.type === 'public') {
-  //   let link = '';
-  //   if (req.files) {
-  //     const linksArray = req.files.map(
-  //       (item) => `https://wp.designal.cc/${item.filename}`
-  //     );
-  //     link = linksArray.join(' -- ');
-  //   } else {
-  //     link = 'Not found!';
-  //   }
-  //   req.body.ticketID = ticket._id;
-  //   req.body.link = link;
+  if (req.body.type === 'public' && ticket.client.email) {
+    // let link = '';
+    // if (req.files) {
+    //   const linksArray = req.files.map(
+    //     (item) => `https://wp.designal.cc/${item.filename}`
+    //   );
+    //   link = linksArray.join(' -- ');
+    // } else {
+    //   link = 'Not found!';
+    // }
+    // req.body.ticketID = ticket._id;
+    // req.body.link = link;
 
-  //   // await ticketUtilsHandler.notifyClientHandler(req, ticket);
-  // }
+    // await ticketUtilsHandler.notifyClientHandler(req, ticket);
+
+    const emailDetails = {
+      to: ticket.client.email,
+      subject: `New Comment on ticket-${ticket._id}`,
+      text: newComment.text || 'find the attached',
+    };
+
+    if (newComment.attachments) {
+      emailDetails.attachments = newComment.attachments;
+    }
+
+    // mailerSendEmail(emailDetails);
+  }
 
   res.status(201).json({
     status: 'success',
