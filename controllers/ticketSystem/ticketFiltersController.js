@@ -289,3 +289,40 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.getAllTeamUserTickets = catchAsync(async (req, res, next) => {
+  let page = req.query.page || 1;
+  let tickets, totalResults, totalPages;
+
+  tickets = await Ticket.find({
+    assignee: req.params.userID,
+  })
+    .select('-updatedAt -questions -users -solvingTime -form')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .populate('status', 'name category')
+    .limit(page * 10);
+
+  totalResults = await Ticket.count({
+    assignee: req.params.userID,
+  });
+
+  totalPages = Math.ceil(totalResults / 10);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
+
+  res.status(200).json({
+    status: 'success',
+    results: tickets.length,
+    data: {
+      totalResults,
+      totalPages,
+      page,
+      tickets,
+    },
+  });
+});

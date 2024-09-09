@@ -230,12 +230,16 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       '',
       '', // Empty cell for alignment
       'CPV ARABIA',
+      '',
+      '',
+      'Rev. No.0 Issue Date: 01/10/2023',
     ]);
 
     // Define the range for merging cells
     const mergeRanges = [
       { start: 'B1', end: 'G1' },
-      { start: 'I1', end: 'K1' },
+      { start: 'I1', end: 'J1' },
+      { start: 'L1', end: 'R1' },
     ];
 
     // Merge cells based on defined ranges

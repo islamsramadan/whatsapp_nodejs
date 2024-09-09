@@ -38,4 +38,13 @@ router
     ticketFiltersController.getAllTeamTickets
   );
 
+router
+  .route('/tickets/team-users/:userID')
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    ticketFiltersController.getAllTeamUserTickets
+  );
+
 module.exports = router;
