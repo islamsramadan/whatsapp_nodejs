@@ -9,14 +9,21 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
-    filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
-    };
+    if (req.query.endDate) {
+      const end = new Date(req.query.endDate);
+
+      const dateRange = getDateRange(start, end);
+
+      filteredBody.createdAt = {
+        $gte: dateRange.start,
+        $lte: dateRange.end,
+      };
+    } else {
+      filteredBody.createdAt = {
+        $gte: getDateRange(start).start,
+      };
+    }
   }
 
   const tickets = await Ticket.find(filteredBody)
@@ -89,16 +96,35 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
 exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
+  // if (req.query.startDate) {
+  //   const start = new Date(req.query.startDate);
+  //   const end = new Date(
+  //     req.query.endDate ? req.query.endDate : req.query.startDate
+  //   );
+
+  //   filteredBody.createdAt = {
+  //     $gte: getDateRange(start, end).start,
+  //     $lte: getDateRange(start, end).end,
+  //   };
+  // }
+
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
-    filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
-    };
+    if (req.query.endDate) {
+      const end = new Date(req.query.endDate);
+
+      const dateRange = getDateRange(start, end);
+
+      filteredBody.createdAt = {
+        $gte: dateRange.start,
+        $lte: dateRange.end,
+      };
+    } else {
+      filteredBody.createdAt = {
+        $gte: getDateRange(start).start,
+      };
+    }
   }
 
   const tickets = await Ticket.find(filteredBody).select('priority');
@@ -127,16 +153,35 @@ exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
 exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
+  // if (req.query.startDate) {
+  //   const start = new Date(req.query.startDate);
+  //   const end = new Date(
+  //     req.query.endDate ? req.query.endDate : req.query.startDate
+  //   );
+
+  //   filteredBody.createdAt = {
+  //     $gte: getDateRange(start, end).start,
+  //     $lte: getDateRange(start, end).end,
+  //   };
+  // }
+
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
-    filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
-    };
+    if (req.query.endDate) {
+      const end = new Date(req.query.endDate);
+
+      const dateRange = getDateRange(start, end);
+
+      filteredBody.createdAt = {
+        $gte: dateRange.start,
+        $lte: dateRange.end,
+      };
+    } else {
+      filteredBody.createdAt = {
+        $gte: getDateRange(start).start,
+      };
+    }
   }
 
   const tickets = await Ticket.find(filteredBody).select('requestNature');
@@ -165,16 +210,35 @@ exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
 exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
+  // if (req.query.startDate) {
+  //   const start = new Date(req.query.startDate);
+  //   const end = new Date(
+  //     req.query.endDate ? req.query.endDate : req.query.startDate
+  //   );
+
+  //   filteredBody.createdAt = {
+  //     $gte: getDateRange(start, end).start,
+  //     $lte: getDateRange(start, end).end,
+  //   };
+  // }
+
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
-    filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
-    };
+    if (req.query.endDate) {
+      const end = new Date(req.query.endDate);
+
+      const dateRange = getDateRange(start, end);
+
+      filteredBody.createdAt = {
+        $gte: dateRange.start,
+        $lte: dateRange.end,
+      };
+    } else {
+      filteredBody.createdAt = {
+        $gte: getDateRange(start).start,
+      };
+    }
   }
 
   const tickets = await Ticket.find(filteredBody).select('requestType');
@@ -229,16 +293,35 @@ exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
 exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
   const filteredBody = {};
 
+  // if (req.query.startDate) {
+  //   const start = new Date(req.query.startDate);
+  //   const end = new Date(
+  //     req.query.endDate ? req.query.endDate : req.query.startDate
+  //   );
+
+  //   filteredBody.createdAt = {
+  //     $gte: getDateRange(start, end).start,
+  //     $lte: getDateRange(start, end).end,
+  //   };
+  // }
+
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
-    filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
-    };
+    if (req.query.endDate) {
+      const end = new Date(req.query.endDate);
+
+      const dateRange = getDateRange(start, end);
+
+      filteredBody.createdAt = {
+        $gte: dateRange.start,
+        $lte: dateRange.end,
+      };
+    } else {
+      filteredBody.createdAt = {
+        $gte: getDateRange(start).start,
+      };
+    }
   }
 
   const tickets = await Ticket.find(filteredBody).select('rating');
@@ -271,13 +354,19 @@ exports.getWeeklySolvedTickets = catchAsync(async (req, res, next) => {
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
-    const end = new Date(
-      req.query.endDate ? req.query.endDate : req.query.startDate
-    );
 
+    let end;
+    if (req.query.endDate) {
+      end = new Date(req.query.endDate);
+    } else {
+      end = new Date(req.query.startDate);
+      end.setDate(end.getDate() + 7);
+    }
+
+    const dateRange = getDateRange(start, end);
     filteredBody.createdAt = {
-      $gte: getDateRange(start, end).start,
-      $lte: getDateRange(start, end).end,
+      $gte: dateRange.start,
+      $lte: dateRange.end,
     };
   } else {
     const start = new Date();
@@ -291,7 +380,7 @@ exports.getWeeklySolvedTickets = catchAsync(async (req, res, next) => {
     };
   }
 
-  console.log('filteredBody', filteredBody);
+  // console.log('filteredBody', filteredBody);
 
   const tickets = await Ticket.find(filteredBody)
     .select('status createdAt')

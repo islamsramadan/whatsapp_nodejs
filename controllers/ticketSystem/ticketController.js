@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const json2xls = require('json2xls');
+const ExcelJS = require('exceljs');
+const xlsx = require('xlsx');
 const fs = require('fs');
 
 const AppError = require('../../utils/appError');
@@ -161,19 +163,270 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     // console.log('tickets', tickets);
 
     // Convert JSON to Excel
-    const xls = json2xls(tickets);
+    // const xls = json2xls(tickets);
 
     // Generate a unique filename
     const fileName = `tickets_${Date.now()}.xlsx`;
 
     // Write the Excel file to disk
-    fs.writeFileSync(fileName, xls, 'binary');
+    // fs.writeFileSync(fileName, xls, 'binary');
+
+    // Create a new workbook and add a worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sheet 1');
+
+    // // Insert the row first
+    // worksheet.insertRow(1, []);
+
+    // // Merge the first row across the first three columns (A1:C1)
+    // worksheet.mergeCells('A1:Z1');
+
+    // // Set the value for the merged cell
+    // worksheet.getCell('A1').value =
+    //   'Client inquiry / complaint / appeal register (F_CSD_01)';
+
+    // // Style the merged cell (optional)
+    // const firstRow = worksheet.getCell('A1');
+    // firstRow.font = { bold: true, size: 14 };
+    // firstRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add header row (keys of JSON objects)
+    const headers = Object.keys(tickets[0]);
+    worksheet.addRow(headers);
+
+    // Add data rows
+    tickets.forEach((data) => {
+      worksheet.addRow(Object.values(data));
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 30;
+    headerRow.outlineLevel = 1;
+    headerRow.commit();
+
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 30 },
+      { header: 'Order', key: 'order', width: 12 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Priority', key: 'priority', width: 15 },
+      { header: 'Creator', key: 'creator', width: 28 },
+      { header: 'Assignee', key: 'assignee', width: 28 },
+      { header: 'Department', key: 'department', width: 24 },
+      { header: 'Status', key: 'status', width: 18 },
+      { header: 'Refrence No', key: 'refNo', width: 34 },
+      { header: 'Request Type', key: 'requestType', width: 24 },
+      { header: 'Request Nature', key: 'requestNature', width: 26 },
+      { header: 'Form', key: 'form', width: 20 },
+    ];
+
+    // Add custom row with placeholder text
+    worksheet.insertRow(1, [
+      '', // Empty cell for alignment
+      'Client inquiry / complaint / appeal register (F_CSD_01)',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '', // Empty cell for alignment
+      'CPV ARABIA',
+    ]);
+
+    // Define the range for merging cells
+    const mergeRanges = [
+      { start: 'B1', end: 'G1' },
+      { start: 'I1', end: 'K1' },
+    ];
+
+    // Merge cells based on defined ranges
+    mergeRanges.forEach((range) => {
+      worksheet.mergeCells(`${range.start}:${range.end}`);
+    });
+
+    // Add auto-filter to all columns
+    worksheet.autoFilter = {
+      from: 'A2',
+      to: `L${tickets.length + 2}`, // Adjust based on the number of data rows
+    };
+
+    worksheet.views = [
+      {
+        state: 'frozen',
+        ySplit: 2,
+      },
+    ];
+
+    worksheet.getRow(1).font = {
+      name: 'Arial',
+      family: 4,
+      size: 24,
+      // underline: 'double',
+      bold: true,
+    };
+    worksheet.getRow(2).font = {
+      name: 'Arial',
+      family: 4,
+      size: 12,
+      // underline: 'double',
+      bold: true,
+    };
+
+    // Apply middle and center alignment to all cells
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+    });
+
+    // Write to an Excel file
+    await workbook.xlsx.writeFile(fileName);
+    console.log('Excel file created successfully!');
 
     // Send the Excel file as a response
     res.download(fileName, () => {
       // Remove the file after sending
       fs.unlinkSync(fileName);
     });
+  } else if (req.query.type === 'downloadtest') {
+    try {
+      // Fetch and populate ticket data
+      let tickets = await Ticket.find(req.body)
+        .populate('category', 'name')
+        .populate('creator', 'firstName lastName photo')
+        .populate('assignee', 'firstName lastName photo')
+        .populate('team', 'name')
+        .populate('status', 'name category')
+        .populate('form', 'name')
+        .populate({
+          path: 'questions.field',
+          select: '-updatedAt -createdAt -forms -creator',
+          populate: { path: 'type', select: 'name value description' },
+        });
+
+      // Extract all unique question keys
+      const keys = new Set();
+      tickets.forEach((ticket) => {
+        ticket.questions.forEach((question) => keys.add(question.field.name));
+      });
+
+      // Convert Set to Array
+      const headerKeys = Array.from(keys);
+
+      // Prepare ticket data with dynamic question fields
+      const formattedTickets = tickets.map((ticket) => {
+        const fieldsNames = ticket.questions.map(
+          (question) => question.field.name
+        );
+        const questions = {};
+
+        headerKeys.forEach((key) => {
+          const answer = ticket.questions.find(
+            (item) => item.field.name === key
+          )?.answer;
+          questions[key] = answer?.[0] || '';
+        });
+
+        return {
+          id: ticket._id,
+          order: ticket.order,
+          category: ticket.category.name,
+          priority: ticket.priority,
+          creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+          assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
+          department: ticket.team.name,
+          status: ticket.status.name,
+          refNo: ticket.refNo,
+          requestNature: ticket.requestNature,
+          requestType: ticket.requestType,
+          form: ticket.form.name,
+          ...questions,
+        };
+      });
+
+      // Generate Excel file
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Sheet 1');
+
+      // Add custom row
+      worksheet.insertRow(1, [
+        '',
+        'Client inquiry / complaint / appeal register (F_CSD_01)',
+        '',
+        'CPV ARABIA',
+      ]);
+
+      // Merge cells for the custom row
+      worksheet.mergeCells('B1:G1');
+      worksheet.mergeCells('I1:K1');
+
+      // Style custom row
+      const customRow = worksheet.getRow(1);
+      customRow.font = { name: 'Arial', family: 4, size: 24, bold: true };
+      customRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      // Add header row
+      worksheet.addRow([
+        '',
+        'Client inquiry / complaint / appeal register (F_CSD_01)',
+        '',
+        'CPV ARABIA',
+      ]);
+
+      // Add data rows
+      // formattedTickets.forEach((data) => worksheet.addRow(Object.values(data)));
+
+      // Style header row
+      const headerRow = worksheet.getRow(2);
+      headerRow.font = { name: 'Arial', family: 4, size: 12, bold: true };
+      headerRow.height = 30;
+
+      // Apply middle and center alignment to all cells
+      worksheet.eachRow({ includeEmpty: true }, (row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+      });
+
+      // Set column widths
+      worksheet.columns = [
+        { header: 'ID', key: 'id', width: 30 },
+        { header: 'Order', key: 'order', width: 12 },
+        { header: 'Category', key: 'category', width: 20 },
+        { header: 'Priority', key: 'priority', width: 15 },
+        { header: 'Creator', key: 'creator', width: 28 },
+        { header: 'Assignee', key: 'assignee', width: 28 },
+        { header: 'Department', key: 'department', width: 24 },
+        { header: 'Status', key: 'status', width: 18 },
+        { header: 'Refrence No', key: 'refNo', width: 34 },
+        { header: 'Request Type', key: 'requestType', width: 24 },
+        { header: 'Request Nature', key: 'requestNature', width: 26 },
+        { header: 'Form', key: 'form', width: 20 },
+      ];
+
+      // Add header row
+      worksheet.addRow([
+        '',
+        'Client inquiry / complaint / appeal register (F_CSD_01)',
+        '',
+        'CPV ARABIA',
+      ]);
+
+      // Freeze panes
+      worksheet.views = [{ state: 'frozen', ySplit: 2 }];
+
+      // Write Excel file
+      const fileName = `tickets_${Date.now()}.xlsx`;
+      await workbook.xlsx.writeFile(fileName);
+      console.log('Excel file created successfully!');
+
+      // Send the Excel file as a response
+      res.download(fileName, () => {
+        fs.unlinkSync(fileName); // Remove the file after sending
+      });
+    } catch (error) {
+      console.error('Error generating Excel report:', error);
+      res.status(500).send('Error generating report');
+    }
   } else {
     const page = req.query.page || 1;
 
