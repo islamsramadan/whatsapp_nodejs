@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema(
           enum: ['messages', 'tickets'],
         },
       ],
-      default: ['messages'],
+      default: ['messages', 'tickets'],
     },
 
     ticketRequests: [
