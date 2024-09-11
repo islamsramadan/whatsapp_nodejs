@@ -256,7 +256,10 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   );
 
   tickets = await Ticket.find({
-    assignee: req.user._id,
+    $or: [
+      { creator: new mongoose.Types.ObjectId(req.user._id) },
+      { assignee: new mongoose.Types.ObjectId(req.user._id) },
+    ],
     status: { $in: statusesIDs },
   })
     .select('-updatedAt -questions -users -solvingTime -form')
