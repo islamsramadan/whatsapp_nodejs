@@ -11,6 +11,7 @@ const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const Field = require('../../models/ticketSystem/fieldModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const { mailerSendEmail } = require('../../utils/emailHandler');
+const Team = require('../../models/teamModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -57,6 +58,21 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
+  // ==========> Checking permission
+  const userTeam = await Team.findById(req.user.team);
+  if (
+    req.user.role !== 'admin' &&
+    !userTeam.default &&
+    userTeam?.name.toLowerCase() !== 'qc' &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id) &&
+    !ticket.users.some((userId) => userId.equals(req.user._id))
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   const comments = await Comment.find({ ticket: req.params.ticketID }).populate(
     'user',
     'firstName lastName photo'
@@ -97,9 +113,14 @@ exports.createComment = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 400));
   }
 
+  // ==========> Checking permission
+  const ticketTeam = await Team.findById(ticket.team);
   if (
+    req.user.role !== 'admin' &&
     !ticket.creator.equals(req.user._id) &&
-    !ticket.assignee.equals(req.user._id)
+    !ticket.assignee.equals(req.user._id) &&
+    !ticketTeam.supervisor.equals(req.user._id) &&
+    !ticket.users.some((userId) => userId.equals(req.user._id))
   ) {
     return next(
       new AppError(
