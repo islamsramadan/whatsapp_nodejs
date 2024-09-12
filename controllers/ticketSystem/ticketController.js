@@ -3,6 +3,7 @@ const json2xls = require('json2xls');
 const ExcelJS = require('exceljs');
 const xlsx = require('xlsx');
 const fs = require('fs');
+const path = require('path');
 
 const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
@@ -175,21 +176,6 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Sheet 1');
 
-    // // Insert the row first
-    // worksheet.insertRow(1, []);
-
-    // // Merge the first row across the first three columns (A1:C1)
-    // worksheet.mergeCells('A1:Z1');
-
-    // // Set the value for the merged cell
-    // worksheet.getCell('A1').value =
-    //   'Client inquiry / complaint / appeal register (F_CSD_01)';
-
-    // // Style the merged cell (optional)
-    // const firstRow = worksheet.getCell('A1');
-    // firstRow.font = { bold: true, size: 14 };
-    // firstRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
     // Add header row (keys of JSON objects)
     const headers = Object.keys(tickets[0]);
     worksheet.addRow(headers);
@@ -229,7 +215,8 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       '',
       '',
       '', // Empty cell for alignment
-      'CPV ARABIA',
+      // 'CPV ARABIA',
+      '',
       '',
       '',
       'Rev. No.0 Issue Date: 01/10/2023',
@@ -245,6 +232,19 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     // Merge cells based on defined ranges
     mergeRanges.forEach((range) => {
       worksheet.mergeCells(`${range.start}:${range.end}`);
+    });
+
+    // Add the image to the workbook
+    const imageId = workbook.addImage({
+      filename: path.join(__dirname, 'cpvLogo.jpg'), // Path to the image
+      extension: 'jpg', // Image format (can be jpg, jpeg, or png)
+    });
+
+    // Insert the image into the merged cells H1:J1
+    worksheet.addImage(imageId, {
+      tl: { col: 8, row: 0 }, // Top-left corner at column H (7) and row 1 (index 0)
+      br: { col: 10, row: 1 }, // Bottom-right corner at column J (10) and row 1 (index 1)
+      // ext: { width: 50, height: 50 }, // Image size in pixels
     });
 
     // Add auto-filter to all columns
