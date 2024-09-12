@@ -7,20 +7,39 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(authController.protect, formController.getAllForms)
-  .post(authController.protect, formController.createForm);
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    formController.getAllForms
+  )
+  .post(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    formController.createForm
+  );
 
 router
   .route('/order')
-  .patch(authController.protect, formController.updateFormsOrder);
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    formController.updateFormsOrder
+  );
 
 router
   .route('/:formID')
-  .get(authController.protect, formController.getForm)
-  .patch(authController.protect, formController.updateForm);
-
-// router
-//   .route('/:formID/default')
-//   .patch(authController.protect, formController.updateDefaultForm);
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    formController.getForm
+  )
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    formController.updateForm
+  );
 
 module.exports = router;

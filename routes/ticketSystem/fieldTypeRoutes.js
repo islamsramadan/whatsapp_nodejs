@@ -7,11 +7,26 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(authController.protect, fieldTypeController.getAllFieldTypes)
-  .post(authController.protect, fieldTypeController.createFieldType);
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldTypeController.getAllFieldTypes
+  )
+  .post(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldTypeController.createFieldType
+  );
 
 router
   .route('/multi')
-  .post(authController.protect, fieldTypeController.createMultiFieldTypes);
+  .post(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldTypeController.createMultiFieldTypes
+  );
 
 module.exports = router;

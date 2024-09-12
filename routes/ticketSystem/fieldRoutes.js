@@ -7,12 +7,32 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(authController.protect, fieldController.getAllFields)
-  .post(authController.protect, fieldController.createField);
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldController.getAllFields
+  )
+  .post(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldController.createField
+  );
 
 router
   .route('/:fieldID')
-  .get(authController.protect, fieldController.getField)
-  .patch(authController.protect, fieldController.updateField);
+  .get(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldController.getField
+  )
+  .patch(
+    authController.protect,
+    authController.restrictToTasks('tickets'),
+    authController.restrictTo('admin'),
+    fieldController.updateField
+  );
 
 module.exports = router;

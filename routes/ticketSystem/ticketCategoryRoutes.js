@@ -32,20 +32,5 @@ router
     authController.restrictTo('admin'),
     ticketCategoryController.updateCategory
   );
-// .delete(
-//   authController.protect,
-//   authController.restrictToTasks('tickets'),
-//   authController.restrictTo('admin'),
-//   ticketCategoryController.deleteCategory
-// );
-
-// router
-//   .route('/:categoryID/status')
-//   .patch(
-//     authController.protect,
-//     authController.restrictToTasks('tickets'),
-//     authController.restrictTo('admin'),
-//     ticketCategoryController.updateCategoryStatus
-//   );
 
 module.exports = router;
