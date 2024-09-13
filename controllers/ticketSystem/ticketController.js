@@ -42,6 +42,19 @@ const getPopulatedTicket = async (filterObj) => {
 };
 
 exports.getAllTickets = catchAsync(async (req, res, next) => {
+  // ==========> Checking permission for export tickets
+  const userTeam = await Team.findById(req.user.team);
+  if (
+    req.user.role !== 'admin' &&
+    !userTeam.default &&
+    // !userTeam.supervisor.equals(req.user._id) &&     // in export only
+    userTeam.name.toLowerCase() !== 'qc'
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
 
   if (req.query.order) {
@@ -94,6 +107,19 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.type === 'download') {
+    // ==========> Checking permission for export tickets
+    const userTeam = await Team.findById(req.user.team);
+    if (
+      req.user.role !== 'admin' &&
+      !userTeam.default &&
+      !userTeam.supervisor.equals(req.user._id) &&
+      userTeam.name.toLowerCase() !== 'qc'
+    ) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
+      );
+    }
+
     let tickets = await Ticket.find(filteredBody)
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
@@ -291,146 +317,6 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       // Remove the file after sending
       fs.unlinkSync(fileName);
     });
-  } else if (req.query.type === 'downloadtest') {
-    try {
-      // Fetch and populate ticket data
-      let tickets = await Ticket.find(req.body)
-        .populate('category', 'name')
-        .populate('creator', 'firstName lastName photo')
-        .populate('assignee', 'firstName lastName photo')
-        .populate('team', 'name')
-        .populate('status', 'name category')
-        .populate('form', 'name')
-        .populate({
-          path: 'questions.field',
-          select: '-updatedAt -createdAt -forms -creator',
-          populate: { path: 'type', select: 'name value description' },
-        });
-
-      // Extract all unique question keys
-      const keys = new Set();
-      tickets.forEach((ticket) => {
-        ticket.questions.forEach((question) => keys.add(question.field.name));
-      });
-
-      // Convert Set to Array
-      const headerKeys = Array.from(keys);
-
-      // Prepare ticket data with dynamic question fields
-      const formattedTickets = tickets.map((ticket) => {
-        const fieldsNames = ticket.questions.map(
-          (question) => question.field.name
-        );
-        const questions = {};
-
-        headerKeys.forEach((key) => {
-          const answer = ticket.questions.find(
-            (item) => item.field.name === key
-          )?.answer;
-          questions[key] = answer?.[0] || '';
-        });
-
-        return {
-          id: ticket._id,
-          order: ticket.order,
-          category: ticket.category.name,
-          priority: ticket.priority,
-          creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
-          assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
-          department: ticket.team.name,
-          status: ticket.status.name,
-          refNo: ticket.refNo,
-          requestNature: ticket.requestNature,
-          requestType: ticket.requestType,
-          form: ticket.form.name,
-          ...questions,
-        };
-      });
-
-      // Generate Excel file
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Sheet 1');
-
-      // Add custom row
-      worksheet.insertRow(1, [
-        '',
-        'Client inquiry / complaint / appeal register (F_CSD_01)',
-        '',
-        'CPV ARABIA',
-      ]);
-
-      // Merge cells for the custom row
-      worksheet.mergeCells('B1:G1');
-      worksheet.mergeCells('I1:K1');
-
-      // Style custom row
-      const customRow = worksheet.getRow(1);
-      customRow.font = { name: 'Arial', family: 4, size: 24, bold: true };
-      customRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      // Add header row
-      worksheet.addRow([
-        '',
-        'Client inquiry / complaint / appeal register (F_CSD_01)',
-        '',
-        'CPV ARABIA',
-      ]);
-
-      // Add data rows
-      // formattedTickets.forEach((data) => worksheet.addRow(Object.values(data)));
-
-      // Style header row
-      const headerRow = worksheet.getRow(2);
-      headerRow.font = { name: 'Arial', family: 4, size: 12, bold: true };
-      headerRow.height = 30;
-
-      // Apply middle and center alignment to all cells
-      worksheet.eachRow({ includeEmpty: true }, (row) => {
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        });
-      });
-
-      // Set column widths
-      worksheet.columns = [
-        { header: 'ID', key: 'id', width: 30 },
-        { header: 'Order', key: 'order', width: 12 },
-        { header: 'Category', key: 'category', width: 20 },
-        { header: 'Priority', key: 'priority', width: 15 },
-        { header: 'Creator', key: 'creator', width: 28 },
-        { header: 'Assignee', key: 'assignee', width: 28 },
-        { header: 'Department', key: 'department', width: 24 },
-        { header: 'Status', key: 'status', width: 18 },
-        { header: 'Refrence No', key: 'refNo', width: 34 },
-        { header: 'Request Type', key: 'requestType', width: 24 },
-        { header: 'Request Nature', key: 'requestNature', width: 26 },
-        { header: 'Form', key: 'form', width: 20 },
-      ];
-
-      // Add header row
-      worksheet.addRow([
-        '',
-        'Client inquiry / complaint / appeal register (F_CSD_01)',
-        '',
-        'CPV ARABIA',
-      ]);
-
-      // Freeze panes
-      worksheet.views = [{ state: 'frozen', ySplit: 2 }];
-
-      // Write Excel file
-      const fileName = `tickets_${Date.now()}.xlsx`;
-      await workbook.xlsx.writeFile(fileName);
-      console.log('Excel file created successfully!');
-
-      // Send the Excel file as a response
-      res.download(fileName, () => {
-        fs.unlinkSync(fileName); // Remove the file after sending
-      });
-    } catch (error) {
-      console.error('Error generating Excel report:', error);
-      res.status(500).send('Error generating report');
-    }
   } else {
     const page = req.query.page || 1;
 
@@ -520,6 +406,19 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.type === 'download') {
+    // ==========> Checking permission for export tickets
+    const userTeam = await Team.findById(req.user.team);
+    if (
+      req.user.role !== 'admin' &&
+      !userTeam.default &&
+      !userTeam.supervisor.equals(req.user._id) &&
+      userTeam.name.toLowerCase() !== 'qc'
+    ) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
+      );
+    }
+
     let tickets = await Ticket.find(filteredBody)
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
@@ -664,6 +563,22 @@ exports.getTicket = catchAsync(async (req, res, next) => {
 
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  // ==========> Checking permission for export tickets
+  const userTeam = await Team.findById(req.user.team);
+  if (
+    req.user.role !== 'admin' &&
+    !userTeam.default &&
+    // !userTeam.supervisor.equals(req.user._id) &&     // in export only
+    userTeam.name.toLowerCase() !== 'qc' &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id) &&
+    !ticket.users.some((userId) => userId.equals(req.user._id))
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
   }
 
   res.status(200).json({
@@ -950,6 +865,19 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
+  // ==========> Checking permission
+  const ticketTeam = await Team.findById(ticket.team);
+  if (
+    req.user.role !== 'admin' &&
+    !ticketTeam.supervisor.equals(req.user._id) &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id)
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
+  }
+
   // -----> Category validation
   if (req.body.category && !ticket.category.equals(req.body.category)) {
     const category = await TicketCategory.findById(req.body.category);
@@ -1098,6 +1026,19 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  // ==========> Checking permission
+  const ticketTeam = await Team.findById(ticket.team);
+  if (
+    req.user.role !== 'admin' &&
+    !ticketTeam.supervisor.equals(req.user._id) &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id)
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
   }
 
   let { assignee, team } = req.body;
@@ -1320,12 +1261,10 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  if (!req.user.tasks.includes('tickets')) {
+  // ==========> Checking permission
+  if (req.user.role !== 'admin' && !ticket.team.equals(req.user.team)) {
     return next(
-      new AppError(
-        "User with no tickets task couldn't take ticket ownership!",
-        400
-      )
+      new AppError("You don't have permission to perform this action!", 403)
     );
   }
 
@@ -1424,6 +1363,19 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  // ==========> Checking permission
+  const ticketTeam = await Team.findById(ticket.team);
+  if (
+    req.user.role !== 'admin' &&
+    !ticketTeam.supervisor.equals(req.user._id) &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id)
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
   }
 
   const { questions } = req.body;
@@ -1586,6 +1538,19 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  // ==========> Checking permission
+  const ticketTeam = await Team.findById(ticket.team);
+  if (
+    req.user.role !== 'admin' &&
+    !ticketTeam.supervisor.equals(req.user._id) &&
+    !ticket.assignee.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id)
+  ) {
+    return next(
+      new AppError("You don't have permission to perform this action!", 403)
+    );
   }
 
   const { client } = req.body;
