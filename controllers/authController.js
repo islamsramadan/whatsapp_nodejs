@@ -169,7 +169,9 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // 2) check if user exists && password is correct
-  const user = await User.findOne({ email }).select('+password +deleted');
+  const user = await User.findOne({ email })
+    .select('+password +deleted')
+    .populate('team', 'name default');
 
   // 3) check if everything Ok ,send otp to client
   if (!user || !(await user.correctPassword(password, user.password))) {
@@ -190,9 +192,9 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     return next(new AppError('OTP is required!', 400));
   }
 
-  const user = await User.findOne({ email }).select(
-    '+password +deleted +otp +otpTimer'
-  );
+  const user = await User.findOne({ email })
+    .select('+password +deleted +otp +otpTimer')
+    .populate('team', 'name default');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('No Account found with that email', 401));
@@ -299,7 +301,9 @@ exports.restrictToTasks = (task) => {
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
   // 1) Getting user from collection
-  const currentUser = await User.findById(req.user._id).select('+password');
+  const currentUser = await User.findById(req.user._id)
+    .select('+password')
+    .populate('team', 'name default');
 
   const { currentPassword, newPassword, passwordConfirm } = req.body;
   if (!currentPassword || !newPassword || !passwordConfirm) {
