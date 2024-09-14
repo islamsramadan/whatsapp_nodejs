@@ -12,8 +12,8 @@ router.use('/:ticketID/ticket-logs', ticketLogRouter);
 router
   .route('/')
   .get(
-    // authController.protect,
-    // authController.restrictToTasks('tickets'),
+    authController.protect,
+    authController.restrictToTasks('tickets'),
     ticketController.getAllTickets
   )
   .post(
