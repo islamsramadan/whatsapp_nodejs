@@ -170,6 +170,12 @@ const ticketSchema = new mongoose.Schema(
       type: Date,
     },
 
+    clientToken: {
+      type: String,
+      unique: true,
+      select: false,
+    },
+
     rating: {
       type: String,
       enum: ['Positive', 'Negative', 'Neutral'],
@@ -181,6 +187,17 @@ const ticketSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save middleware to add client token before saving
+ticketSchema.pre('save', function (next) {
+  const ticket = this;
+
+  if (!ticket.clientToken) {
+    ticket.clientToken = `${Date.now()}${ticket._id}`;
+  }
+
+  next();
+});
 
 const Ticket = mongoose.model('Ticket', ticketSchema);
 module.exports = Ticket;
