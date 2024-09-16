@@ -80,6 +80,11 @@ const teamSchema = new mongoose.Schema(
       default: false,
     },
 
+    qc: {
+      type: Boolean,
+      default: false,
+    },
+
     bot: {
       type: Boolean,
       default: false,
