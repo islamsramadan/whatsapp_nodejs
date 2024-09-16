@@ -95,7 +95,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.refNo) {
-    filteredBody.refNo = req.query.refNo;
+    filteredBody.refNo = { $regex: req.query.refNo };
   }
 
   if (req.query.requestNature) {
@@ -394,7 +394,7 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.refNo) {
-    filteredBody.refNo = req.query.refNo;
+    filteredBody.refNo = { $regex: req.query.refNo };
   }
 
   if (req.query.requestNature) {
