@@ -173,7 +173,7 @@ const ticketSchema = new mongoose.Schema(
     clientToken: {
       type: String,
       unique: true,
-      select: false,
+      // select: false,
     },
 
     rating: {
