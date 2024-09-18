@@ -121,6 +121,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     }
 
     let tickets = await Ticket.find(filteredBody)
+      .sort('-createdAt')
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
       .populate('assignee', 'firstName lastName photo')
@@ -134,6 +135,23 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       });
     // .populate('questions.field', 'name')
     // .select('-questions -client -users -type');
+
+    const keysReference = [
+      'Reference No. / الرقم المرجعي', // =======> fixed
+      'Date of receipt تاريخ الاستلام', // =======> fixed
+      'Received byاستلم بواسطة', // =======> fixed
+      'Received fromتم الاستلام من', // =======> fixed
+      'Nature of request / طبيعة الطلب', // =======> fixed
+      'Description in briefوصف الحالة بشكل مفصل /',
+      'Correction / Quick fix taken (التصحيح المتخذ)',
+      'Correction / Quick fix taken (التصحيح المتخذ)',
+      'Analysis of complaint / appeal in brief (تحليل الشكوي / الاعتراض بشكل مفصل)',
+      'Resolved byتم حل الحالة بواسطة ',
+      'Is there need to initiate report هل هناك حاجة لعمل تقرير شكوي',
+      'reason for reportsاسباب طلب عمل شكوي',
+      'Date of resolvingتاريخ حل الشكوي',
+      'approval of concerned managerاعتماد المدير المختص',
+    ];
 
     const keys = [];
     tickets.map((ticket) => {
@@ -170,33 +188,35 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       });
 
       // console.log('questions', questions);
+      // return {
+      //   id: ticket._id,
+      //   order: ticket.order,
+      //   category: ticket.category.name,
+      //   priority: ticket.priority,
+      //   creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+      //   assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
+      //   department: ticket.team.name,
+      //   status: ticket.status.name,
+      //   refNo: ticket.refNo,
+      //   requestNature: ticket.requestNature,
+      //   requestType: ticket.requestType,
+      //   form: ticket.form.name,
+      //   ...questions,
+      // };
       return {
-        id: ticket._id,
-        order: ticket.order,
-        category: ticket.category.name,
-        priority: ticket.priority,
-        creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
-        assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
-        department: ticket.team.name,
-        status: ticket.status.name,
-        refNo: ticket.refNo,
-        requestNature: ticket.requestNature,
-        requestType: ticket.requestType,
-        form: ticket.form.name,
+        'Reference No. / الرقم المرجعي': ticket.refNo,
+        'Date of receipt تاريخ الاستلام': ticket.createdAt,
+        'Received byاستلم بواسطة': '',
+        'Received fromتم الاستلام من': `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+        'Nature of request / طبيعة الطلب': ticket.requestNature,
         ...questions,
       };
     });
 
     // console.log('tickets', tickets);
 
-    // Convert JSON to Excel
-    // const xls = json2xls(tickets);
-
     // Generate a unique filename
     const fileName = `tickets_${Date.now()}.xlsx`;
-
-    // Write the Excel file to disk
-    // fs.writeFileSync(fileName, xls, 'binary');
 
     // Create a new workbook and add a worksheet
     const workbook = new ExcelJS.Workbook();
@@ -211,31 +231,58 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       worksheet.addRow(Object.values(data));
     });
 
-    const headerRow = worksheet.getRow(1);
-    headerRow.height = 30;
-    headerRow.outlineLevel = 1;
-    headerRow.commit();
+    // const headerRow = worksheet.getRow(1);
+    // headerRow.height = 40;
+    // // headerRow.outlineLevel = 1;
+    // headerRow.commit();
+
+    // worksheet.columns = [
+    //   { header: 'ID', key: 'id', width: 30 },
+    //   { header: 'Order', key: 'order', width: 12 },
+    //   { header: 'Category', key: 'category', width: 20 },
+    //   { header: 'Priority', key: 'priority', width: 15 },
+    //   { header: 'Creator', key: 'creator', width: 28 },
+    //   { header: 'Assignee', key: 'assignee', width: 28 },
+    //   { header: 'Department', key: 'department', width: 24 },
+    //   { header: 'Status', key: 'status', width: 18 },
+    //   { header: 'Refrence No', key: 'refNo', width: 34 },
+    //   { header: 'Request Type', key: 'requestType', width: 24 },
+    //   { header: 'Request Nature', key: 'requestNature', width: 26 },
+    //   { header: 'Form', key: 'form', width: 20 },
+    // ];
 
     worksheet.columns = [
-      { header: 'ID', key: 'id', width: 30 },
-      { header: 'Order', key: 'order', width: 12 },
-      { header: 'Category', key: 'category', width: 20 },
-      { header: 'Priority', key: 'priority', width: 15 },
-      { header: 'Creator', key: 'creator', width: 28 },
-      { header: 'Assignee', key: 'assignee', width: 28 },
-      { header: 'Department', key: 'department', width: 24 },
-      { header: 'Status', key: 'status', width: 18 },
-      { header: 'Refrence No', key: 'refNo', width: 34 },
-      { header: 'Request Type', key: 'requestType', width: 24 },
-      { header: 'Request Nature', key: 'requestNature', width: 26 },
-      { header: 'Form', key: 'form', width: 20 },
+      { header: 'Reference No. \n الرقم المرجعي', width: 18 },
+      { header: 'Date of receipt \n تاريخ الاستلام', width: 20 },
+      { header: 'Received by \n استلم بواسطة', width: 20 },
+      { header: 'Received from \n تم الاستلام من', width: 20 },
+      { header: 'Nature of request \n  طبيعة الطلب', width: 21 },
+
+      { header: 'Description in brief \n وصف الحالة بشكل مفصل', width: 42 },
+      { header: 'Correction / Quick fix taken \n (التصحيح المتخذ)', width: 57 },
+      {
+        header:
+          'Analysis of complaint / appeal in brief \n (تحليل الشكوي / الاعتراض بشكل مفصل)',
+        width: 51,
+      },
+      { header: 'Resolved by \n تم حل الحالة بواسطة ', width: 24 },
+      {
+        header:
+          'Is there need to initiate report \n هل هناك حاجة لعمل تقرير شكوي',
+        width: 22,
+      },
+      { header: 'reason for reports \n اسباب طلب عمل شكوي', width: 22 },
+      { header: 'Date of resolving \n تاريخ حل الشكوي', width: 21 },
+      {
+        header: 'approval of concerned manager \n اعتماد المدير المختص',
+        width: 24,
+      },
     ];
 
     // Add custom row with placeholder text
     worksheet.insertRow(1, [
       '', // Empty cell for alignment
       'Client inquiry / complaint / appeal register (F_CSD_01)',
-      '',
       '',
       '',
       '',
@@ -250,9 +297,9 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 
     // Define the range for merging cells
     const mergeRanges = [
-      { start: 'B1', end: 'G1' },
-      { start: 'I1', end: 'J1' },
-      { start: 'L1', end: 'R1' },
+      { start: 'B1', end: 'F1' },
+      // { start: 'I1', end: 'J1' },
+      // { start: 'L1', end: 'R1' },
     ];
 
     // Merge cells based on defined ranges
@@ -268,9 +315,8 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 
     // Insert the image into the merged cells H1:J1
     worksheet.addImage(imageId, {
-      tl: { col: 8, row: 0 }, // Top-left corner at column H (7) and row 1 (index 0)
-      br: { col: 10, row: 1 }, // Bottom-right corner at column J (10) and row 1 (index 1)
-      // ext: { width: 50, height: 50 }, // Image size in pixels
+      tl: { col: 7.5, row: 0.3 }, // Top-left position (adjust for exact cell)
+      ext: { width: 215, height: 35 }, // Image size in pixels
     });
 
     // Add auto-filter to all columns
@@ -279,34 +325,41 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
       to: `L${tickets.length + 2}`, // Adjust based on the number of data rows
     };
 
-    worksheet.views = [
-      {
-        state: 'frozen',
-        ySplit: 2,
-      },
-    ];
-
-    worksheet.getRow(1).font = {
-      name: 'Arial',
-      family: 4,
-      size: 24,
-      // underline: 'double',
-      bold: true,
-    };
-    worksheet.getRow(2).font = {
-      name: 'Arial',
-      family: 4,
-      size: 12,
-      // underline: 'double',
-      bold: true,
-    };
+    // worksheet.views = [
+    //   {
+    //     state: 'frozen',
+    //     ySplit: 2,
+    //   },
+    // ];
 
     // Apply middle and center alignment to all cells
     worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
       });
     });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 40;
+    headerRow.font = {
+      name: 'Arial', // Font family
+      size: 24, // Font size
+      bold: true, // Bold text
+    };
+    headerRow.commit();
+
+    const keysRow = worksheet.getRow(2);
+    keysRow.height = 70;
+    keysRow.font = {
+      name: 'Arial', // Font family
+      size: 12, // Font size
+      bold: true, // Bold text
+    };
+    keysRow.commit();
 
     // Write to an Excel file
     await workbook.xlsx.writeFile(fileName);
@@ -321,6 +374,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     const page = req.query.page || 1;
 
     const tickets = await Ticket.find(filteredBody)
+      .sort('-createdAt')
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
       .populate('assignee', 'firstName lastName photo')
@@ -420,6 +474,7 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     }
 
     let tickets = await Ticket.find(filteredBody)
+      .sort('-createdAt')
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
       .populate('assignee', 'firstName lastName photo')
@@ -431,6 +486,23 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
         select: '-updatedAt -createdAt -forms -creator',
         populate: { path: 'type', select: 'name value description' },
       });
+
+    const keysReference = [
+      'Reference No. / الرقم المرجعي', // =======> fixed
+      'Date of receipt تاريخ الاستلام', // =======> fixed
+      'Received byاستلم بواسطة', // =======> fixed
+      'Received fromتم الاستلام من', // =======> fixed
+      'Nature of request / طبيعة الطلب', // =======> fixed
+      'Description in briefوصف الحالة بشكل مفصل /',
+      'Correction / Quick fix taken (التصحيح المتخذ)',
+      'Correction / Quick fix taken (التصحيح المتخذ)',
+      'Analysis of complaint / appeal in brief (تحليل الشكوي / الاعتراض بشكل مفصل)',
+      'Resolved byتم حل الحالة بواسطة ',
+      'Is there need to initiate report هل هناك حاجة لعمل تقرير شكوي',
+      'reason for reportsاسباب طلب عمل شكوي',
+      'Date of resolvingتاريخ حل الشكوي',
+      'approval of concerned managerاعتماد المدير المختص',
+    ];
 
     const keys = [];
     tickets.map((ticket) => {
@@ -467,33 +539,182 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
       });
 
       // console.log('questions', questions);
+      // return {
+      //   id: ticket._id,
+      //   order: ticket.order,
+      //   category: ticket.category.name,
+      //   priority: ticket.priority,
+      //   creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+      //   assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
+      //   department: ticket.team.name,
+      //   status: ticket.status.name,
+      //   refNo: ticket.refNo,
+      //   requestNature: ticket.requestNature,
+      //   requestType: ticket.requestType,
+      //   form: ticket.form.name,
+      //   ...questions,
+      // };
       return {
-        id: ticket._id,
-        order: ticket.order,
-        category: ticket.category.name,
-        priority: ticket.priority,
-        creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
-        assignee: `${ticket.assignee.firstName} ${ticket.assignee.lastName}`,
-        department: ticket.team.name,
-        status: ticket.status.name,
-        refNo: ticket.refNo,
-        requestNature: ticket.requestNature,
-        requestType: ticket.requestType,
-        form: ticket.form.name,
+        'Reference No. / الرقم المرجعي': ticket.refNo,
+        'Date of receipt تاريخ الاستلام': ticket.createdAt,
+        'Received byاستلم بواسطة': '',
+        'Received fromتم الاستلام من': `${ticket.creator.firstName} ${ticket.creator.lastName}`,
+        'Nature of request / طبيعة الطلب': ticket.requestNature,
         ...questions,
       };
     });
 
     // console.log('tickets', tickets);
 
-    // Convert JSON to Excel
-    const xls = json2xls(tickets);
-
     // Generate a unique filename
     const fileName = `tickets_${Date.now()}.xlsx`;
 
-    // Write the Excel file to disk
-    fs.writeFileSync(fileName, xls, 'binary');
+    // Create a new workbook and add a worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sheet 1');
+
+    // Add header row (keys of JSON objects)
+    const headers = Object.keys(tickets[0]);
+    worksheet.addRow(headers);
+
+    // Add data rows
+    tickets.forEach((data) => {
+      worksheet.addRow(Object.values(data));
+    });
+
+    // const headerRow = worksheet.getRow(1);
+    // headerRow.height = 40;
+    // // headerRow.outlineLevel = 1;
+    // headerRow.commit();
+
+    // worksheet.columns = [
+    //   { header: 'ID', key: 'id', width: 30 },
+    //   { header: 'Order', key: 'order', width: 12 },
+    //   { header: 'Category', key: 'category', width: 20 },
+    //   { header: 'Priority', key: 'priority', width: 15 },
+    //   { header: 'Creator', key: 'creator', width: 28 },
+    //   { header: 'Assignee', key: 'assignee', width: 28 },
+    //   { header: 'Department', key: 'department', width: 24 },
+    //   { header: 'Status', key: 'status', width: 18 },
+    //   { header: 'Refrence No', key: 'refNo', width: 34 },
+    //   { header: 'Request Type', key: 'requestType', width: 24 },
+    //   { header: 'Request Nature', key: 'requestNature', width: 26 },
+    //   { header: 'Form', key: 'form', width: 20 },
+    // ];
+
+    worksheet.columns = [
+      { header: 'Reference No. \n الرقم المرجعي', width: 18 },
+      { header: 'Date of receipt \n تاريخ الاستلام', width: 20 },
+      { header: 'Received by \n استلم بواسطة', width: 20 },
+      { header: 'Received from \n تم الاستلام من', width: 20 },
+      { header: 'Nature of request \n  طبيعة الطلب', width: 21 },
+
+      { header: 'Description in brief \n وصف الحالة بشكل مفصل', width: 42 },
+      { header: 'Correction / Quick fix taken \n (التصحيح المتخذ)', width: 57 },
+      {
+        header:
+          'Analysis of complaint / appeal in brief \n (تحليل الشكوي / الاعتراض بشكل مفصل)',
+        width: 51,
+      },
+      { header: 'Resolved by \n تم حل الحالة بواسطة ', width: 24 },
+      {
+        header:
+          'Is there need to initiate report \n هل هناك حاجة لعمل تقرير شكوي',
+        width: 22,
+      },
+      { header: 'reason for reports \n اسباب طلب عمل شكوي', width: 22 },
+      { header: 'Date of resolving \n تاريخ حل الشكوي', width: 21 },
+      {
+        header: 'approval of concerned manager \n اعتماد المدير المختص',
+        width: 24,
+      },
+    ];
+
+    // Add custom row with placeholder text
+    worksheet.insertRow(1, [
+      '', // Empty cell for alignment
+      'Client inquiry / complaint / appeal register (F_CSD_01)',
+      '',
+      '',
+      '',
+      '',
+      '', // Empty cell for alignment
+      // 'CPV ARABIA',
+      '',
+      '',
+      '',
+      'Rev. No.0 Issue Date: 01/10/2023',
+    ]);
+
+    // Define the range for merging cells
+    const mergeRanges = [
+      { start: 'B1', end: 'F1' },
+      // { start: 'I1', end: 'J1' },
+      // { start: 'L1', end: 'R1' },
+    ];
+
+    // Merge cells based on defined ranges
+    mergeRanges.forEach((range) => {
+      worksheet.mergeCells(`${range.start}:${range.end}`);
+    });
+
+    // Add the image to the workbook
+    const imageId = workbook.addImage({
+      filename: path.join(__dirname, 'cpvLogo.jpg'), // Path to the image
+      extension: 'jpg', // Image format (can be jpg, jpeg, or png)
+    });
+
+    // Insert the image into the merged cells H1:J1
+    worksheet.addImage(imageId, {
+      tl: { col: 7.5, row: 0.3 }, // Top-left position (adjust for exact cell)
+      ext: { width: 215, height: 35 }, // Image size in pixels
+    });
+
+    // Add auto-filter to all columns
+    worksheet.autoFilter = {
+      from: 'A2',
+      to: `L${tickets.length + 2}`, // Adjust based on the number of data rows
+    };
+
+    // worksheet.views = [
+    //   {
+    //     state: 'frozen',
+    //     ySplit: 2,
+    //   },
+    // ];
+
+    // Apply middle and center alignment to all cells
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 40;
+    headerRow.font = {
+      name: 'Arial', // Font family
+      size: 24, // Font size
+      bold: true, // Bold text
+    };
+    headerRow.commit();
+
+    const keysRow = worksheet.getRow(2);
+    keysRow.height = 70;
+    keysRow.font = {
+      name: 'Arial', // Font family
+      size: 12, // Font size
+      bold: true, // Bold text
+    };
+    keysRow.commit();
+
+    // Write to an Excel file
+    await workbook.xlsx.writeFile(fileName);
+    console.log('Excel file created successfully!');
 
     // Send the Excel file as a response
     res.download(fileName, () => {
@@ -504,6 +725,7 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     const page = req.query.page || 1;
 
     const tickets = await Ticket.find(filteredBody)
+      .sort('-createdAt')
       .populate('category', 'name')
       .populate('creator', 'firstName lastName photo')
       .populate('assignee', 'firstName lastName photo')
