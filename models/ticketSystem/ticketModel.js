@@ -170,6 +170,11 @@ const ticketSchema = new mongoose.Schema(
       type: Date,
     },
 
+    solvingUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+    },
+
     clientToken: {
       type: String,
       unique: true,

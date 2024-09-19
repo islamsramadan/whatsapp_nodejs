@@ -917,7 +917,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     users: [],
     client,
     priority,
-    status,
+    // status,
     refNo,
     requestNature,
     requestType,
@@ -1082,9 +1082,17 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTicketInfo = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
@@ -1142,6 +1150,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     );
 
     updatedBody.solvingTime = new Date();
+    updatedBody.solvingUser = req.user._id;
   }
 
   const transactionSession = await mongoose.startSession();
@@ -1245,9 +1254,17 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
 });
 
 exports.transferTicket = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
@@ -1478,9 +1495,17 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
 });
 
 exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
@@ -1582,9 +1607,17 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTicketForm = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
@@ -1656,6 +1689,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 
     if (status.category === 'solved') {
       updatedBody.solvingTime = new Date();
+      updatedBody.solvingUser = req.user._id;
     }
   }
 
@@ -1757,9 +1791,17 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTicketClientData = catchAsync(async (req, res, next) => {
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
