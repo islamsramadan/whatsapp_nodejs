@@ -943,7 +943,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       return next(new AppError('Invalid Status!', 400));
     }
 
-    if (status.category === 'solved') {
+    if (statusDoc.category === 'solved') {
       return next(
         new AppError("Couldn't create ticket with {{solved}} status!", 400)
       );
