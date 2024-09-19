@@ -108,9 +108,17 @@ exports.getComment = catchAsync(async (req, res, next) => {
 exports.createComment = catchAsync(async (req, res, next) => {
   //   console.log('req.files -------------------> ', req.files);
 
-  const ticket = await Ticket.findById(req.params.ticketID);
+  const ticket = await Ticket.findById(req.params.ticketID).populate(
+    'status',
+    'category'
+  );
+
   if (!ticket) {
-    return next(new AppError('No ticket found with that ID!', 400));
+    return next(new AppError('No ticket found with that ID!', 404));
+  }
+
+  if (ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
   // ==========> Checking permission
@@ -200,8 +208,10 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
     if (status) {
       const ticketUpdatedBody = { status: status._id };
-      if (status.category === 'solved')
+      if (status.category === 'solved') {
         ticketUpdatedBody.solvingTime = new Date();
+        ticketUpdatedBody.solvingUser = req.user._id;
+      }
 
       await Ticket.findByIdAndUpdate(ticket._id, ticketUpdatedBody, {
         new: true,
