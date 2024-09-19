@@ -220,6 +220,15 @@ exports.createComment = catchAsync(async (req, res, next) => {
       });
     }
 
+    // =====================> Remove ticket from user tickets array
+    if (status && status.category === 'solved') {
+      await User.findByIdAndUpdate(
+        ticket.assignee,
+        { $pull: { tickets: ticket._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+    }
+
     // =====================> Comment Ticket Log
     await TicketLog.create(
       [

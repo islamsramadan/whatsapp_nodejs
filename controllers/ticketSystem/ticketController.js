@@ -1175,6 +1175,15 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       }
     );
 
+    // =====================> Remove ticket from user tickets array
+    if (updatedBody.solvingTime) {
+      await User.findByIdAndUpdate(
+        ticket.assignee,
+        { $pull: { tickets: ticket._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+    }
+
     // =====================> Priority Ticket Log
     if (req.body.priority && ticket.priority !== req.body.priority) {
       await TicketLog.create(
@@ -1714,6 +1723,15 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
         session: transactionSession,
       }
     );
+
+    // =====================> Remove ticket from user tickets array
+    if (updatedBody.solvingTime) {
+      await User.findByIdAndUpdate(
+        ticket.assignee,
+        { $pull: { tickets: ticket._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+    }
 
     // =====================> Form Ticket Log
     await TicketLog.create(
