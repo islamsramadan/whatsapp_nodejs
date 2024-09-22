@@ -1097,10 +1097,6 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID!', 404));
   }
 
-  if (ticket.status.category === 'solved') {
-    return next(new AppError("Couldn't update solved ticket!", 400));
-  }
-
   // ==========> Checking permission
   const ticketTeam = await Team.findById(ticket.team);
   if (
@@ -1122,7 +1118,10 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
   }
 
-  const updatedBody = filterObj(req.body, 'priority', 'category');
+  let updatedBody;
+  if (ticket.status.category !== 'solved') {
+    updatedBody = filterObj(req.body, 'priority', 'category');
+  }
 
   // ----------> Status validation
   let status;
