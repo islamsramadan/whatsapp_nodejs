@@ -1118,7 +1118,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
   }
 
-  let updatedBody;
+  let updatedBody = {};
   if (ticket.status.category !== 'solved') {
     updatedBody = filterObj(req.body, 'priority', 'category');
   }
@@ -1184,7 +1184,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
 
     // =====================> Priority Ticket Log
-    if (req.body.priority && ticket.priority !== req.body.priority) {
+    if (updatedBody.priority && ticket.priority !== updatedBody.priority) {
       await TicketLog.create(
         [
           {
