@@ -32,7 +32,7 @@ exports.protectClientTicket = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(
       new AppError(
-        'You are not authenticated! Kindly log in to get access.',
+        'You are not authenticated! Kindly get the correct link for your ticket.',
         401
       )
     );
@@ -41,7 +41,12 @@ exports.protectClientTicket = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findOne({ clientToken: token });
 
   if (!ticket) {
-    return next(new AppError('No ticket found with that token!', 404));
+    return next(
+      new AppError(
+        'No ticket found! Kindly get the correct link for your ticket.',
+        404
+      )
+    );
   }
 
   // GRANT ACCESS TO PROTECTED ROUTE
