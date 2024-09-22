@@ -67,7 +67,8 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.status) {
-    filteredBody.status = req.query.status;
+    const statusesIDs = req.query.status.split(',');
+    filteredBody.status = { $in: statusesIDs };
   }
 
   if (req.query.priority) {
@@ -426,7 +427,8 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   }
 
   if (req.query.status) {
-    filteredBody.status = req.query.status;
+    const statusesIDs = req.query.status.split(',');
+    filteredBody.status = { $in: statusesIDs };
   }
 
   if (req.query.priority) {
