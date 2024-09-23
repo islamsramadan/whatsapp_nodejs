@@ -42,20 +42,10 @@ router
 
 router
   .route('/rating')
-  .get(
-    authController.protect,
-    authController.restrictTo('admin'),
-    authController.restrictToTasks('tickets'),
-    dashboardController.getAllTicketsClientRating
-  );
+  .get(authController.protect, dashboardController.getAllTicketsClientRating);
 
 router
   .route('/average-solved')
-  .get(
-    authController.protect,
-    authController.restrictTo('admin'),
-    authController.restrictToTasks('tickets'),
-    dashboardController.getWeeklySolvedTickets
-  );
+  .get(authController.protect, dashboardController.getWeeklySolvedTickets);
 
 module.exports = router;

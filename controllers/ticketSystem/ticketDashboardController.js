@@ -3,8 +3,22 @@ const catchAsync = require('../../utils/catchAsync');
 
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const getDateRange = require('../../utils/dateRangeFilter');
+const Team = require('../../models/teamModel');
 
 exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
 
   if (req.query.startDate) {
@@ -94,19 +108,20 @@ exports.getAllTicketsNumber = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
-
-  // if (req.query.startDate) {
-  //   const start = new Date(req.query.startDate);
-  //   const end = new Date(
-  //     req.query.endDate ? req.query.endDate : req.query.startDate
-  //   );
-
-  //   filteredBody.createdAt = {
-  //     $gte: getDateRange(start, end).start,
-  //     $lte: getDateRange(start, end).end,
-  //   };
-  // }
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
@@ -151,19 +166,20 @@ exports.getAllTicketsPriority = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
-
-  // if (req.query.startDate) {
-  //   const start = new Date(req.query.startDate);
-  //   const end = new Date(
-  //     req.query.endDate ? req.query.endDate : req.query.startDate
-  //   );
-
-  //   filteredBody.createdAt = {
-  //     $gte: getDateRange(start, end).start,
-  //     $lte: getDateRange(start, end).end,
-  //   };
-  // }
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
@@ -208,19 +224,20 @@ exports.getAllTicketRequestNature = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
-
-  // if (req.query.startDate) {
-  //   const start = new Date(req.query.startDate);
-  //   const end = new Date(
-  //     req.query.endDate ? req.query.endDate : req.query.startDate
-  //   );
-
-  //   filteredBody.createdAt = {
-  //     $gte: getDateRange(start, end).start,
-  //     $lte: getDateRange(start, end).end,
-  //   };
-  // }
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
@@ -291,19 +308,20 @@ exports.getAllTicketRequestType = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
-
-  // if (req.query.startDate) {
-  //   const start = new Date(req.query.startDate);
-  //   const end = new Date(
-  //     req.query.endDate ? req.query.endDate : req.query.startDate
-  //   );
-
-  //   filteredBody.createdAt = {
-  //     $gte: getDateRange(start, end).start,
-  //     $lte: getDateRange(start, end).end,
-  //   };
-  // }
 
   if (req.query.startDate) {
     const start = new Date(req.query.startDate);
@@ -350,6 +368,19 @@ exports.getAllTicketsClientRating = catchAsync(async (req, res, next) => {
 });
 
 exports.getWeeklySolvedTickets = catchAsync(async (req, res, next) => {
+  const defaultTeam = await Team.findOne({ default: true });
+  const QCTeam = await Team.findOne({ qc: true });
+
+  if (
+    req.user.role !== 'admin' &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !QCTeam._id.equals(req.user.team)
+  ) {
+    return next(
+      new AppError("You don't have the permission to perform this action!", 403)
+    );
+  }
+
   const filteredBody = {};
 
   if (req.query.startDate) {
