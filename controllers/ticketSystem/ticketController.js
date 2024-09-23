@@ -1126,6 +1126,19 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     }
   }
 
+  const defaultTeam = await Team.findOne({ default: true });
+  if (
+    ticket.status.category === 'solved' && // ====> Unsolve solved ticket
+    req.user.role !== 'admin' &&
+    !ticket.creator.equals(req.user._id) &&
+    !defaultTeam.supervisor.equals(req.user._id) &&
+    !ticketTeam.supervisor.equals(req.user._id)
+  ) {
+    return next(
+      new AppError("You don't have the permission to unsolve this ticket!", 403)
+    );
+  }
+
   let updatedBody = {};
   if (ticket.status.category !== 'solved') {
     updatedBody = filterObj(req.body, 'priority', 'category');
