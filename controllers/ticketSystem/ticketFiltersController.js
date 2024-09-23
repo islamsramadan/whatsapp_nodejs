@@ -71,7 +71,7 @@ exports.getAllTicketsFilters = catchAsync(async (req, res, next) => {
   const teamTickets = await Ticket.find({
     team: { $in: teamsIDs },
   })
-    .select('status')
+    .select('status solvingTime')
     .populate('status', 'category');
 
   const teamTicketsfilters = {
