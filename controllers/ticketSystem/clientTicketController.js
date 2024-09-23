@@ -67,7 +67,7 @@ exports.getClientTicket = catchAsync(async (req, res, next) => {
     .populate('transfer.to.user', 'firstName lastName photo')
     .populate('transfer.from.team', 'name')
     .populate('transfer.to.team', 'name')
-    .populate('status', 'name endUserDisplayName category');
+    .populate('status', 'endUserDisplayName category');
 
   const ticketComments = await Comment.find({
     ticket: ticketID,
