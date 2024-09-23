@@ -10,7 +10,7 @@ const getPopulatedTicket = async (filterObj) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .populate('form', 'name')
     .populate({
       path: 'questions.field',
