@@ -220,6 +220,7 @@ exports.getAllTeamTickets = catchAsync(async (req, res, next) => {
   }
 
   tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
@@ -300,6 +301,7 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   }
 
   tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
@@ -349,6 +351,7 @@ exports.getAllTeamUserTickets = catchAsync(async (req, res, next) => {
   };
 
   tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
