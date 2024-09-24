@@ -16,14 +16,16 @@ const commentSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['note', 'public'],
+      enum: ['note', 'public', 'user'],
       default: 'public',
     },
 
     user: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
-      required: [true, 'Comment user is required!'],
+      required: function () {
+        return this.type !== 'user';
+      },
     },
 
     ticket: {

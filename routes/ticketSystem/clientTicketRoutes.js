@@ -18,4 +18,12 @@ router
     clientTicketController.sendFeedback
   );
 
+router
+  .route('/comment')
+  .post(
+    clientTicketController.protectClientTicket,
+    clientTicketController.uploadMultiFiles,
+    clientTicketController.createComment
+  );
+
 module.exports = router;

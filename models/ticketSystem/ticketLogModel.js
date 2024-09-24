@@ -27,6 +27,7 @@ const ticketLogSchema = new mongoose.Schema(
         'priority',
         'client',
         'takeOwnership',
+        'clientComment',
       ],
       required: [true, 'Ticket log type is required!'],
     },
@@ -34,7 +35,9 @@ const ticketLogSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
-      required: true,
+      required: function () {
+        return this.log !== 'clientComment';
+      },
     },
 
     assignee: {

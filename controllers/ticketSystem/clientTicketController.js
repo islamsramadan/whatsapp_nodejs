@@ -1,8 +1,11 @@
+const multer = require('multer');
+
+const AppError = require('../../utils/appError');
+const catchAsync = require('../../utils/catchAsync');
+
 const Comment = require('../../models/ticketSystem/commentModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
-const AppError = require('../../utils/appError');
-const catchAsync = require('../../utils/catchAsync');
 
 const getPopulatedTicket = async (filterObj) => {
   return await Ticket.findOne(filterObj)
@@ -18,6 +21,45 @@ const getPopulatedTicket = async (filterObj) => {
       populate: { path: 'type', select: 'name value description' },
     });
 };
+
+const multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // console.log('file==============', file);
+
+    cb(null, 'public');
+  },
+  filename: (req, file, cb) => {
+    const ext =
+      file.mimetype.split('/')[0] === 'image' ||
+      file.mimetype.split('/')[0] === 'video' ||
+      file.mimetype.split('/')[0] === 'audio'
+        ? file.mimetype.split('/')[1]
+        : file.originalname.split('.')[file.originalname.split('.').length - 1];
+
+    cb(
+      null,
+      `client-${req.ticket._id}-${Date.now()}-${Math.floor(
+        Math.random() * 1000
+      )}.${ext}`
+    );
+  },
+});
+
+const multerFilter = (req, file, cb) => {
+  // if (file.mimetype.startsWith('image')) {
+  //   cb(null, true);
+  // } else {
+  //   cb(new AppError('Not an image! Please upload only images.', 400), false);
+  // }
+  cb(null, true);
+};
+
+const upload = multer({
+  storage: multerStorage,
+  fileFilter: multerFilter,
+});
+
+exports.uploadMultiFiles = upload.array('files');
 
 exports.protectClientTicket = catchAsync(async (req, res, next) => {
   // 1) Getting token and check if it is there
@@ -104,6 +146,44 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       ticket: updatedTicket,
+    },
+  });
+});
+
+exports.createComment = catchAsync(async (req, res, next) => {
+  if (!req.body.text && (!req.files || req.files.length === 0)) {
+    return next(new AppError('Comment body is required!', 400));
+  }
+
+  const newCommentData = {
+    ticket: req.ticket._id,
+    type: 'user',
+  };
+
+  if (req.body.text) {
+    newCommentData.text = req.body.text;
+  }
+
+  if (req.files) {
+    const attachments = req.files.map((item) => ({
+      file: item.filename,
+      filename: item.originalname,
+    }));
+    newCommentData.attachments = attachments;
+  }
+
+  const newComment = await Comment.create(newCommentData);
+
+  // =====================> Comment Ticket Log
+  await TicketLog.create({
+    ticket: req.ticket._id,
+    log: 'clientComment',
+  });
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      comment: newComment,
     },
   });
 });
