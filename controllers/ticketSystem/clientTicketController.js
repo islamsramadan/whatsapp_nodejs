@@ -6,6 +6,7 @@ const catchAsync = require('../../utils/catchAsync');
 const Comment = require('../../models/ticketSystem/commentModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
+const Field = require('../../models/ticketSystem/fieldModel');
 
 const getPopulatedTicket = async (filterObj) => {
   return await Ticket.findOne(filterObj)
@@ -80,7 +81,10 @@ exports.protectClientTicket = catchAsync(async (req, res, next) => {
     );
   }
 
-  const ticket = await Ticket.findOne({ clientToken: token });
+  const ticket = await Ticket.findOne({ clientToken: token }).populate(
+    'status',
+    'category'
+  );
 
   if (!ticket) {
     return next(
@@ -151,6 +155,16 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
 });
 
 exports.createComment = catchAsync(async (req, res, next) => {
+  if (req.ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
+  }
+
+  const previousComments = await Comment.find({ ticket: req.ticket._id });
+
+  if (previousComments.length === 0) {
+    return next(new AppError("Couldn't add comments!", 400));
+  }
+
   if (!req.body.text && (!req.files || req.files.length === 0)) {
     return next(new AppError('Comment body is required!', 400));
   }
@@ -184,6 +198,59 @@ exports.createComment = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       comment: newComment,
+    },
+  });
+});
+
+exports.updateTicketForm = catchAsync(async (req, res, next) => {
+  if (req.ticket.status.category === 'solved') {
+    return next(new AppError("Couldn't update solved ticket!", 400));
+  }
+
+  const { questions } = req.body;
+
+  const updatedQuestions = await Promise.all(
+    req.ticket.questions.map(async (item) => {
+      // console.log('item', item);
+      const field = await Field.findById(item.field);
+
+      if (field.endUserPermission === 'edit') {
+        const selectedQuestion = questions.filter((question) =>
+          item.field.equals(question.field)
+        )[0];
+
+        // console.log('selectedQuestion ----------------', selectedQuestion);
+        if (selectedQuestion) {
+          // ------> field required answer
+          if (
+            field.required &&
+            (!selectedQuestion.answer || selectedQuestion.answer.length === 0)
+          ) {
+            return item;
+          }
+
+          return selectedQuestion;
+        }
+      }
+
+      return item;
+    })
+  );
+
+  // console.log('updatedQuestions ----------------', updatedQuestions);
+
+  const updatedTicket = await Ticket.findByIdAndUpdate(
+    req.ticket._id,
+    { questions: updatedQuestions },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    messgae: 'Ticket updated successfully!',
+    data: {
+      // updatedQuestions,
+      ticket: updatedTicket,
     },
   });
 });

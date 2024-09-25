@@ -26,4 +26,11 @@ router
     clientTicketController.createComment
   );
 
+router
+  .route('/form')
+  .patch(
+    clientTicketController.protectClientTicket,
+    clientTicketController.updateTicketForm
+  );
+
 module.exports = router;
