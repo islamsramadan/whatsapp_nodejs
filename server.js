@@ -7,6 +7,7 @@ const { promisify } = require('util');
 const cron = require('node-cron');
 
 const socketController = require('./controllers/socketController');
+const ticketSocketController = require('./controllers/ticketSystem/ticketSocketController');
 const sessionTimerUpdate = require('./utils/sessionTimerUpdate');
 
 process.on('uncaughtException', (err) => {
@@ -119,13 +120,21 @@ io.on('connection', async (socket) => {
         chats,
         session,
         chatStatus,
-        totalPages,
         totalResults,
+        totalPages,
+        page,
         messages,
         contactName,
         currentUser,
         notification,
-        tabs;
+        tabs,
+        // =======tickets
+        userTicketsfilters,
+        teamTicketsfilters,
+        teamUsersTicketsFilters,
+        tickets,
+        ticket,
+        comments;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
@@ -192,9 +201,76 @@ io.on('connection', async (socket) => {
         );
       }
 
-      // ==============> Team users sessions
+      // ==============> chat tabs
       if (data.tabs && data.tabs.length > 0) {
         tabs = await socketController.getTabsStatuses(data.tabs);
+      }
+
+      //============================= TICKETS ====================================
+      // ==============> Team & user ticket filters
+      if (data.type === 'ticketFilters' && data.teamsIDs) {
+        const ticketFilters = await ticketSocketController.getAllTicketsFilters(
+          socket.user,
+          data.teamsIDs
+        );
+        userTicketsfilters = ticketFilters.userTicketsfilters;
+        teamTicketsfilters = ticketFilters.teamTicketsfilters;
+      }
+
+      // ==============> Team users ticket filters
+      if (data.type === 'teamUsersTicketFilters' && data.teamsIDs) {
+        teamUsersTicketsFilters =
+          await ticketSocketController.getTeamUsersTicketsFilters(
+            data.teamsIDs
+          );
+      }
+
+      // ==============> User Tickets
+      if (data.type === 'userTickets' && data.status) {
+        const userTickets = await ticketSocketController.getAllUserTickets(
+          socket.user,
+          data.status,
+          data.page
+        );
+        totalResults = userTickets.totalResults;
+        totalPages = userTickets.totalPages;
+        page = userTickets.page;
+        tickets = userTickets.tickets;
+      }
+
+      // ==============> Teams Tickets
+      if (data.type === 'teamTickets' && data.teamsIDs && data.status) {
+        const teamTickets = await ticketSocketController.getAllTeamTickets(
+          data.teamsIDs,
+          data.status,
+          data.page
+        );
+
+        totalResults = teamTickets.totalResults;
+        totalPages = teamTickets.totalPages;
+        page = teamTickets.page;
+        tickets = teamTickets.tickets;
+      }
+
+      // ==============> Team Users Tickets
+      if (data.type === 'teamUsersTickets' && data.teamUserID) {
+        const teamUsersTickets =
+          await ticketSocketController.getAllTeamUserTickets(
+            data.teamUserID,
+            data.page
+          );
+
+        totalResults = teamUsersTickets.totalResults;
+        totalPages = teamUsersTickets.totalPages;
+        page = teamUsersTickets.page;
+        tickets = teamUsersTickets.tickets;
+      }
+
+      // ==============> Ticket Details
+      if (data.type === 'ticket' && data.ticketID) {
+        const getTicket = await ticketSocketController.getTicket(data.ticketID);
+        ticket = getTicket.ticket;
+        comments = getTicket.comments;
       }
 
       // Emit a response event back to the client
@@ -203,8 +279,9 @@ io.on('connection', async (socket) => {
         teamSessions,
         teamUsersSessions,
         chats,
-        totalPages,
         totalResults,
+        totalPages,
+        page,
         messages,
         session,
         chatStatus,
@@ -212,6 +289,14 @@ io.on('connection', async (socket) => {
         currentUser,
         notification,
         tabs,
+
+        //=======tickets
+        userTicketsfilters,
+        teamTicketsfilters,
+        teamUsersTicketsFilters,
+        tickets,
+        ticket,
+        comments,
       });
     }
   });

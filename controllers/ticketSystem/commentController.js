@@ -320,6 +320,9 @@ exports.createComment = catchAsync(async (req, res, next) => {
     // mailerSendEmail(emailDetails);
   }
 
+  //--------------------> updating ticket event in socket io
+  req.app.io.emit('updatingTickets');
+
   res.status(201).json({
     status: 'success',
     data: {

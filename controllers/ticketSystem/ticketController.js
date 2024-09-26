@@ -1081,6 +1081,9 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
     const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
+
     res.status(201).json({
       status: 'success',
       data: {
@@ -1272,6 +1275,9 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     const updatedTicket = await getPopulatedTicket({
       _id: req.params.ticketID,
     });
+
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
 
     res.status(200).json({
       status: 'success',
@@ -1514,6 +1520,9 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       _id: req.params.ticketID,
     });
 
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
+
     res.status(200).json({
       status: 'success',
       messgae: 'Ticket has been reassigned successully!',
@@ -1625,6 +1634,9 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
     const updatedTicket = await getPopulatedTicket({
       _id: req.params.ticketID,
     });
+
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
 
     res.status(200).json({
       status: 'success',
@@ -1819,6 +1831,9 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
       _id: req.params.ticketID,
     });
 
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
+
     res.status(200).json({
       status: 'success',
       message: 'Ticket form updated successfully!',
@@ -1931,6 +1946,9 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     const updatedTicket = await getPopulatedTicket({
       _id: req.params.ticketID,
     });
+
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets');
 
     res.status(200).json({
       status: 'success',

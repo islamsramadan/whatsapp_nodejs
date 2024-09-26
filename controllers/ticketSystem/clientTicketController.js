@@ -146,6 +146,9 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
+  //--------------------> updating ticket event in socket io
+  req.app.io.emit('updatingTickets');
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -193,6 +196,9 @@ exports.createComment = catchAsync(async (req, res, next) => {
     ticket: req.ticket._id,
     log: 'clientComment',
   });
+
+  //--------------------> updating ticket event in socket io
+  req.app.io.emit('updatingTickets');
 
   res.status(201).json({
     status: 'success',
@@ -244,6 +250,9 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     { questions: updatedQuestions },
     { new: true, runValidators: true }
   );
+
+  //--------------------> updating ticket event in socket io
+  req.app.io.emit('updatingTickets');
 
   res.status(200).json({
     status: 'success',

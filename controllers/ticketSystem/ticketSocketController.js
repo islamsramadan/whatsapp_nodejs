@@ -1,8 +1,21 @@
+const mongoose = require('mongoose');
+
 const Team = require('../../models/teamModel');
 const Comment = require('../../models/ticketSystem/commentModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const User = require('../../models/userModel');
+
+const getSolvedDate = () => {
+  const date = new Date();
+  // console.log('date ==================== ', date);
+
+  date.setDate(date.getDate() - 1);
+
+  // console.log('date ==================== ', new Date(date.toDateString()));
+
+  return new Date(date.toDateString());
+};
 
 exports.getAllTicketsFilters = async (user, teamsIDs) => {
   const userTickets = await Ticket.find({
@@ -11,11 +24,17 @@ exports.getAllTicketsFilters = async (user, teamsIDs) => {
       { assignee: new mongoose.Types.ObjectId(user._id) },
     ],
   })
-    .select('status')
+    .select('status solvingTime')
     .populate('status', 'category');
 
   const userTicketsfilters = {
-    all: userTickets.length,
+    all: userTickets.filter(
+      (ticket) =>
+        ticket.status.category !== 'solved' ||
+        (ticket.status.category === 'solved' &&
+          ticket.solvingTime &&
+          ticket.solvingTime > getSolvedDate())
+    ).length,
     pending: userTickets.filter(
       (ticket) => ticket.status.category === 'pending'
     ).length,
@@ -23,18 +42,28 @@ exports.getAllTicketsFilters = async (user, teamsIDs) => {
       .length,
     open: userTickets.filter((ticket) => ticket.status.category === 'open')
       .length,
-    solved: userTickets.filter((ticket) => ticket.status.category === 'solved')
-      .length,
+    solved: userTickets.filter(
+      (ticket) =>
+        ticket.status.category === 'solved' &&
+        ticket.solvingTime &&
+        ticket.solvingTime > getSolvedDate()
+    ).length,
   };
 
   const teamTickets = await Ticket.find({
     team: { $in: teamsIDs },
   })
-    .select('status')
+    .select('status solvingTime')
     .populate('status', 'category');
 
   const teamTicketsfilters = {
-    all: teamTickets.length,
+    all: teamTickets.filter(
+      (ticket) =>
+        ticket.status.category !== 'solved' ||
+        (ticket.status.category === 'solved' &&
+          ticket.solvingTime &&
+          ticket.solvingTime > getSolvedDate())
+    ).length,
     pending: teamTickets.filter(
       (ticket) => ticket.status.category === 'pending'
     ).length,
@@ -42,8 +71,12 @@ exports.getAllTicketsFilters = async (user, teamsIDs) => {
       .length,
     open: teamTickets.filter((ticket) => ticket.status.category === 'open')
       .length,
-    solved: teamTickets.filter((ticket) => ticket.status.category === 'solved')
-      .length,
+    solved: teamTickets.filter(
+      (ticket) =>
+        ticket.status.category === 'solved' &&
+        ticket.solvingTime &&
+        ticket.solvingTime > getSolvedDate()
+    ).length,
   };
 
   return { userTicketsfilters, teamTicketsfilters };
@@ -61,11 +94,17 @@ exports.getTeamUsersTicketsFilters = async (teamsIDs) => {
             let userTickets = await Ticket.find({
               assignee: userID,
             })
-              .select('status')
+              .select('status solvingTime')
               .populate('status', 'category');
 
             const userTicketsfilters = {
-              all: userTickets.length,
+              all: userTickets.filter(
+                (ticket) =>
+                  ticket.status.category !== 'solved' ||
+                  (ticket.status.category === 'solved' &&
+                    ticket.solvingTime &&
+                    ticket.solvingTime > getSolvedDate())
+              ).length,
               new: userTickets.filter(
                 (ticket) => ticket.status.category === 'new'
               ).length,
@@ -76,7 +115,10 @@ exports.getTeamUsersTicketsFilters = async (teamsIDs) => {
                 (ticket) => ticket.status.category === 'pending'
               ).length,
               solved: userTickets.filter(
-                (ticket) => ticket.status.category === 'solved'
+                (ticket) =>
+                  ticket.status.category === 'solved' &&
+                  ticket.solvingTime &&
+                  ticket.solvingTime > getSolvedDate()
               ).length,
             };
 
@@ -96,7 +138,7 @@ exports.getTeamUsersTicketsFilters = async (teamsIDs) => {
     })
   );
 
-  return { teams };
+  return teams;
 };
 
 exports.getAllTeamTickets = async (teamsIDs, status, ticketPage) => {
@@ -108,15 +150,32 @@ exports.getAllTeamTickets = async (teamsIDs, status, ticketPage) => {
   let page = ticketPage || 1;
   let tickets, totalResults, totalPages;
 
-  let statusesIDs = await TicketStatus.find({ category: { $in: statuses } });
-  statusesIDs = statusesIDs.map(
-    (item) => new mongoose.Types.ObjectId(item._id)
-  );
+  let solvedStatusIDs = [];
+  if (statuses.includes('solved')) {
+    solvedStatusIDs = await TicketStatus.find({ category: 'solved' });
+  }
 
-  tickets = await Ticket.find({
-    team: { $in: teamsIDs },
-    status: { $in: statusesIDs },
-  })
+  const otherStatuses = statuses.filter((status) => status !== 'solved');
+  let otherStatusesIDs = await TicketStatus.find({
+    category: { $in: otherStatuses },
+  });
+
+  const filteredBody = { team: { $in: teamsIDs } };
+
+  if (solvedStatusIDs && solvedStatusIDs.length > 0) {
+    filteredBody.$or = [
+      { status: { $in: otherStatusesIDs } },
+      {
+        status: { $in: solvedStatusIDs },
+        solvingTime: { $gte: getSolvedDate() },
+      },
+    ];
+  } else {
+    filteredBody.status = { $in: otherStatusesIDs };
+  }
+
+  tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
@@ -124,10 +183,7 @@ exports.getAllTeamTickets = async (teamsIDs, status, ticketPage) => {
     .populate('status', 'name category')
     .limit(page * 10);
 
-  totalResults = await Ticket.count({
-    team: { $in: teamsIDs },
-    status: { $in: statusesIDs },
-  });
+  totalResults = await Ticket.count(filteredBody);
 
   totalPages = Math.ceil(totalResults / 10);
 
@@ -135,7 +191,7 @@ exports.getAllTeamTickets = async (teamsIDs, status, ticketPage) => {
     page = totalPages;
   }
 
-  return { totalResults, totalPages, page, chats };
+  return { totalResults, totalPages, page, tickets };
 };
 
 exports.getAllUserTickets = async (user, status, ticketPage) => {
@@ -147,30 +203,55 @@ exports.getAllUserTickets = async (user, status, ticketPage) => {
   let page = ticketPage || 1;
   let tickets, totalResults, totalPages;
 
-  let statusesIDs = await TicketStatus.find({ category: { $in: statuses } });
-  statusesIDs = statusesIDs.map(
-    (item) => new mongoose.Types.ObjectId(item._id)
-  );
+  let solvedStatusIDs = [];
+  if (statuses.includes('solved')) {
+    solvedStatusIDs = await TicketStatus.find({ category: 'solved' });
+  }
 
-  tickets = await Ticket.find({
-    $or: [
+  const otherStatuses = statuses.filter((status) => status !== 'solved');
+  let otherStatusesIDs = await TicketStatus.find({
+    category: { $in: otherStatuses },
+  });
+
+  const filteredBody = {};
+
+  if (solvedStatusIDs && solvedStatusIDs.length > 0) {
+    filteredBody.$and = [
+      {
+        $or: [
+          { creator: new mongoose.Types.ObjectId(user._id) },
+          { assignee: new mongoose.Types.ObjectId(user._id) },
+        ],
+      },
+      {
+        $or: [
+          { status: { $in: otherStatusesIDs } },
+          {
+            status: { $in: solvedStatusIDs },
+            solvingTime: { $gte: getSolvedDate() },
+          },
+        ],
+      },
+    ];
+  } else {
+    filteredBody.$or = [
       { creator: new mongoose.Types.ObjectId(user._id) },
       { assignee: new mongoose.Types.ObjectId(user._id) },
-    ],
-    status: { $in: statusesIDs },
-  })
+    ];
+
+    filteredBody.status = { $in: otherStatusesIDs };
+  }
+
+  tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
     .populate('status', 'name category')
-    .populate('status', 'name category')
     .limit(page * 10);
 
-  totalResults = await Ticket.count({
-    assignee: user._id,
-    status: { $in: statusesIDs },
-  });
+  totalResults = await Ticket.count(filteredBody);
 
   totalPages = Math.ceil(totalResults / 10);
 
@@ -185,9 +266,25 @@ exports.getAllTeamUserTickets = async (teamUserID, ticketPage) => {
   let page = ticketPage || 1;
   let tickets, totalResults, totalPages;
 
-  tickets = await Ticket.find({
+  let solvedStatusIDs = await TicketStatus.find({ category: 'solved' });
+
+  let otherStatusesIDs = await TicketStatus.find({
+    category: { $ne: 'solved' },
+  });
+
+  const filteredBody = {
     assignee: teamUserID,
-  })
+    $or: [
+      { status: { $in: otherStatusesIDs } },
+      {
+        status: { $in: solvedStatusIDs },
+        solvingTime: { $gte: getSolvedDate() },
+      },
+    ],
+  };
+
+  tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
@@ -196,9 +293,7 @@ exports.getAllTeamUserTickets = async (teamUserID, ticketPage) => {
     .populate('status', 'name category')
     .limit(page * 10);
 
-  totalResults = await Ticket.count({
-    assignee: teamUserID,
-  });
+  totalResults = await Ticket.count(filteredBody);
 
   totalPages = Math.ceil(totalResults / 10);
 
