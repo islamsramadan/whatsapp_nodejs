@@ -319,7 +319,10 @@ exports.getTicket = async (ticketID) => {
       populate: { path: 'type', select: 'name value description' },
     });
 
-  const comments = await Comment.find({ ticket: ticketID });
+  const comments = await Comment.find({ ticket: ticketID }).populate(
+    'user',
+    'firstName lastName photo'
+  );
 
   return { ticket, comments };
 };

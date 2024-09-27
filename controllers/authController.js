@@ -289,7 +289,7 @@ exports.restrictTo = (...roles) => {
 exports.restrictToTasks = (task) => {
   return (req, res, next) => {
     // tasks = ['messages', 'tickets', ...]
-    if (!req.user.tasks.includes(task)) {
+    if (req.user.tasks && !req.user.tasks.includes(task)) {
       return next(
         new AppError("You don't have permission to perform this action!", 403)
       );

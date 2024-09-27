@@ -187,7 +187,10 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
       bot: false,
       deleted: false,
       team: team._id,
-      tasks: 'tickets',
+      $or: [
+        { tasks: 'tickets' },
+        { tasks: { $exists: false } }, // for default value of tasks=['tickets','messages']
+      ],
     })
       .select(select)
       .populate(populate);

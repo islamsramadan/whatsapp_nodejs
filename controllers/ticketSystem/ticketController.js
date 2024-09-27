@@ -869,7 +869,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       return next(new AppError('Assignee must belong to the team!', 400));
     }
 
-    if (!assignedUser.tasks.includes('tickets')) {
+    if (assignedUser.tasks && !assignedUser.tasks.includes('tickets')) {
       return next(
         new AppError(
           "Couldn't assign to a user with no permission to tickets",
@@ -888,7 +888,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
         deleted: false,
       });
 
-      if (teamUser.tasks.includes('tickets')) {
+      if (!teamUser.tasks || teamUser.tasks.includes('tickets')) {
         teamUsers = [...teamUsers, teamUser];
       }
     }
@@ -1345,7 +1345,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       return next(new AppError('Assignee must belong to the team!', 400));
     }
 
-    if (!assignedUser.tasks.includes('tickets')) {
+    if (assignedUser.tasks && !assignedUser.tasks.includes('tickets')) {
       return next(
         new AppError(
           "Couldn't assign ticket to a user with no tickets task!",
@@ -1373,7 +1373,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
         deleted: false,
       });
 
-      if (teamUser.tasks.includes('tickets')) {
+      if (!teamUser.tasks || teamUser.tasks.includes('tickets')) {
         teamUsers = [...teamUsers, teamUser];
       }
     }
