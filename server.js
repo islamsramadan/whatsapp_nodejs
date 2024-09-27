@@ -134,7 +134,9 @@ io.on('connection', async (socket) => {
         teamUsersTicketsFilters,
         tickets,
         ticket,
-        comments;
+        comments,
+        ticketLogs,
+        pastTickets;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
@@ -271,6 +273,8 @@ io.on('connection', async (socket) => {
         const getTicket = await ticketSocketController.getTicket(data.ticketID);
         ticket = getTicket.ticket;
         comments = getTicket.comments;
+        ticketLogs = getTicket.ticketLogs;
+        pastTickets = getTicket.pastTickets;
       }
 
       // Emit a response event back to the client
@@ -297,6 +301,8 @@ io.on('connection', async (socket) => {
         tickets,
         ticket,
         comments,
+        ticketLogs,
+        pastTickets,
       });
     }
   });

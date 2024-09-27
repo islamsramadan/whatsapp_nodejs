@@ -5,6 +5,7 @@ const Comment = require('../../models/ticketSystem/commentModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const TicketStatus = require('../../models/ticketSystem/ticketStatusModel');
 const User = require('../../models/userModel');
+const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 
 const getSolvedDate = () => {
   const date = new Date();
@@ -324,5 +325,27 @@ exports.getTicket = async (ticketID) => {
     'firstName lastName photo'
   );
 
-  return { ticket, comments };
+  const ticketLogs = await TicketLog.find({ ticket: ticketID })
+    .populate('ticket', 'order')
+    .populate('user', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('transfer.from.user', 'firstName lastName photo')
+    .populate('transfer.to.user', 'firstName lastName photo')
+    .populate('transfer.from.team', 'name')
+    .populate('transfer.to.team', 'name')
+    .populate('status', 'name endUserDisplayName category');
+
+  const pastTickets = await Ticket.find({
+    refNo: ticket.refNo,
+    _id: { $ne: ticket._id },
+  })
+    .select('-questions -client -users -type')
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('solvingUser', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category');
+
+  return { ticket, comments, ticketLogs, pastTickets };
 };
