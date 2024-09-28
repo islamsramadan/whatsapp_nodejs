@@ -1091,6 +1091,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       to: newTicket.client.email,
       subject: `New ticket no. ${newTicket.order}`,
       text,
+      attachments: [],
     };
 
     mailerSendEmail(emailDetails);
