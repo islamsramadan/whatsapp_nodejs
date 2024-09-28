@@ -307,17 +307,26 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
     // await ticketUtilsHandler.notifyClientHandler(req, ticket);
 
+    const text = `Dear client,
+    this is a new comment on your ticket no. ${ticket.order}
+
+    
+    ${newComment.text || 'Kindly find the attached.'}
+    
+    Regards,
+    CPV`;
+
     const emailDetails = {
       to: ticket.client.email,
       subject: `New Comment on ticket-${ticket._id}`,
-      text: newComment.text || 'find the attached',
+      text,
     };
 
     if (newComment.attachments) {
       emailDetails.attachments = newComment.attachments;
     }
 
-    // mailerSendEmail(emailDetails);
+    mailerSendEmail(emailDetails);
   }
 
   //--------------------> updating ticket event in socket io
