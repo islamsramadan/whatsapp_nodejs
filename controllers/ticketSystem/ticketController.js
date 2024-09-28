@@ -31,7 +31,7 @@ const getPopulatedTicket = async (filterObj) => {
   return await Ticket.findOne(filterObj)
     .populate('category', 'name')
     .populate('creator', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo email')
     .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
     .populate('status', 'name category')
@@ -1082,13 +1082,13 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
     const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
-    const text = `Dear ${newTicket.assignee.firstName},
+    const text = `Dear ${updatedTicket.assignee.firstName},
     Kindly check your tickets, you have a new ticket no. ${newTicket.order}
     
     Regards.`;
 
     const emailDetails = {
-      to: newTicket.client.email,
+      to: updatedTicket.assignee.email,
       subject: `New ticket no. ${newTicket.order}`,
       text,
       attachments: [],
