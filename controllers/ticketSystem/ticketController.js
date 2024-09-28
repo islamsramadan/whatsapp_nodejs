@@ -8,6 +8,7 @@ const path = require('path');
 const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
 const ticketUtilsHandler = require('../../utils/ticketsUtils');
+const { mailerSendEmail } = require('../../utils/emailHandler');
 
 const User = require('../../models/userModel');
 const TicketCategory = require('../../models/ticketSystem/ticketCategoryModel');
@@ -1081,6 +1082,18 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
     const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
+    const text = `Dear ${newTicket.assignee.firstName},
+    Kindly check your tickets, you have a new ticket no. ${newTicket.order}
+    
+    Regards.`;
+
+    const emailDetails = {
+      to: newTicket.client.email,
+      subject: `New ticket no. ${newTicket.order}`,
+      text,
+    };
+
+    mailerSendEmail(emailDetails);
     //--------------------> updating ticket event in socket io
     req.app.io.emit('updatingTickets');
 
