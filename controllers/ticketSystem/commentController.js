@@ -312,13 +312,17 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
     
     ${newComment.text || 'Kindly find the attached.'}
+
+    You can track your ticket on this link
+
+    https://whatsappdome-client.onrender.com/${ticket.clientToken}
     
     Regards,
     CPV`;
 
     const emailDetails = {
       to: ticket.client.email,
-      subject: `New Comment on ticket-${ticket._id}`,
+      subject: `New Comment on your ticket no. ${ticket.order}`,
       text,
     };
 
