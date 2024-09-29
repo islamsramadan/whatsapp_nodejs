@@ -293,44 +293,6 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
   // to send email if type is public
   if (req.body.type === 'public' && ticket.client.email) {
-    // let link = '';
-    // if (req.files) {
-    //   const linksArray = req.files.map(
-    //     (item) => `https://wp.designal.cc/${item.filename}`
-    //   );
-    //   link = linksArray.join(' -- ');
-    // } else {
-    //   link = 'Not found!';
-    // }
-    // req.body.ticketID = ticket._id;
-    // req.body.link = link;
-
-    // await ticketUtilsHandler.notifyClientHandler(req, ticket);
-
-    const text12 = `Dear client,
-    this is a new comment on your ticket no. ${ticket.order}
-
-    
-    ${newComment.text || 'Kindly find the attached.'}
-
-    You can track your ticket on this link
-
-    https://whatsappdome-client.onrender.com/${ticket.clientToken}
-    
-    Regards,
-    CPV
-    
-    
-    عزيزي العميل
-    يوجد تعليق جديد بخصوص مشكلتك رقم ${ticket.order} 
-    
-    
-    يمكنك متابعة مشكلتك عن طريق الرابط التالي
-    
-    https://whatsappdome-client.onrender.com/${ticket.clientToken}
-
-    `;
-
     const text = `عزيزي العميل 
     
     تم اضافة رد للتذكرة رقم (${ticket.order}) 
