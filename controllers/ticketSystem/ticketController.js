@@ -342,6 +342,11 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     filteredBody.assignee = { $in: assigneesIDs };
   }
 
+  if (req.query.creator) {
+    const creatorIDs = req.query.creator.split(',');
+    filteredBody.creator = { $in: creatorIDs };
+  }
+
   if (req.query.team) {
     filteredBody.team = req.query.team;
   }
@@ -472,6 +477,11 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
   if (req.query.assignee) {
     const assigneesIDs = req.query.assignee.split(',');
     filteredBody.assignee = { $in: assigneesIDs };
+  }
+
+  if (req.query.creator) {
+    const creatorIDs = req.query.creator.split(',');
+    filteredBody.creator = { $in: creatorIDs };
   }
 
   if (req.query.team) {
