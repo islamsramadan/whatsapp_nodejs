@@ -318,7 +318,18 @@ exports.createComment = catchAsync(async (req, res, next) => {
     https://whatsappdome-client.onrender.com/${ticket.clientToken}
     
     Regards,
-    CPV`;
+    CPV
+    
+    
+    عزيزي العميل
+    يوجد تعليق جديد بخصوص مشكلتك رقم ${ticket.order} 
+    
+    
+    يمكنك متابعة مشكلتك عن طريق الرابط التالي
+    
+    https://whatsappdome-client.onrender.com/${ticket.clientToken}
+
+    `;
 
     const emailDetails = {
       to: ticket.client.email,
