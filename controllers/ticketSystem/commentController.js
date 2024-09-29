@@ -307,7 +307,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
     // await ticketUtilsHandler.notifyClientHandler(req, ticket);
 
-    const text = `Dear client,
+    const text12 = `Dear client,
     this is a new comment on your ticket no. ${ticket.order}
 
     
@@ -329,6 +329,14 @@ exports.createComment = catchAsync(async (req, res, next) => {
     
     https://whatsappdome-client.onrender.com/${ticket.clientToken}
 
+    `;
+
+    const text = `عزيزي العميل 
+    
+    تم اضافة رد للتذكرة رقم (${ticket.order}) 
+    يمكنك متابعة الردود علي الرابط التالي
+    
+    https://whatsappdome-client.onrender.com/${ticket.clientToken}
     `;
 
     const emailDetails = {
