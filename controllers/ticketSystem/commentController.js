@@ -334,6 +334,9 @@ exports.createComment = catchAsync(async (req, res, next) => {
     const text = `عزيزي العميل 
     
     تم اضافة رد للتذكرة رقم (${ticket.order}) 
+
+    ${newComment.text || 'Kindly find the attached.'}
+  
     يمكنك متابعة الردود علي الرابط التالي
     
     https://whatsappdome-client.onrender.com/${ticket.clientToken}
