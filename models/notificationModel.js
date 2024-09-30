@@ -48,9 +48,26 @@ const notificationSchema = new mongoose.Schema(
       ],
       required: true,
     },
+
+    message: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
+
+// Pre-save middleware to add client token before saving
+notificationSchema.pre('save', function (next) {
+  const notification = this;
+
+  const message = '';
+
+  if (!notification.message) {
+    notification.message = message;
+  }
+
+  next();
+});
 
 const Notification = mongoose.model('Notification', notificationSchema);
 module.exports = Notification;

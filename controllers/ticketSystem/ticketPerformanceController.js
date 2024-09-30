@@ -48,7 +48,7 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
       filteredBody.assignee = user._id;
 
       const tickets = await Ticket.find(filteredBody)
-        .select('status createdAt solvingTime')
+        .select('status createdAt solvingTime rating')
         .populate('status', 'category');
 
       // =================> Total tickets
@@ -104,12 +104,30 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
           convertMillisecondsToHoursMinutes(solvedTimeAverage);
       }
 
+      const totalRatedTickets = tickets.filter(
+        (ticket) => ticket.rating
+      ).length;
+      const positiveTickets = tickets.filter(
+        (ticket) => ticket.rating === 'positive'
+      ).length;
+      const NeutralTickets = tickets.filter(
+        (ticket) => ticket.rating === 'Neutral'
+      ).length;
+      const NegativeTickets = tickets.filter(
+        (ticket) => ticket.rating === 'Negative'
+      ).length;
+
       return {
         user: `${user.firstName} ${user.lastName}`,
         totalTickets,
         solvedTickets: solvedTickets.length,
         unsolvedTickets,
         solvedTimeAverage,
+
+        totalRatedTickets,
+        positiveTickets,
+        NeutralTickets,
+        NegativeTickets,
       };
     })
   );
