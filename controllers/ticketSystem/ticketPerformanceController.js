@@ -13,11 +13,9 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
       usersIDs = await User.find({
         team: { $in: teamsIDs },
         deleted: false,
-      }).sort('-createdAt');
+      });
     } else {
-      usersIDs = await User.find({ bot: false, deleted: false }).sort(
-        '-createdAt'
-      );
+      usersIDs = await User.find({ bot: false, deleted: false });
     }
   }
 
