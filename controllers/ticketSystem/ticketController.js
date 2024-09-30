@@ -881,7 +881,8 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
     const text = `Dear ${updatedTicket.assignee.firstName},
-    Kindly check your tickets, you have a new ticket no. ${newTicket.order}
+
+    Kindly check your tickets, you have a new ticket no. ${newTicket.order} with Ref No. ${newTicket.refNo}
     
     Regards.`;
 
