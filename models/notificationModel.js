@@ -57,13 +57,49 @@ const notificationSchema = new mongoose.Schema(
 );
 
 // Pre-save middleware to add client token before saving
-notificationSchema.pre('save', function (next) {
-  const notification = this;
+notificationSchema.pre('save', async function (next) {
+  let message = '';
 
-  const message = '';
+  // Populate the ticket field with the order
+  if (this.type === 'tickets' && !this.isModified('message')) {
+    await this.populate('ticket', 'order');
+  }
 
-  if (!notification.message) {
-    notification.message = message;
+  // Populate the chat field with the client number
+  if (this.type === 'messages' && !this.isModified('message')) {
+    await this.populate('chat', 'client');
+  }
+
+  if (!this.message) {
+    if (this.event === 'newTicket') {
+      message = `New Ticket no. ${this.ticket.order}`;
+    }
+
+    if (this.event === 'solvedTicket') {
+      message = `Ticket no. ${this.ticket.order} has been solved`;
+    }
+
+    if (this.event === 'newComment') {
+      message = `New comment on ticket no. ${this.ticket.order}`;
+    }
+
+    if (this.event === 'ticketTransfer') {
+      message = `Ticket no. ${this.ticket.order} has been transfered`;
+    }
+
+    if (this.event === 'newChat') {
+      message = `New Chat no. ${this.chat.client}`;
+    }
+
+    if (this.event === 'newMessages') {
+      message = `New messages on chat no. ${this.chat.client}`;
+    }
+
+    if (this.event === 'chatTransfer') {
+      message = `Chat no. ${this.chat.client} has been transfered`;
+    }
+
+    this.message = message;
   }
 
   next();
