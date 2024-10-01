@@ -353,6 +353,10 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     filteredBody.refNo = { $regex: req.query.refNo };
   }
 
+  if (req.query.order) {
+    filteredBody.order = { $regex: req.query.order };
+  }
+
   if (req.query.requestNature) {
     filteredBody.requestNature = req.query.requestNature;
   }
@@ -488,6 +492,10 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
 
   if (req.query.refNo) {
     filteredBody.refNo = { $regex: req.query.refNo };
+  }
+
+  if (req.query.order) {
+    filteredBody.order = { $regex: req.query.order };
   }
 
   if (req.query.requestNature) {
