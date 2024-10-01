@@ -106,7 +106,7 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
         (ticket) => ticket.rating
       ).length;
       const positiveTickets = tickets.filter(
-        (ticket) => ticket.rating === 'positive'
+        (ticket) => ticket.rating === 'Positive'
       ).length;
       const NeutralTickets = tickets.filter(
         (ticket) => ticket.rating === 'Neutral'
