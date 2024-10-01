@@ -12,6 +12,7 @@ const Field = require('../../models/ticketSystem/fieldModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const { mailerSendEmail } = require('../../utils/emailHandler');
 const Team = require('../../models/teamModel');
+const User = require('../../models/userModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
