@@ -305,10 +305,6 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 
   const filteredBody = {};
 
-  if (req.query.order) {
-    filteredBody.order = req.query.order;
-  }
-
   if (req.query.category) {
     filteredBody.category = req.query.category;
   }
@@ -353,8 +349,8 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     filteredBody.refNo = { $regex: req.query.refNo };
   }
 
-  if (req.query.order) {
-    filteredBody.order = { $regex: req.query.order };
+  if (req.query.order && !isNaN(req.query.order * 1)) {
+    filteredBody.order = req.query.order * 1;
   }
 
   if (req.query.requestNature) {
@@ -446,10 +442,6 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     $or: [{ creator: req.user._id }, { assignee: req.user._id }],
   };
 
-  if (req.query.order) {
-    filteredBody.order = req.query.order;
-  }
-
   if (req.query.category) {
     filteredBody.category = req.query.category;
   }
@@ -494,8 +486,8 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     filteredBody.refNo = { $regex: req.query.refNo };
   }
 
-  if (req.query.order) {
-    filteredBody.order = { $regex: req.query.order };
+  if (req.query.order && !isNaN(req.query.order * 1)) {
+    filteredBody.order = req.query.order * 1;
   }
 
   if (req.query.requestNature) {
