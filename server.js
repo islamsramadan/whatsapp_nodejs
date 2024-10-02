@@ -209,6 +209,29 @@ io.on('connection', async (socket) => {
       }
 
       //============================= TICKETS ====================================
+      // ==============> All Tickets List
+      if (data.type === 'ticketsList') {
+        const ticketsList = await ticketSocketController.getAllTicketsList(
+          data
+        );
+
+        totalResults = ticketsList.totalResults;
+        totalPages = ticketsList.totalPages;
+        page = ticketsList.page;
+        tickets = ticketsList.tickets;
+      }
+
+      // ==============> All User Tickets List
+      if (data.type === 'userTicketsList') {
+        const userTicketsList =
+          await ticketSocketController.getAllUserTicketsList(data, socket.user);
+
+        totalResults = userTicketsList.totalResults;
+        totalPages = userTicketsList.totalPages;
+        page = userTicketsList.page;
+        tickets = userTicketsList.tickets;
+      }
+
       // ==============> Team & user ticket filters
       if (data.type === 'ticketFilters' && data.teamsIDs) {
         const ticketFilters = await ticketSocketController.getAllTicketsFilters(
