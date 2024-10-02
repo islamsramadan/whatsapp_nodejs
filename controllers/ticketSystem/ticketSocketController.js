@@ -18,6 +18,176 @@ const getSolvedDate = () => {
   return new Date(date.toDateString());
 };
 
+exports.getAllTicketsList = async (data) => {
+  if (data.category) {
+    filteredBody.category = data.category;
+  }
+
+  if (data.status) {
+    const statusesIDs = data.status.split(',');
+    filteredBody.status = { $in: statusesIDs };
+  }
+
+  if (data.priority) {
+    filteredBody.priority = data.priority;
+  }
+
+  if (data.startDate) {
+    filteredBody.createdAt = { $gt: new Date(data.startDate) };
+  }
+  if (data.endDate) {
+    const endDate = new Date(data.endDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    filteredBody.createdAt = {
+      ...filteredBody.createdAt,
+      $lt: endDate,
+    };
+  }
+
+  if (data.assignee) {
+    const assigneesIDs = data.assignee.split(',');
+    filteredBody.assignee = { $in: assigneesIDs };
+  }
+
+  if (data.creator) {
+    const creatorIDs = data.creator.split(',');
+    filteredBody.creator = { $in: creatorIDs };
+  }
+
+  if (data.team) {
+    filteredBody.team = data.team;
+  }
+
+  if (data.refNo) {
+    filteredBody.refNo = { $regex: data.refNo };
+  }
+
+  if (data.order && !isNaN(data.order * 1)) {
+    filteredBody.order = data.order * 1;
+  }
+
+  if (data.requestNature) {
+    filteredBody.requestNature = data.requestNature;
+  }
+
+  if (data.requestType) {
+    filteredBody.requestType = data.requestType;
+  }
+
+  let page = data.page * 1 || 1;
+  let tickets, totalResults, totalPages;
+
+  tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('solvingUser', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .select('-questions -client -users -type')
+    .skip((page - 1) * 20)
+    .limit(20);
+
+  totalResults = await Ticket.count(filteredBody);
+
+  totalPages = Math.ceil(totalResults / 20);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
+
+  return { totalResults, totalPages, page, tickets };
+};
+
+exports.getAllUserTicketsList = async (data, user) => {
+  const filteredBody = {
+    $or: [{ creator: user._id }, { assignee: user._id }],
+  };
+
+  if (data.category) {
+    filteredBody.category = data.category;
+  }
+
+  if (data.status) {
+    const statusesIDs = data.status.split(',');
+    filteredBody.status = { $in: statusesIDs };
+  }
+
+  if (data.priority) {
+    filteredBody.priority = data.priority;
+  }
+
+  if (data.startDate) {
+    filteredBody.createdAt = { $gt: new Date(data.startDate) };
+  }
+  if (data.endDate) {
+    const endDate = new Date(data.endDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    filteredBody.createdAt = {
+      ...filteredBody.createdAt,
+      $lt: endDate,
+    };
+  }
+
+  if (data.assignee) {
+    const assigneesIDs = data.assignee.split(',');
+    filteredBody.assignee = { $in: assigneesIDs };
+  }
+
+  if (data.creator) {
+    const creatorIDs = data.creator.split(',');
+    filteredBody.creator = { $in: creatorIDs };
+  }
+
+  if (data.team) {
+    filteredBody.team = data.team;
+  }
+
+  if (data.refNo) {
+    filteredBody.refNo = { $regex: data.refNo };
+  }
+
+  if (data.order && !isNaN(data.order * 1)) {
+    filteredBody.order = data.order * 1;
+  }
+
+  if (data.requestNature) {
+    filteredBody.requestNature = data.requestNature;
+  }
+
+  if (data.requestType) {
+    filteredBody.requestType = data.requestType;
+  }
+
+  let page = data.page * 1 || 1;
+  let tickets, totalResults, totalPages;
+
+  tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('solvingUser', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .select('-questions -client -users -type')
+    .skip((page - 1) * 20)
+    .limit(20);
+
+  totalResults = await Ticket.count(filteredBody);
+
+  totalPages = Math.ceil(totalResults / 20);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
+
+  return { totalResults, totalPages, page, tickets };
+};
+
 exports.getAllTicketsFilters = async (user, teamsIDs) => {
   const userTickets = await Ticket.find({
     $or: [

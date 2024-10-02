@@ -1,4 +1,4 @@
-const json2xls = require('json2xls');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 
 const Session = require('../models/sessionModel');
@@ -123,14 +123,58 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
   );
 
   if (req.query.type === 'download') {
-    // Convert JSON to Excel
-    const xls = json2xls(performances);
+    // Create a new workbook
+    const workbook = new ExcelJS.Workbook();
 
-    // Generate a unique filename
-    const fileName = `data_${Date.now()}.xlsx`;
+    // Add a new sheet to the workbook
+    const worksheet = workbook.addWorksheet('performance');
 
-    // Write the Excel file to disk
-    fs.writeFileSync(fileName, xls, 'binary');
+    // Add header row (keys of JSON objects)
+    const headers = Object.keys(performances[0]);
+    worksheet.addRow(headers);
+
+    // Add data rows
+    performances.forEach((data) => {
+      worksheet.addRow(Object.values(data));
+    });
+
+    // Add columns to the sheet
+    worksheet.columns = [
+      { header: 'User', key: 'user', width: 30 },
+      { header: 'Total Chats', key: 'totalChats', width: 30 },
+      { header: 'On Time', key: 'onTime', width: 30 },
+      { header: 'Danger', key: 'danger', width: 30 },
+      { header: 'Too Late', key: 'tooLate', width: 30 },
+    ];
+
+    // Add auto-filter to all columns
+    worksheet.autoFilter = {
+      from: 'A1',
+      to: `E${performances.length + 1}`, // Adjust based on the number of data rows
+    };
+
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 40;
+    headerRow.font = {
+      name: 'Arial', // Font family
+      size: 12, // Font size
+      bold: true, // Bold text
+    };
+    headerRow.commit();
+
+    // Save the workbook to a file
+    const fileName = `Performance_${Date.now()}.xlsx`;
+    await workbook.xlsx.writeFile(fileName);
 
     // Send the Excel file as a response
     res.download(fileName, () => {

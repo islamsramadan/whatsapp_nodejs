@@ -9,6 +9,7 @@ router
   .route('/')
   .get(
     authController.protect,
+    authController.restrictTo('admin'),
     ticketPerformanceController.getTicketPerformance
   );
 

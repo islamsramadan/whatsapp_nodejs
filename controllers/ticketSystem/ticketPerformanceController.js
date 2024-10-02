@@ -1,3 +1,6 @@
+const ExcelJS = require('exceljs');
+const fs = require('fs');
+
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const User = require('../../models/userModel');
 
@@ -106,7 +109,7 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
         (ticket) => ticket.rating
       ).length;
       const positiveTickets = tickets.filter(
-        (ticket) => ticket.rating === 'positive'
+        (ticket) => ticket.rating === 'Positive'
       ).length;
       const NeutralTickets = tickets.filter(
         (ticket) => ticket.rating === 'Neutral'
@@ -130,10 +133,76 @@ exports.getTicketPerformance = catchAsync(async (req, res, next) => {
     })
   );
 
-  res.status(200).json({
-    status: 'success',
-    data: {
-      performances,
-    },
-  });
+  if (req.query.type === 'download') {
+    // Create a new workbook
+    const workbook = new ExcelJS.Workbook();
+
+    // Add a new sheet to the workbook
+    const worksheet = workbook.addWorksheet('tickets');
+
+    // Add header row (keys of JSON objects)
+    const headers = Object.keys(performances[0]);
+    worksheet.addRow(headers);
+
+    // Add data rows
+    performances.forEach((data) => {
+      worksheet.addRow(Object.values(data));
+    });
+
+    // Add columns to the sheet
+    worksheet.columns = [
+      { header: 'User', key: 'user', width: 30 },
+      { header: 'Total Tickets', key: 'totalTickets', width: 30 },
+      { header: 'Solved', key: 'solvedTickets', width: 30 },
+      { header: 'Unsolved', key: 'unsolvedTickets', width: 30 },
+      { header: 'Solving Time avg.', key: 'solvedTimeAverage', width: 50 },
+      { header: 'Total Rated Tickets', key: 'totalRatedTickets', width: 30 },
+      { header: 'Positive', key: 'positiveTickets', width: 30 },
+      { header: 'Neutral', key: 'NeutralTickets', width: 30 },
+      { header: 'Negative', key: 'NegativeTickets', width: 30 },
+    ];
+
+    // Add auto-filter to all columns
+    worksheet.autoFilter = {
+      from: 'A1',
+      to: `I${performances.length + 1}`, // Adjust based on the number of data rows
+    };
+
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 40;
+    headerRow.font = {
+      name: 'Arial', // Font family
+      size: 12, // Font size
+      bold: true, // Bold text
+    };
+    headerRow.commit();
+
+    // Save the workbook to a file
+    const fileName = `tickets-performance_${Date.now()}.xlsx`;
+    await workbook.xlsx.writeFile(fileName);
+    console.log('Excel file created successfully.');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    res.status(200).json({
+      status: 'success',
+      data: {
+        performances,
+      },
+    });
+  }
 });
