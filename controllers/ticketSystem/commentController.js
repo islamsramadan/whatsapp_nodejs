@@ -124,11 +124,13 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
   // ==========> Checking permission
   const ticketTeam = await Team.findById(ticket.team);
+  const defaultTeam = await Team.findOne({ default: true });
   if (
     req.user.role !== 'admin' &&
     !ticket.creator.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
     !ticketTeam.supervisor.equals(req.user._id) &&
+    !defaultTeam._id.equals(req.user.team) &&
     !ticket.users.some((userId) => userId.equals(req.user._id))
   ) {
     return next(

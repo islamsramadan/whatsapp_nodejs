@@ -957,7 +957,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
 
   let updatedBody = {};
   if (ticket.status.category !== 'solved') {
-    updatedBody = filterObj(req.body, 'priority', 'category');
+    updatedBody = filterObj(req.body, 'requestType', 'priority', 'category');
   }
 
   // ----------> Status validation
