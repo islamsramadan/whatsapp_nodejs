@@ -16,6 +16,7 @@ const Form = require('../../models/ticketSystem/formModel');
 const Field = require('../../models/ticketSystem/fieldModel');
 const Team = require('../../models/teamModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
+const Notification = require('../../models/notificationModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -305,10 +306,6 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 
   const filteredBody = {};
 
-  if (req.query.order) {
-    filteredBody.order = req.query.order;
-  }
-
   if (req.query.category) {
     filteredBody.category = req.query.category;
   }
@@ -351,6 +348,10 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
 
   if (req.query.refNo) {
     filteredBody.refNo = { $regex: req.query.refNo };
+  }
+
+  if (req.query.order && !isNaN(req.query.order * 1)) {
+    filteredBody.order = req.query.order * 1;
   }
 
   if (req.query.requestNature) {
@@ -442,10 +443,6 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
     $or: [{ creator: req.user._id }, { assignee: req.user._id }],
   };
 
-  if (req.query.order) {
-    filteredBody.order = req.query.order;
-  }
-
   if (req.query.category) {
     filteredBody.category = req.query.category;
   }
@@ -488,6 +485,10 @@ exports.getAllUserTickets = catchAsync(async (req, res, next) => {
 
   if (req.query.refNo) {
     filteredBody.refNo = { $regex: req.query.refNo };
+  }
+
+  if (req.query.order && !isNaN(req.query.order * 1)) {
+    filteredBody.order = req.query.order * 1;
   }
 
   if (req.query.requestNature) {
@@ -857,6 +858,21 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       }
     );
 
+    // =====================> New Ticket Notification
+    if (!ticket[0].creator.equals(ticket[0].assignee)) {
+      const newNotificationData = {
+        type: 'tickets',
+        user: ticket[0].assignee,
+        ticket: ticket[0]._id,
+        event: 'newTicket',
+      };
+      const newNotification = await Notification.create([newNotificationData], {
+        session: transactionSession,
+      });
+
+      console.log('newNotification', newNotification);
+    }
+
     newTicket = ticket[0];
 
     await transactionSession.commitTransaction(); // Commit the transaction
@@ -881,7 +897,8 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
 
     const text = `Dear ${updatedTicket.assignee.firstName},
-    Kindly check your tickets, you have a new ticket no. ${newTicket.order}
+
+    Kindly check your tickets, you have a new ticket no. ${newTicket.order} with Ref No. ${newTicket.refNo}
     
     Regards.`;
 
@@ -892,7 +909,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       attachments: [],
     };
 
-    mailerSendEmail(emailDetails);
+    // mailerSendEmail(emailDetails);
     //--------------------> updating ticket event in socket io
     req.app.io.emit('updatingTickets');
 
@@ -1067,6 +1084,106 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
           session: transactionSession,
         }
       );
+    }
+
+    // =====================> Solved Ticket Notification
+    if (status && status.category === 'solved') {
+      const newNotificationData = {
+        type: 'tickets',
+        ticket: ticket._id,
+        event: 'solvedTicket',
+      };
+
+      // -----------------> creator notification
+      if (!ticket.creator.equals(req.user._id)) {
+        const creatorNotification = await Notification.create(
+          [
+            {
+              ...newNotificationData,
+              user: ticket.creator,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('creatorNotification', creatorNotification);
+      }
+
+      // -----------------> assignee notification
+      if (
+        !ticket.assignee.equals(req.user._id) &&
+        !ticket.assignee.equals(ticket.creator)
+      ) {
+        const assigneeNotification = await Notification.create(
+          [
+            {
+              ...newNotificationData,
+              user: ticket.assignee,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('assigneeNotification', assigneeNotification);
+      }
+    }
+
+    // =====================> Reopen Ticket Notification
+    if (
+      ticket.status.category === 'solved' &&
+      status &&
+      status.category !== 'solved'
+    ) {
+      const reopenNotificationData = {
+        type: 'tickets',
+        ticket: ticket._id,
+        event: 'reopenTicket',
+      };
+
+      // -----------------> creator notification
+      if (!ticket.creator.equals(req.user._id)) {
+        const creatorReopenNotification = await Notification.create(
+          [
+            {
+              ...reopenNotificationData,
+              user: ticket.creator,
+              message: `Ticket no. ${ticket.order} has been reopened by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('creatorReopenNotification', creatorReopenNotification);
+      }
+
+      // -----------------> assignee notification
+      if (
+        !ticket.assignee.equals(req.user._id) &&
+        !ticket.assignee.equals(ticket.creator)
+      ) {
+        const assigneeReopenNotification = await Notification.create(
+          [
+            {
+              ...reopenNotificationData,
+              user: ticket.assignee,
+              message: `Ticket no. ${ticket.order} has been reopened by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('assigneeReopenNotification', assigneeReopenNotification);
+      }
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
@@ -1313,6 +1430,76 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       }
     );
 
+    // =====================> Ticket Transfer Notification
+    const newNotificationData = {
+      type: 'tickets',
+      ticket: ticket._id,
+      event: 'ticketTransfer',
+    };
+
+    const newAssigneeUser = await User.findById(assignee);
+
+    // ---------> new assignee
+    if (
+      !req.body.assignee ||
+      (req.body.assignee && !newAssigneeUser._id.equals(req.user._id))
+    ) {
+      const newAssigneeNotification = await Notification.create(
+        [
+          {
+            ...newNotificationData,
+            user: assignee,
+            message: `New ticket no. ${ticket.order} has been transferred from ${previousAssignee.firstName} ${previousAssignee.lastName}`,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+      console.log('newAssigneeNotification', newAssigneeNotification);
+    }
+
+    // ---------> previous assignee
+    if (
+      !previousAssignee._id.equals(req.user._id) &&
+      !previousAssignee._id.equals(newAssigneeUser._id)
+    ) {
+      const previousAssigneeNotification = await Notification.create(
+        [
+          {
+            ...newNotificationData,
+            user: previousAssignee._id,
+            message: `Ticket no. ${ticket.order} has been transferred to ${newAssigneeUser.firstName} ${newAssigneeUser.lastName}`,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+      console.log('previousAssigneeNotification', previousAssigneeNotification);
+    }
+
+    // ---------> creator
+    if (
+      !ticket.creator.equals(req.user._id) &&
+      !ticket.creator.equals(previousAssignee._id) &&
+      !ticket.creator.equals(newAssigneeUser._id)
+    ) {
+      const creatorNotification = await Notification.create(
+        [
+          {
+            ...newNotificationData,
+            user: ticket.creator,
+            message: `Ticket no. ${ticket.order} has been transferred to ${newAssigneeUser.firstName} ${newAssigneeUser.lastName}`,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+      console.log('creatorNotification', creatorNotification);
+    }
+
     await transactionSession.commitTransaction();
   } catch (err) {
     await transactionSession.abortTransaction();
@@ -1427,6 +1614,43 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
         session: transactionSession,
       }
     );
+
+    // =====================> Ticket Transfer Notification
+    const newNotificationData = {
+      type: 'tickets',
+      ticket: ticket._id,
+      event: 'ticketTransfer',
+    };
+
+    const previousAssigneeNotification = await Notification.create(
+      [
+        {
+          ...newNotificationData,
+          user: previousAssignee._id,
+          message: `Ticket no. ${ticket.order} has been transferred to ${req.user.firstName} ${req.user.lastName}`,
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+    console.log('previousAssigneeNotification', previousAssigneeNotification);
+
+    if (!ticket.creator.equals(previousAssignee._id)) {
+      const creatorNotification = await Notification.create(
+        [
+          {
+            ...newNotificationData,
+            user: ticket.creator,
+            message: `Ticket no. ${ticket.order} has been transferred to ${req.user.firstName} ${req.user.lastName}`,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+      console.log('creatorNotification', creatorNotification);
+    }
 
     await transactionSession.commitTransaction();
   } catch (err) {
@@ -1622,6 +1846,54 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
           session: transactionSession,
         }
       );
+    }
+
+    // =====================> Solved Ticket Notification
+    if (status && status.category === 'solved') {
+      const newNotificationData = {
+        type: 'tickets',
+        ticket: ticket._id,
+        event: 'solvedTicket',
+      };
+
+      // -----------------> creator notification
+      if (!ticket.creator.equals(req.user._id)) {
+        const creatorNotification = await Notification.create(
+          [
+            {
+              ...newNotificationData,
+              user: ticket.creator,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('creatorNotification', creatorNotification);
+      }
+
+      // -----------------> assignee notification
+      if (
+        !ticket.assignee.equals(req.user._id) &&
+        !ticket.assignee.equals(ticket.creator)
+      ) {
+        const assigneeNotification = await Notification.create(
+          [
+            {
+              ...newNotificationData,
+              user: ticket.assignee,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('assigneeNotification', assigneeNotification);
+      }
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction

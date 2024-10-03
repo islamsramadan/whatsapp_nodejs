@@ -32,6 +32,8 @@ const ticketFiltersRouter = require('./ticketSystem/ticketFiltersRoutes');
 const ticketPerformanceRouter = require('./ticketSystem/ticketPerformanceRoutes');
 const clientTicketRouter = require('./ticketSystem/clientTicketRoutes');
 
+const notificationRouter = require('./notificationRoutes');
+
 const router = express.Router();
 
 router.use('/webhook', webhookRouter);
@@ -66,5 +68,7 @@ router.use('/ticket-dashboard', ticketDashboardRouter);
 router.use('/ticket-filters', ticketFiltersRouter);
 router.use('/ticket-performance', ticketPerformanceRouter);
 router.use('/client', clientTicketRouter);
+
+router.use('/notifications', notificationRouter);
 
 module.exports = router;

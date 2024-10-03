@@ -42,6 +42,7 @@ const notificationSchema = new mongoose.Schema(
         'solvedTicket',
         'newComment',
         'ticketTransfer',
+        'reopenTicket',
         'newChat',
         'newMessages',
         'chatTransfer',
@@ -76,7 +77,7 @@ notificationSchema.pre('save', async function (next) {
     }
 
     if (this.event === 'solvedTicket') {
-      message = `Ticket no. ${this.ticket.order} has been solved`;
+      message = `Ticket no. ${this.ticket.order} has been solved and closed`;
     }
 
     if (this.event === 'newComment') {
@@ -84,7 +85,11 @@ notificationSchema.pre('save', async function (next) {
     }
 
     if (this.event === 'ticketTransfer') {
-      message = `Ticket no. ${this.ticket.order} has been transfered`;
+      message = `Ticket no. ${this.ticket.order} has been transferred`;
+    }
+
+    if (this.event === 'reopenTicket') {
+      message = `Ticket no. ${this.ticket.order} has been reopened`;
     }
 
     if (this.event === 'newChat') {
@@ -96,7 +101,7 @@ notificationSchema.pre('save', async function (next) {
     }
 
     if (this.event === 'chatTransfer') {
-      message = `Chat no. ${this.chat.client} has been transfered`;
+      message = `Chat no. ${this.chat.client} has been transferred`;
     }
 
     this.message = message;

@@ -12,6 +12,8 @@ const Field = require('../../models/ticketSystem/fieldModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const { mailerSendEmail } = require('../../utils/emailHandler');
 const Team = require('../../models/teamModel');
+const Notification = require('../../models/notificationModel');
+const User = require('../../models/userModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -241,6 +243,38 @@ exports.createComment = catchAsync(async (req, res, next) => {
       { session: transactionSession }
     );
 
+    // =====================> New Comment Notification
+    const newNotificationData = {
+      type: 'tickets',
+      ticket: ticket._id,
+      event: 'newComment',
+    };
+
+    if (!ticket.assignee.equals(req.user._id)) {
+      const assigneeNotification = await Notification.create(
+        [{ ...newNotificationData, user: ticket.assignee }],
+        {
+          session: transactionSession,
+        }
+      );
+
+      console.log('assigneeNotification', assigneeNotification);
+    }
+
+    if (
+      !ticket.creator.equals(req.user._id) &&
+      !ticket.creator.equals(ticket.assignee)
+    ) {
+      const creatorNotification = await Notification.create(
+        [{ ...newNotificationData, user: ticket.creator }],
+        {
+          session: transactionSession,
+        }
+      );
+
+      console.log('creatorNotification', creatorNotification);
+    }
+
     // =====================> Status Ticket Log
     if (status) {
       await TicketLog.create(
@@ -274,7 +308,55 @@ exports.createComment = catchAsync(async (req, res, next) => {
       );
     }
 
-    console.log('New comment created: ============', comment[0]._id);
+    // =====================> Solved Ticket Notification
+    if (status && status.category === 'solved') {
+      const solvedTicketNotificationData = {
+        type: 'tickets',
+        ticket: ticket._id,
+        event: 'solvedTicket',
+      };
+
+      // -----------------> creator notification
+      if (!ticket.creator.equals(req.user._id)) {
+        const creatorNotification = await Notification.create(
+          [
+            {
+              ...solvedTicketNotificationData,
+              user: ticket.creator,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('creatorNotification', creatorNotification);
+      }
+
+      // -----------------> assignee notification
+      if (
+        !ticket.assignee.equals(req.user._id) &&
+        !ticket.assignee.equals(ticket.creator)
+      ) {
+        const assigneeNotification = await Notification.create(
+          [
+            {
+              ...solvedTicketNotificationData,
+              user: ticket.assignee,
+              message: `Ticket no. ${ticket.order} has been solved and closed by ${req.user.firstName} ${req.user.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('assigneeNotification', assigneeNotification);
+      }
+    }
+
+    // console.log('New comment created: ============', comment[0]._id);
     await transactionSession.commitTransaction(); // Commit the transaction
   } catch (error) {
     await transactionSession.abortTransaction();

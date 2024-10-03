@@ -7,6 +7,7 @@ const Comment = require('../../models/ticketSystem/commentModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
 const Field = require('../../models/ticketSystem/fieldModel');
+const Notification = require('../../models/notificationModel');
 
 const getPopulatedTicket = async (filterObj) => {
   return await Ticket.findOne(filterObj)
@@ -196,6 +197,29 @@ exports.createComment = catchAsync(async (req, res, next) => {
     ticket: req.ticket._id,
     log: 'clientComment',
   });
+
+  // =====================> New Comment Notification
+  const newNotificationData = {
+    type: 'tickets',
+    ticket: req.ticket._id,
+    event: 'newComment',
+    message: `New comment on ticket no. ${req.ticket.order} from client`,
+  };
+
+  const assigneeNotification = await Notification.create({
+    ...newNotificationData,
+    user: req.ticket.assignee,
+  });
+  console.log('assigneeNotification', assigneeNotification);
+
+  if (!req.ticket.creator.equals(req.ticket.assignee)) {
+    const creatorNotification = await Notification.create({
+      ...newNotificationData,
+      user: req.ticket.creator,
+    });
+
+    console.log('creatorNotification', creatorNotification);
+  }
 
   //--------------------> updating ticket event in socket io
   req.app.io.emit('updatingTickets');

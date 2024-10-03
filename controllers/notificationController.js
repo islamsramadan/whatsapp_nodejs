@@ -1,4 +1,5 @@
 const Notification = require('../models/notificationModel');
+const Ticket = require('../models/ticketSystem/ticketModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
@@ -12,7 +13,7 @@ exports.getAllUserNotifications = catchAsync(async (req, res, next) => {
 
   const totalResults = await Notification.count({ user: req.user._id });
 
-  const totalPages = totalResults / 10;
+  const totalPages = Math.ceil(totalResults / 10);
 
   res.status(200).json({
     status: 'success',
@@ -33,7 +34,17 @@ exports.readNotification = catchAsync(async (req, res, next) => {
     return next(new AppError('No notification found with that ID!', 404));
   }
 
-  const updatedNotification = await Notification.findByIdAndUpdate(
+  if (!notification.user.equals(req.user._id)) {
+    return next(
+      new AppError('This notification belongs to another user!', 400)
+    );
+  }
+
+  if (notification.read) {
+    return next(new AppError('Notification has been already read!', 400));
+  }
+
+  await Notification.findByIdAndUpdate(
     req.params.notificationID,
     { read: true },
     { new: true, runValidators: true }
@@ -42,5 +53,24 @@ exports.readNotification = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'Read notification updated successfully!',
+  });
+});
+
+exports.readAllUserTicketNotification = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.ticketID);
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID', 404));
+  }
+
+  const updatedNotifications = await Notification.updateMany(
+    { ticket: ticket._id, user: req.user._id },
+    { read: true },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Ticket notifications updated successfully!',
+    updatedNotifications,
   });
 });
