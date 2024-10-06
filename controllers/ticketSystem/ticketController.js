@@ -957,7 +957,22 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
 
   let updatedBody = {};
   if (ticket.status.category !== 'solved') {
-    updatedBody = filterObj(req.body, 'requestType', 'priority', 'category');
+    const ticketTeam = await Team.findById(ticket.team);
+    if (
+      req.user.role === 'admin' ||
+      ticket.creator.equals(req.user._id) ||
+      ticketTeam.supervisor.equals(req.user._id)
+    ) {
+      updatedBody = filterObj(
+        req.body,
+        'requestType',
+        'requestNature',
+        'priority',
+        'category'
+      );
+    } else {
+      updatedBody = filterObj(req.body, 'priority', 'category');
+    }
   }
 
   // ----------> Status validation
