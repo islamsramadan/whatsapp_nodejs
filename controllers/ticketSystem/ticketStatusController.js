@@ -111,6 +111,10 @@ exports.createStatus = catchAsync(async (req, res, next) => {
   } catch (err) {
     await transactionSession.abortTransaction(); // Abort the transaction
     console.error('Transaction aborted due to an error:', err);
+
+    return next(
+      new AppError('Creating ticket status aborted! Try again later.', 400)
+    );
   } finally {
     transactionSession.endSession();
   }
@@ -200,6 +204,10 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
   } catch (err) {
     await transactionSession.abortTransaction(); // Abort the transaction
     console.error('Transaction aborted due to an error:', err);
+
+    return next(
+      new AppError('Updating ticket status aborted! Try again later.', 400)
+    );
   } finally {
     transactionSession.endSession();
   }

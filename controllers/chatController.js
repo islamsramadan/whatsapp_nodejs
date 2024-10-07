@@ -8,6 +8,7 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 const Log = require('../models/logModel');
+const Notification = require('../models/notificationModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
   const chats = await Chat.find()
@@ -211,17 +212,19 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide the type of update!', 400));
   }
 
-  let result = 'success';
-
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  let updatedChat;
   try {
     //**********Update chat notification
     if (type === 'notification') {
       if (req.body?.notification === false) {
-        chat.notification = false;
-        await chat.save();
+        updatedChat = await Chat.findByIdAndUpdate(
+          chat._id,
+          { notification: false },
+          { new: true, runValidators: true, session: transactionSession }
+        );
       } else {
         return next(new AppError('Kindly provide notification status!', 400));
       }
@@ -248,7 +251,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await Session.findByIdAndUpdate(
         chat.lastSession,
         { end: Date.now(), status: 'finished', $unset: { timer: '' } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
 
       // =======> Create chat history session
@@ -258,20 +261,44 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         actionType: 'archive',
         archive: 'user',
       };
-      await ChatHistory.create(chatHistoryData);
+      await ChatHistory.create([chatHistoryData], {
+        session: transactionSession,
+      });
 
+      // =======> Archive Chat Notification
+      if (!chat.currentUser.equals(req.user._id)) {
+        const archiveNotificationData = {
+          type: 'messages',
+          user: chat.currentUser,
+          chat: chat._id,
+          session: chat.lastSession,
+          event: 'archiveChat',
+          message: `Chat number ${chat.client} has been archived by ${req.user.firstName} ${req.user.lastName}`,
+        };
+        const archiveNotification = await Notification.create(
+          [archiveNotificationData],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('archiveNotification', archiveNotification);
+      }
       // Updating chat
-      chat.currentUser = undefined;
-      chat.team = undefined;
-      chat.status = 'archived';
-      chat.lastSession = undefined;
-      await chat.save();
+      await Chat.findByIdAndUpdate(
+        chat._id,
+        {
+          status: 'archived',
+          $unset: { currentUser: '', team: '', lastSession: '' },
+        },
+        { new: true, runValidators: true, session: transactionSession }
+      );
 
       // Removing chat from user open chats
       await User.findByIdAndUpdate(
         req.user._id,
         { $pull: { chats: chat._id } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
 
       //**********the user in chat team take the ownership
@@ -299,14 +326,19 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await Session.findByIdAndUpdate(
         chat.lastSession,
         { end: Date.now(), status: 'finished', $unset: { timer: '' } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
-      const newSession = await Session.create({
-        chat: chat._id,
-        user: req.user._id,
-        team: chat.team,
-        status: 'open',
-      });
+      const newSession = await Session.create(
+        [
+          {
+            chat: chat._id,
+            user: req.user._id,
+            team: chat.team,
+            status: 'open',
+          },
+        ],
+        { session: transactionSession }
+      );
 
       // =======> Create chat history session
       const chatHistoryData = {
@@ -315,22 +347,31 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         actionType: 'takeOwnership',
         takeOwnership: { from: chat.currentUser, to: req.user._id },
       };
-      await ChatHistory.create(chatHistoryData);
+      await ChatHistory.create([chatHistoryData], {
+        session: transactionSession,
+      });
 
-      chat.currentUser = req.user._id;
-      chat.lastSession = newSession._id;
+      const chatUpdatedBody = {
+        currentUser: req.user._id,
+        lastSession: newSession[0]._id,
+      };
       //Add new user to the array of users
       if (!chat.users.includes(req.user._id)) {
-        chat.users = [...chat.users, req.user._id];
+        chatUpdatedBody.$push = { users: req.user._id };
       }
-      await chat.save();
+
+      await Chat.findByIdAndUpdate(chat._id, chatUpdatedBody, {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      });
 
       //Add the chat to the user open chats
       if (!req.user.chats.includes(chat._id)) {
         await User.findByIdAndUpdate(
           req.user._id,
           { $push: { chats: chat._id } },
-          { new: true, runValidators: true }
+          { new: true, runValidators: true, session: transactionSession }
         );
       }
 
@@ -338,8 +379,26 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await User.findByIdAndUpdate(
         previousUserID,
         { $pull: { chats: chat._id } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
+
+      // =======> Take Chat Ownership Notification
+      const transferNotificationData = {
+        type: 'messages',
+        user: chat.currentUser,
+        chat: chat._id,
+        session: chat.lastSession,
+        event: 'chatTransfer',
+        message: `Chat number ${chat.client} has been transfered to ${req.user.firstName} ${req.user.lastName}`,
+      };
+      const transferNotification = await Notification.create(
+        [transferNotificationData],
+        {
+          session: transactionSession,
+        }
+      );
+
+      console.log('transferNotification', transferNotification);
 
       //**********Transfer to another user in the same team
     } else if (type === 'transferToUser') {
@@ -373,14 +432,19 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await Session.findByIdAndUpdate(
         chat.lastSession,
         { end: Date.now(), status: 'finished', $unset: { timer: '' } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
-      const newSession = await Session.create({
-        chat: chat._id,
-        user: req.body.user,
-        team: chat.team,
-        status: 'open',
-      });
+      const newSession = await Session.create(
+        [
+          {
+            chat: chat._id,
+            user: req.body.user,
+            team: chat.team,
+            status: 'open',
+          },
+        ],
+        { session: transactionSession }
+      );
 
       // =======> Create chat history session
       const chatHistoryData = {
@@ -389,21 +453,30 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         actionType: 'transfer',
         transfer: { type: 'user', from: chat.currentUser, to: req.body.user },
       };
-      await ChatHistory.create(chatHistoryData);
+      await ChatHistory.create([chatHistoryData], {
+        session: transactionSession,
+      });
 
-      chat.currentUser = req.body.user;
-      chat.lastSession = newSession._id;
+      const chatUpdatedBody = {
+        currentUser: req.body.user,
+        lastSession: newSession[0]._id,
+      };
       //Add new user to the array of users
       if (!chat.users.includes(req.body.user)) {
-        chat.users = [...chat.users, req.body.user];
+        chatUpdatedBody.$push = { users: req.body.user };
       }
-      await chat.save();
+
+      await Chat.findByIdAndUpdate(chat._id, chatUpdatedBody, {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      });
 
       //Remove chat from user open chats
       await User.findByIdAndUpdate(
         previousUserID,
         { $pull: { chats: chat._id } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
 
       //Adding the chat to the new user
@@ -412,8 +485,61 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         {
           $push: { chats: chat._id },
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
+
+      // =======> Transfer Chat Notification
+      const transferNotificationData = {
+        type: 'messages',
+        // user: chat.currentUser,
+        chat: chat._id,
+        // session: chat.lastSession,
+        event: 'chatTransfer',
+      };
+
+      // --------> Transfer To Notification
+      if (!req.user._id.equals(req.body.user)) {
+        const previousUserDoc = await User.findById(previousUserID).select(
+          'firstName lastName'
+        );
+        const transferToNotification = await Notification.create(
+          [
+            {
+              ...transferNotificationData,
+              user: req.body.user,
+              session: newSession[0]._id,
+              message: `Chat number ${chat.client} has been transfered from ${previousUserDoc.firstName} ${previousUserDoc.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('transferToNotification', transferToNotification);
+      }
+
+      // --------> Transfer From Notification
+      if (!req.user._id.equals(previousUserID)) {
+        const newUserDoc = await User.findById(req.body.user).select(
+          'firstName lastName'
+        );
+        const transferFromNotification = await Notification.create(
+          [
+            {
+              ...transferNotificationData,
+              user: previousUserID,
+              session: chat.lastSession,
+              message: `Chat number ${chat.client} has been transfered to ${newUserDoc.firstName} ${newUserDoc.lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('transferFromNotification', transferFromNotification);
+      }
 
       //********** Transfer the chat to another team and remove the current user
     } else if (type === 'transferToTeam') {
@@ -474,14 +600,19 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await Session.findByIdAndUpdate(
         chat.lastSession,
         { end: Date.now(), status: 'finished', $unset: { timer: '' } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
-      const newSession = await Session.create({
-        chat: chat._id,
-        user: teamUsers[0]._id,
-        team: req.body.team,
-        status: 'open',
-      });
+      const newSession = await Session.create(
+        [
+          {
+            chat: chat._id,
+            user: teamUsers[0]._id,
+            team: req.body.team,
+            status: 'open',
+          },
+        ],
+        { session: transactionSession }
+      );
 
       // =======> Create chat history session
       const chatHistoryData = {
@@ -496,23 +627,33 @@ exports.updateChat = catchAsync(async (req, res, next) => {
           toTeam: req.body.team,
         },
       };
-      await ChatHistory.create(chatHistoryData);
+      await ChatHistory.create([chatHistoryData], {
+        session: transactionSession,
+      });
 
       //Update chat
-      chat.team = req.body.team;
-      chat.currentUser = teamUsers[0]._id;
-      chat.lastSession = newSession._id;
+      const chatUpdatedBody = {
+        team: req.body.team,
+        currentUser: teamUsers[0]._id,
+        lastSession: newSession[0]._id,
+      };
       if (!chat.users.includes(chat.currentUser)) {
-        chat.users = [...chat.users, chat.currentUser];
+        // chat.users = [...chat.users, chat.currentUser];
+        chatUpdatedBody.$push = { users: chat.currentUser };
       }
-      await chat.save();
+
+      await Chat.findByIdAndUpdate(chat._id, chatUpdatedBody, {
+        new: true,
+        runValidators: true,
+        session: transactionSession,
+      });
 
       //Update selected user open chats
       if (!teamUsers[0].chats.includes(chat._id)) {
         await User.findByIdAndUpdate(
           teamUsers[0]._id,
           { $push: { chats: chat._id } },
-          { new: true, runValidators: true }
+          { new: true, runValidators: true, session: transactionSession }
         );
       }
 
@@ -520,29 +661,64 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       await User.findByIdAndUpdate(
         previousUserID,
         { $pull: { chats: chat._id } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, session: transactionSession }
       );
+
+      // =======> Transfer Chat Notification
+      const transferNotificationData = {
+        type: 'messages',
+        chat: chat._id,
+        event: 'chatTransfer',
+      };
+
+      // --------> Transfer To Notification
+      const previousUserDoc = await User.findById(previousUserID).select(
+        'firstName lastName'
+      );
+      const transferToNotification = await Notification.create(
+        [
+          {
+            ...transferNotificationData,
+            user: teamUsers[0]._id,
+            session: newSession[0]._id,
+            message: `Chat number ${chat.client} has been transfered from ${previousUserDoc.firstName} ${previousUserDoc.lastName}`,
+          },
+        ],
+        {
+          session: transactionSession,
+        }
+      );
+
+      console.log('transferToNotification', transferToNotification);
+
+      // --------> Transfer From Notification
+      if (!req.user._id.equals(previousUserID)) {
+        const transferFromNotification = await Notification.create(
+          [
+            {
+              ...transferNotificationData,
+              user: previousUserID,
+              session: chat.lastSession,
+              message: `Chat number ${chat.client} has been transfered to ${teamUsers[0].firstName} ${teamUsers[0].lastName}`,
+            },
+          ],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('transferFromNotification', transferFromNotification);
+      }
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
     transactionSession.endSession();
   } catch (error) {
-    result = 'failed';
     await transactionSession.abortTransaction();
     transactionSession.endSession();
 
     console.error('Transaction aborted due to an error:', error);
-  }
 
-  //updating event in socket io
-  req.app.io.emit('updating');
-
-  if (result === 'success') {
-    res.status(200).json({
-      status: 'success',
-      message: 'Chat updated successfully!',
-    });
-  } else {
     await Log.create({
       type: 'chat',
       chat: chat._id,
@@ -550,9 +726,15 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       event: `chat update - ${type}`,
     });
 
-    res.status(400).json({
-      status: 'failed',
-      message: 'Try again!',
-    });
+    return next(new AppError('Updating chat aborted! Try again later.', 400));
   }
+
+  //updating event in socket io
+  req.app.io.emit('updating');
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Chat updated successfully!',
+    updatedChat,
+  });
 });

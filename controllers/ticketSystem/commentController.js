@@ -368,7 +368,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
       error
     );
 
-    return next(new AppError('Creating new comment aborted', 400));
+    return next(new AppError('Creating new comment aborted! Try again.', 400));
   } finally {
     transactionSession.endSession();
   }

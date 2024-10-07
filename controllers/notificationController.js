@@ -40,13 +40,9 @@ exports.readNotification = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (notification.read) {
-    return next(new AppError('Notification has been already read!', 400));
-  }
-
   await Notification.findByIdAndUpdate(
     req.params.notificationID,
-    { read: true },
+    { read: true, numbers: 0 },
     { new: true, runValidators: true }
   );
 
@@ -64,7 +60,7 @@ exports.readAllUserTicketNotification = catchAsync(async (req, res, next) => {
 
   const updatedNotifications = await Notification.updateMany(
     { ticket: ticket._id, user: req.user._id },
-    { read: true },
+    { read: true, numbers: 0 },
     { new: true, runValidators: true }
   );
 

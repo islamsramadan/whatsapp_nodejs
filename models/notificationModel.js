@@ -35,6 +35,11 @@ const notificationSchema = new mongoose.Schema(
       },
     },
 
+    session: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Session',
+    },
+
     event: {
       type: String,
       enum: [
@@ -46,6 +51,7 @@ const notificationSchema = new mongoose.Schema(
         'newChat',
         'newMessages',
         'chatTransfer',
+        'archiveChat',
       ],
       required: true,
     },
@@ -53,12 +59,24 @@ const notificationSchema = new mongoose.Schema(
     message: {
       type: String,
     },
+
+    numbers: {
+      type: Number,
+      min: 0,
+      default: 1,
+    },
+
+    sortingDate: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
 
 // Pre-save middleware to add client token before saving
 notificationSchema.pre('save', async function (next) {
+  if (!this.sortingDate) this.sortingDate = this.createdAt;
+
   let message = '';
 
   // Populate the ticket field with the order
@@ -93,15 +111,19 @@ notificationSchema.pre('save', async function (next) {
     }
 
     if (this.event === 'newChat') {
-      message = `New Chat no. ${this.chat.client}`;
+      message = `New Chat number ${this.chat.client}`;
     }
 
     if (this.event === 'newMessages') {
-      message = `New messages on chat no. ${this.chat.client}`;
+      message = `New messages on chat number ${this.chat.client}`;
     }
 
     if (this.event === 'chatTransfer') {
-      message = `Chat no. ${this.chat.client} has been transferred`;
+      message = `Chat number ${this.chat.client} has been transferred`;
+    }
+
+    if (this.event === 'archiveChat') {
+      message = `Chat number ${this.chat.client} has been archived`;
     }
 
     this.message = message;

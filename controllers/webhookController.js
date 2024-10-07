@@ -22,6 +22,7 @@ const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
 const serviceHoursUtils = require('../utils/serviceHoursUtils');
 const Contact = require('../models/contactModel');
 const ChatHistory = require('../models/historyModel');
+const Notification = require('../models/notificationModel');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -305,58 +306,6 @@ const receiveMessageHandler = async (req, res, next) => {
     let selectedSession = session;
 
     if (!session) {
-      // async function ensureSessionForChat(selectedChat) {
-      //   const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
-      //   transactionSession.startTransaction();
-
-      //   try {
-      //     // Re-fetch the chat within the transaction to ensure data integrity
-      //     const chat = await Chat.findById(selectedChat._id).session(
-      //       transactionSession
-      //     );
-
-      //     if (!chat.lastSession) {
-      //       const botTeam = await Team.findOne({ bot: true }).session(
-      //         transactionSession
-      //       );
-
-      //       const newSession = await Session.create(
-      //         [
-      //           {
-      //             chat: chat._id,
-      //             user: botTeam.supervisor,
-      //             team: botTeam._id,
-      //             status: 'onTime',
-      //             type: 'bot',
-      //           },
-      //         ],
-      //         { session: transactionSession }
-      //       );
-
-      // chat.lastSession = newSession[0]._id;
-      // chat.currentUser = botTeam.supervisor;
-      // chat.team = botTeam._id;
-      // await chat.save({ session: transactionSession });
-
-      //       await transactionSession.commitTransaction(); // Commit the transaction
-      //       transactionSession.endSession();
-
-      //       console.log('New session created:', newSession[0]._id);
-      //       return newSession[0];
-      //     } else {
-      //       await transactionSession.abortTransaction(); // Abort as no need to create a session
-      //       transactionSession.endSession();
-
-      //       console.log('Using existing session:', chat.lastSession);
-      //       return await Session.findById(chat.lastSession);
-      //     }
-      //   } catch (error) {
-      //     await transactionSession.abortTransaction(); // Make sure to abort if an error occurs
-      //     transactionSession.endSession();
-      //     throw error;
-      //   }
-      // }
-
       async function ensureSessionForChat(selectedChat) {
         const maxRetries = 3; // Set a maximum number of retries
         let attempts = 0;
@@ -499,6 +448,41 @@ const receiveMessageHandler = async (req, res, next) => {
 
     const newMessage = await Message.create(newMessageData);
 
+    // ========================> New Messages Notifications
+    if (selectedSession.type === 'normal') {
+      const previousNotification = await Notification.findOne({
+        user: selectedSession.user,
+        chat: selectedChat._id,
+        event: 'newMessages',
+        session: selectedSession._id,
+      });
+      if (previousNotification) {
+        const updatedNotification = await Notification.findByIdAndUpdate(
+          previousNotification._id,
+          { $inc: { numbers: 1 }, read: false, sortingDate: Date.now() },
+          { new: true, runValidators: true }
+        );
+
+        console.log('updatedNotification -------------', updatedNotification);
+      } else {
+        const newMessagesNotificationData = {
+          type: 'messages',
+          user: selectedSession.user,
+          chat: selectedChat._id,
+          session: selectedSession._id,
+          event: 'newMessages',
+        };
+
+        const newMessagesNotification = await Notification.create(
+          newMessagesNotificationData
+        );
+
+        console.log(
+          'newMessagesNotification ============================= >',
+          newMessagesNotification
+        );
+      }
+    }
     // **************** Fetching name from RD app ***************************
 
     async function createOrGetContact() {
@@ -750,91 +734,6 @@ const sendMessageHandler = async (
     //updating event in socket io
     req.app.io.emit('updating');
   }
-};
-
-const sendMessageWithSessionHandler = async (
-  transactionSession,
-  req,
-  msgToBeSent,
-  selectedChat,
-  selectedSession
-) => {
-  const newMessageObj = {
-    user: selectedChat.currentUser,
-    chat: selectedChat._id,
-    session: selectedSession._id,
-    from: process.env.WHATSAPP_PHONE_NUMBER,
-    type: msgToBeSent.type,
-  };
-
-  const whatsappPayload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: selectedChat.client,
-    type: msgToBeSent.type,
-  };
-
-  if (msgToBeSent.type === 'interactive') {
-    newMessageObj.interactive = msgToBeSent.interactive;
-    whatsappPayload.interactive = msgToBeSent.interactive;
-  }
-  if (msgToBeSent.type === 'text') {
-    newMessageObj.text = msgToBeSent.text;
-    whatsappPayload.text = { preview_url: false, body: msgToBeSent.text };
-  }
-  if (msgToBeSent.type === 'contacts') {
-    whatsappPayload.contacts = msgToBeSent.contacts;
-    newMessageObj.contacts = msgToBeSent.contacts.map((contact) => ({
-      ...contact,
-      name: contact.name.formatted_name,
-    }));
-  }
-  if (msgToBeSent.type === 'document') {
-    whatsappPayload.document = msgToBeSent.document;
-    newMessageObj.document = { type: 'link', ...msgToBeSent.document };
-  }
-
-  // console.log('whatsappPayload =======', whatsappPayload);
-  // console.log('newMessageObj =======', newMessageObj);
-
-  let response;
-  try {
-    response = await axios.request({
-      method: 'post',
-      maxBodyLength: Infinity,
-      url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      },
-      data: JSON.stringify(whatsappPayload),
-    });
-  } catch (err) {
-    console.log('err', err);
-  }
-
-  // console.log('response.data----------------', response.data);
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: response.data.messages[0].id,
-  });
-
-  // Adding the sent message as last message in the chat and update chat status
-  selectedChat.lastMessage = newMessage._id;
-  selectedChat.status = 'open';
-  // updating chat notification to false
-  selectedChat.notification = false;
-  await selectedChat.save();
-
-  // Updating session to new status ((open))
-  selectedSession.status = 'open';
-  selectedSession.timer = undefined;
-  if (selectedSession.type === 'bot')
-    selectedSession.lastBotMessage = newMessage._id;
-  await selectedSession.save();
-
-  //updating event in socket io
-  req.app.io.emit('updating');
 };
 
 const checkInteractiveHandler = async (
@@ -1137,9 +1036,6 @@ const chatBotHandler = async (
         actionType: 'botReceive',
       };
       await ChatHistory.create(chatHistoryData);
-      console.log(
-        '////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// true'
-      );
     } else {
       console.log(
         '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
@@ -1492,6 +1388,21 @@ const chatBotHandler = async (
             };
             await ChatHistory.create(chatHistoryData);
 
+            // =======> New Chat Notification
+            const newChatNotificationData = {
+              type: 'messages',
+              user: teamUsers[0]._id,
+              chat: selectedChat._id,
+              event: 'newChat',
+            };
+
+            const newChatNotification = await Notification.create(
+              newChatNotificationData
+            );
+            console.log(
+              'newChatNotification -------------',
+              newChatNotification
+            );
             // ==========> Updating chat
             selectedChat.lastSession = newSession._id;
             selectedChat.team = selectedTeam._id;

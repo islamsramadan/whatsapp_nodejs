@@ -885,6 +885,8 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       'Transaction aborted due to an error: ===========================',
       error
     );
+
+    return next(new AppError('Creating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }
@@ -973,7 +975,22 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
 
   let updatedBody = {};
   if (ticket.status.category !== 'solved') {
-    updatedBody = filterObj(req.body, 'requestType', 'priority', 'category');
+    const ticketTeam = await Team.findById(ticket.team);
+    if (
+      req.user.role === 'admin' ||
+      ticket.creator.equals(req.user._id) ||
+      ticketTeam.supervisor.equals(req.user._id)
+    ) {
+      updatedBody = filterObj(
+        req.body,
+        'requestType',
+        'requestNature',
+        'priority',
+        'category'
+      );
+    } else {
+      updatedBody = filterObj(req.body, 'priority', 'category');
+    }
   }
 
   // ----------> Status validation
@@ -1195,7 +1212,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       error
     );
 
-    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+    return next(new AppError('Updating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }
@@ -1509,7 +1526,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
       err
     );
 
-    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+    return next(new AppError('Updating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }
@@ -1661,7 +1678,7 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
       err
     );
 
-    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+    return next(new AppError('Updating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }
@@ -1905,7 +1922,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
       error
     );
 
-    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+    return next(new AppError('Updating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }
@@ -2021,7 +2038,7 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
       error
     );
 
-    return next(new AppError("Couldn't update the ticket! Try later.", 400));
+    return next(new AppError('Updating ticket aborted! Try again later.', 400));
   } finally {
     transactionSession.endSession();
   }

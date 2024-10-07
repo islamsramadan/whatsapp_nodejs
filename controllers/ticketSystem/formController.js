@@ -236,6 +236,8 @@ exports.updateForm = catchAsync(async (req, res, next) => {
   } catch (err) {
     await transactionSession.abortTransaction(); // Abort the transaction
     console.error('Transaction aborted due to an error:', err);
+
+    return next(new AppError('Updating form aborted! Try again later.'));
   } finally {
     transactionSession.endSession();
   }
@@ -245,52 +247,6 @@ exports.updateForm = catchAsync(async (req, res, next) => {
     message: 'Form updated successfully!',
   });
 });
-
-// exports.updateDefaultForm = catchAsync(async (req, res, next) => {
-//   const form = await Form.findById(req.params.formID);
-
-//   if (!form) {
-//     return next(new AppError('No form found with that ID!', 404));
-//   }
-
-//   if (form.default) {
-//     return next(new AppError('This is the default form!', 400));
-//   }
-
-//   if (form.status === 'inactive') {
-//     return next(new AppError("Couldn't update inactive forms to default!"));
-//   }
-
-//   const previousDefault = await Form.findOne({ default: true });
-
-//   const updatedForm = await Form.findByIdAndUpdate(
-//     req.params.formID,
-//     { default: true, updater: req.user._id },
-//     { runValidators: true, new: true }
-//   );
-
-//   //remove previous default
-//   if (previousDefault) {
-//     await Form.findByIdAndUpdate(
-//       previousDefault._id,
-//       { default: false },
-//       { runValidators: true, new: true }
-//     );
-//   }
-
-//   //Sending all forms
-//   const forms = await Form.find()
-//     .sort('order')
-//     .select('name order default status');
-
-//   res.status(200).json({
-//     status: 'success',
-//     data: {
-//       form: updatedForm,
-//       forms,
-//     },
-//   });
-// });
 
 exports.updateFormsOrder = catchAsync(async (req, res, next) => {
   // req.body.forms =[{form:"formID",order:1}, {}, ...]
