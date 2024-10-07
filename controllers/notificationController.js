@@ -1,3 +1,4 @@
+const Chat = require('../models/chatModel');
 const Notification = require('../models/notificationModel');
 const Ticket = require('../models/ticketSystem/ticketModel');
 const AppError = require('../utils/appError');
@@ -52,7 +53,7 @@ exports.readNotification = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.readAllUserTicketNotification = catchAsync(async (req, res, next) => {
+exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
     return next(new AppError('No ticket found with that ID', 404));
@@ -60,6 +61,40 @@ exports.readAllUserTicketNotification = catchAsync(async (req, res, next) => {
 
   const updatedNotifications = await Notification.updateMany(
     { ticket: ticket._id, user: req.user._id },
+    { read: true, numbers: 0 },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Ticket notifications updated successfully!',
+    updatedNotifications,
+  });
+});
+
+exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
+  const chat = await Chat.findById(req.params.chatID);
+
+  if (!chat) {
+    return next(new AppError('No chat found with that ID', 404));
+  }
+
+  const updatedNotifications = await Notification.updateMany(
+    { chat: chat._id, user: req.user._id },
+    { read: true, numbers: 0 },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Ticket notifications updated successfully!',
+    updatedNotifications,
+  });
+});
+
+exports.readAllUserNotifications = catchAsync(async (req, res, next) => {
+  const updatedNotifications = await Notification.updateMany(
+    { user: req.user._id },
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
   );

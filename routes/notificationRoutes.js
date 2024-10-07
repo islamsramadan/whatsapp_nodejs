@@ -7,17 +7,28 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(authController.protect, notificationController.getAllUserNotifications);
-
-router
-  .route('/ticket/:ticketID')
+  .get(authController.protect, notificationController.getAllUserNotifications)
   .patch(
     authController.protect,
-    notificationController.readAllUserTicketNotification
+    notificationController.readAllUserNotifications
   );
 
 router
   .route('/:notificationID')
   .patch(authController.protect, notificationController.readNotification);
+
+router
+  .route('/ticket/:ticketID')
+  .patch(
+    authController.protect,
+    notificationController.readAllUserTicketNotifications
+  );
+
+router
+  .route('/chat/:chatID')
+  .patch(
+    authController.protect,
+    notificationController.readAllUserChatNotifications
+  );
 
 module.exports = router;
