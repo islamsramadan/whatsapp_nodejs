@@ -140,6 +140,7 @@ io.on('connection', async (socket) => {
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
+          socket.user,
           data.chatNumber,
           data.page
         );

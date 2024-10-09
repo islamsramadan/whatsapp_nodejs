@@ -162,6 +162,11 @@ const userSchema = new mongoose.Schema(
       default: false,
       select: false,
     },
+
+    secret: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

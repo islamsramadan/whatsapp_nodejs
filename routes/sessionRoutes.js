@@ -16,4 +16,8 @@ router
     sessionController.getTeamUsersSessions
   );
 
+router
+  .route('/:sessionID')
+  .patch(authController.protect, sessionController.updateSecretSession);
+
 module.exports = router;

@@ -429,6 +429,10 @@ const receiveMessageHandler = async (req, res, next) => {
       received: convertDate(selectedMessage.timestamp),
     };
 
+    if (selectedSession.secret === true) {
+      newMessageData.secret = true;
+    }
+
     // Message Reply
     if (selectedMessage.context && selectedMessage.context.id) {
       const replyMessage = await Message.findOne({
@@ -680,6 +684,10 @@ const sendMessageHandler = async (
     type: msgToBeSent.type,
   };
 
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
+
   const whatsappPayload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -766,6 +774,10 @@ const sendMessageWithSessionHandler = async (
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: msgToBeSent.type,
   };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
 
   const whatsappPayload = {
     messaging_product: 'whatsapp',
