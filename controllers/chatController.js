@@ -13,7 +13,7 @@ exports.getAllChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find()
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
     .lean();
 
@@ -53,7 +53,7 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find({ currentUser: req.user._id })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
     .lean();
 
@@ -104,7 +104,7 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
     .lean();
 
@@ -142,7 +142,7 @@ exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find({ currentUser: req.params.userID })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
     .lean();
 
@@ -203,7 +203,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
     chats = await Chat.find({ _id: { $in: chatsIDs } })
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
       .limit(page * 10)
       .lean();
@@ -247,7 +247,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
       .limit(page * 10)
       .lean();

@@ -174,7 +174,7 @@ exports.getAllUserChats = async (user, status) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .lean();
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
@@ -213,7 +213,7 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .lean();
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
@@ -243,7 +243,7 @@ exports.getAllTeamUserChats = async (teamUserID) => {
   let chats = await Chat.find({ currentUser: teamUserID })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
+    .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
     .lean();
 
@@ -296,7 +296,7 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     chats = await Chat.find({ _id: { $in: chatsIDs } })
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
       .limit(page * 10)
       .lean();
@@ -339,7 +339,7 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
       .limit(page * 10)
       .lean();
@@ -371,16 +371,16 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
 };
 
 exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
-  const chat = await Chat.findOne({ client: chatNumber }).populate(
-    'contactName',
-    'name'
-  );
+  const chat = await Chat.findOne({ client: chatNumber })
+    .populate('contactName', 'name')
+    .populate('lastSession', 'status secret');
 
   const page = chatPage || 1;
 
   let messages = [];
   let histories = [];
   let historyMessages = [];
+  let lastSession;
 
   const messageFilteredBody = { chat: chat ? chat._id : '' };
   if (chat) {
@@ -420,6 +420,8 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
     historyMessages = [...messages, ...histories].sort(
       (a, b) => a.createdAt - b.createdAt
     );
+
+    lastSession = chat.lastSession;
   }
 
   let historyMessagesCopy = [...historyMessages];
@@ -460,6 +462,7 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
     contactName,
     currentUser,
     notification,
+    lastSession,
   };
 };
 
@@ -469,7 +472,7 @@ exports.getTabsStatuses = async (tabs) => {
       let chat = await Chat.findOne({ client: tab })
         .populate('lastMessage')
         .populate('contactName', 'name')
-        .populate('lastSession', 'status')
+        .populate('lastSession', 'status secret')
         .lean();
 
       if (chat.lastMessage?.secret === true) {

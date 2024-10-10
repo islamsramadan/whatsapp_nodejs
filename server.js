@@ -127,6 +127,7 @@ io.on('connection', async (socket) => {
         contactName,
         currentUser,
         notification,
+        lastSession,
         tabs,
         // =======tickets
         userTicketsfilters,
@@ -152,6 +153,7 @@ io.on('connection', async (socket) => {
         contactName = chatData.contactName;
         currentUser = chatData.currentUser;
         notification = chatData.notification;
+        lastSession = chatData.lastSession;
       }
       if (data.chatsType === 'user') {
         chats = await socketController.getAllUserChats(
@@ -316,6 +318,7 @@ io.on('connection', async (socket) => {
         contactName,
         currentUser,
         notification,
+        lastSession,
         tabs,
 
         //=======tickets

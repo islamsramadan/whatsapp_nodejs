@@ -103,10 +103,9 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide chat number!', 400));
   }
 
-  const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
-    'contactName',
-    'name'
-  );
+  const chat = await Chat.findOne({ client: req.params.chatNumber })
+    .populate('contactName', 'name')
+    .populate('lastSession', 'status secret');
   // console.log('chat', chat);
 
   if (!chat) {
@@ -200,6 +199,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       // messages: messages.reverse(),
       messages: historyMessages.reverse(),
       notification: chat.notification,
+      lastSession: chat.lastSession,
     },
   });
 });
