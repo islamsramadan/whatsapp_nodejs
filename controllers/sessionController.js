@@ -190,7 +190,7 @@ exports.updateSecretSession = catchAsync(async (req, res, next) => {
     return next(new AppError('No session found with that ID!', 404));
   }
 
-  if (session.user.equals(req.user._id)) {
+  if (!session.user.equals(req.user._id)) {
     return next(
       new AppError("You don't have permissions to perform this action!", 403)
     );
