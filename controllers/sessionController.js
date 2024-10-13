@@ -234,6 +234,9 @@ exports.updateSecretSession = catchAsync(async (req, res, next) => {
     transactionSession.endSession();
   }
 
+  //updating event in socket io
+  req.app.io.emit('updating');
+
   res.status(200).json({
     status: 'success',
     message: 'Secret session updated successfully!',
