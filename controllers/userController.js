@@ -465,7 +465,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   // ===================>  Update secret field
   if (
     (req.body.secret === false || req.body.secret === true) &&
-    req.user._id.equals(process.env.SUPER_ADMIN)
+    req.user.superAdmin === true
   ) {
     filteredBody.secret = req.body.secret;
   }

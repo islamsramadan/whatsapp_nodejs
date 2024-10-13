@@ -163,6 +163,11 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    superAdmin: {
+      type: Boolean,
+      default: false,
+    },
+
     secret: {
       type: Boolean,
       default: false,
