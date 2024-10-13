@@ -136,7 +136,13 @@ io.on('connection', async (socket) => {
         ticket,
         comments,
         ticketLogs,
-        pastTickets;
+        pastTickets,
+        // =======notifications
+        newNotifications,
+        notifications,
+        notificationTotalResults,
+        notificationTotalPages,
+        notificationPage;
 
       if (data.chatNumber) {
         let chatData = await socketController.getAllChatMessages(
@@ -300,6 +306,24 @@ io.on('connection', async (socket) => {
         pastTickets = getTicket.pastTickets;
       }
 
+      if (data.type === 'notifications') {
+        const notificationsData =
+          await socketController.getAllUserNotifications(
+            socket.user,
+            data.notificationPage
+          );
+        newNotifications = notificationsData.newNotifications;
+        notifications = notificationsData.notifications;
+        notificationTotalResults = notificationsData.totalResults;
+        notificationTotalPages = notificationsData.totalPages;
+        notificationPage = notificationsData.page;
+      }
+
+      if (data.type === 'newNotifications') {
+        newNotifications =
+          await socketController.getAllUserNotificationsNumbers(socket.user);
+      }
+
       // Emit a response event back to the client
       socket.emit('server_to_client', {
         userSessions,
@@ -326,6 +350,13 @@ io.on('connection', async (socket) => {
         comments,
         ticketLogs,
         pastTickets,
+
+        //=======notifications
+        newNotifications,
+        notifications,
+        notificationTotalResults,
+        notificationTotalPages,
+        notificationPage,
       });
     }
   });

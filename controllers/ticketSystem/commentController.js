@@ -404,6 +404,9 @@ exports.createComment = catchAsync(async (req, res, next) => {
   //--------------------> updating ticket event in socket io
   req.app.io.emit('updatingTickets');
 
+  //--------------------> updating notifications event in socket io
+  req.app.io.emit('updatingNotifications');
+
   res.status(201).json({
     status: 'success',
     data: {

@@ -14,6 +14,13 @@ router
   );
 
 router
+  .route('/new')
+  .get(
+    authController.protect,
+    notificationController.getAllUserNotificationsNumbers
+  );
+
+router
   .route('/:notificationID')
   .patch(authController.protect, notificationController.readNotification);
 

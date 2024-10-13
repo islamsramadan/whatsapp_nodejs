@@ -7,6 +7,7 @@ const Message = require('../models/messageModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const ChatHistory = require('../models/historyModel');
+const Notification = require('../models/notificationModel');
 
 exports.protectSocket = async (socket, next) => {
   // 1) Getting token and check if it is there
@@ -374,4 +375,33 @@ exports.getTabsStatuses = async (tabs) => {
   );
 
   return tabsStatus;
+};
+
+exports.getAllUserNotifications = async (user, notificationPage) => {
+  const page = notificationPage * 1 || 1;
+
+  const notifications = await Notification.find({ user: user._id })
+    .populate('ticket', 'order')
+    .populate('chat', 'client')
+    .limit(page * 10);
+
+  const newNotifications = await Notification.count({
+    user: user._id,
+    read: false,
+  });
+
+  const totalResults = await Notification.count({ user: user._id });
+
+  const totalPages = Math.ceil(totalResults / 10);
+
+  return { totalResults, totalPages, page, newNotifications, notifications };
+};
+
+exports.getAllUserNotificationsNumbers = async (user) => {
+  const newNotifications = await Notification.count({
+    user: user._id,
+    read: false,
+  });
+
+  return newNotifications;
 };

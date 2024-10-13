@@ -28,6 +28,20 @@ exports.getAllUserNotifications = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getAllUserNotificationsNumbers = catchAsync(async (req, res, next) => {
+  const newNotifications = await Notification.count({
+    user: req.user._id,
+    read: false,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      newNotifications,
+    },
+  });
+});
+
 exports.readNotification = catchAsync(async (req, res, next) => {
   const notification = await Notification.findById(req.params.notificationID);
 
@@ -47,6 +61,9 @@ exports.readNotification = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
+  //updating notifications event in socket io
+  req.app.io.emit('updatingNotifications');
+
   res.status(200).json({
     status: 'success',
     message: 'Read notification updated successfully!',
@@ -64,6 +81,9 @@ exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
   );
+
+  //updating notifications event in socket io
+  req.app.io.emit('updatingNotifications');
 
   res.status(200).json({
     status: 'success',
@@ -85,6 +105,9 @@ exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
+  //updating notifications event in socket io
+  req.app.io.emit('updatingNotifications');
+
   res.status(200).json({
     status: 'success',
     message: 'Ticket notifications updated successfully!',
@@ -98,6 +121,9 @@ exports.readAllUserNotifications = catchAsync(async (req, res, next) => {
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
   );
+
+  //updating notifications event in socket io
+  req.app.io.emit('updatingNotifications');
 
   res.status(200).json({
     status: 'success',

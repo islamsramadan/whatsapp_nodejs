@@ -483,6 +483,9 @@ const receiveMessageHandler = async (req, res, next) => {
         );
       }
     }
+
+    //updating notifications event in socket io
+    req.app.io.emit('updatingNotifications');
     // **************** Fetching name from RD app ***************************
 
     async function createOrGetContact() {
@@ -1403,6 +1406,10 @@ const chatBotHandler = async (
               'newChatNotification -------------',
               newChatNotification
             );
+
+            //updating notifications event in socket io
+            req.app.io.emit('updatingNotifications');
+
             // ==========> Updating chat
             selectedChat.lastSession = newSession._id;
             selectedChat.team = selectedTeam._id;
