@@ -190,6 +190,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
     newCommentData.attachments = attachments;
   }
 
+  const notificationUsersIDs = new Set();
+
   const newComment = await Comment.create(newCommentData);
 
   // =====================> Comment Ticket Log
@@ -212,6 +214,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
   });
   console.log('assigneeNotification', assigneeNotification);
 
+  notificationUsersIDs.add(req.ticket.assignee);
+
   if (!req.ticket.creator.equals(req.ticket.assignee)) {
     const creatorNotification = await Notification.create({
       ...newNotificationData,
@@ -219,13 +223,19 @@ exports.createComment = catchAsync(async (req, res, next) => {
     });
 
     console.log('creatorNotification', creatorNotification);
+
+    notificationUsersIDs.add(req.ticket.creator);
   }
 
   //--------------------> updating ticket event in socket io
   req.app.io.emit('updatingTickets');
 
-  //--------------------> updating notification event in socket io
-  req.app.io.emit('updatingNotifications');
+  //--------------------> updating notifications event in socket io
+  Array.from(notificationUsersIDs).map((userID) => {
+    if (req.app.connectedUsers[userID]) {
+      req.app.connectedUsers[userID].emit('updatingNotifications');
+    }
+  });
 
   res.status(201).json({
     status: 'success',

@@ -482,10 +482,15 @@ const receiveMessageHandler = async (req, res, next) => {
           newMessagesNotification
         );
       }
+
+      // updating notifications event in socket io
+      if (req.app.connectedUsers[selectedSession.user]) {
+        req.app.connectedUsers[selectedSession.user].emit(
+          'updatingNotifications'
+        );
+      }
     }
 
-    //updating notifications event in socket io
-    req.app.io.emit('updatingNotifications');
     // **************** Fetching name from RD app ***************************
 
     async function createOrGetContact() {
@@ -1407,8 +1412,12 @@ const chatBotHandler = async (
               newChatNotification
             );
 
-            //updating notifications event in socket io
-            req.app.io.emit('updatingNotifications');
+            // updating notifications event in socket io
+            if (req.app.connectedUsers[teamUsers[0]._id]) {
+              req.app.connectedUsers[teamUsers[0]._id].emit(
+                'updatingNotifications'
+              );
+            }
 
             // ==========> Updating chat
             selectedChat.lastSession = newSession._id;

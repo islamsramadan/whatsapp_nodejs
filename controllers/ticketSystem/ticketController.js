@@ -911,12 +911,17 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       attachments: [],
     };
 
-    // mailerSendEmail(emailDetails);
+    mailerSendEmail(emailDetails);
     //--------------------> updating ticket event in socket io
     req.app.io.emit('updatingTickets');
 
     //--------------------> updating notifications event in socket io
-    req.app.io.emit('updatingNotifications');
+    if (
+      !newTicket.creator.equals(newTicket.assignee) &&
+      req.app.connectedUsers[newTicket.assignee]
+    ) {
+      req.app.connectedUsers[newTicket.assignee].emit('updatingNotifications');
+    }
 
     res.status(201).json({
       status: 'success',
@@ -1035,6 +1040,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
   transactionSession.startTransaction();
 
   let newUpdatedTicket;
+  const notificationUsersIDs = new Set();
   try {
     // =====================> Update Ticket Info
     newUpdatedTicket = await Ticket.findByIdAndUpdate(
@@ -1129,6 +1135,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
           }
         );
 
+        notificationUsersIDs.add(ticket.creator);
+
         console.log('creatorNotification', creatorNotification);
       }
 
@@ -1149,6 +1157,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
             session: transactionSession,
           }
         );
+
+        notificationUsersIDs.add(ticket.assignee);
 
         console.log('assigneeNotification', assigneeNotification);
       }
@@ -1181,6 +1191,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
           }
         );
 
+        notificationUsersIDs.add(ticket.creator);
+
         console.log('creatorReopenNotification', creatorReopenNotification);
       }
 
@@ -1201,6 +1213,8 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
             session: transactionSession,
           }
         );
+
+        notificationUsersIDs.add(ticket.assignee);
 
         console.log('assigneeReopenNotification', assigneeReopenNotification);
       }
@@ -1229,14 +1243,11 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     req.app.io.emit('updatingTickets');
 
     //--------------------> updating notifications event in socket io
-    if (
-      (status && status.category === 'solved') ||
-      (ticket.status.category === 'solved' &&
-        status &&
-        status.category !== 'solved')
-    ) {
-      req.app.io.emit('updatingNotifications');
-    }
+    Array.from(notificationUsersIDs).map((userID) => {
+      if (req.app.connectedUsers[userID]) {
+        req.app.connectedUsers[userID].emit('updatingNotifications');
+      }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -1399,6 +1410,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  const notificationUsersIDs = new Set();
   let newUpdatedTicket;
   try {
     newUpdatedTicket = await Ticket.findByIdAndUpdate(
@@ -1487,6 +1499,8 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
         }
       );
       console.log('newAssigneeNotification', newAssigneeNotification);
+
+      notificationUsersIDs.add(assignee);
     }
 
     // ---------> previous assignee
@@ -1507,6 +1521,8 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
         }
       );
       console.log('previousAssigneeNotification', previousAssigneeNotification);
+
+      notificationUsersIDs.add(previousAssignee._id);
     }
 
     // ---------> creator
@@ -1528,6 +1544,8 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
         }
       );
       console.log('creatorNotification', creatorNotification);
+
+      notificationUsersIDs.add(ticket.creator);
     }
 
     await transactionSession.commitTransaction();
@@ -1553,7 +1571,11 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     req.app.io.emit('updatingTickets');
 
     //--------------------> updating notifications event in socket io
-    req.app.io.emit('updatingNotifications');
+    Array.from(notificationUsersIDs).map((userID) => {
+      if (req.app.connectedUsers[userID]) {
+        req.app.connectedUsers[userID].emit('updatingNotifications');
+      }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -1608,6 +1630,7 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  const notificationUsersIDs = new Set();
   let newUpdatedTicket;
   try {
     newUpdatedTicket = await Ticket.findByIdAndUpdate(
@@ -1668,6 +1691,7 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
       }
     );
     console.log('previousAssigneeNotification', previousAssigneeNotification);
+    notificationUsersIDs.add(previousAssignee._id);
 
     if (!ticket.creator.equals(previousAssignee._id)) {
       const creatorNotification = await Notification.create(
@@ -1683,6 +1707,7 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
         }
       );
       console.log('creatorNotification', creatorNotification);
+      notificationUsersIDs.add(ticket.creator);
     }
 
     await transactionSession.commitTransaction();
@@ -1708,7 +1733,11 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
     req.app.io.emit('updatingTickets');
 
     //--------------------> updating notifications event in socket io
-    req.app.io.emit('updatingNotifications');
+    Array.from(notificationUsersIDs).map((userID) => {
+      if (req.app.connectedUsers[userID]) {
+        req.app.connectedUsers[userID].emit('updatingNotifications');
+      }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -1815,6 +1844,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  const notificationUsersIDs = new Set();
   let newUpdatedTicket;
   try {
     // =====================> Update Ticket Info
@@ -1908,6 +1938,8 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
         );
 
         console.log('creatorNotification', creatorNotification);
+
+        notificationUsersIDs.add(ticket.creator);
       }
 
       // -----------------> assignee notification
@@ -1929,6 +1961,8 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
         );
 
         console.log('assigneeNotification', assigneeNotification);
+
+        notificationUsersIDs.add(ticket.assignee);
       }
     }
 
@@ -1955,9 +1989,11 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     req.app.io.emit('updatingTickets');
 
     //--------------------> updating notifications event in socket io
-    if (status && status.category === 'solved') {
-      req.app.io.emit('updatingNotifications');
-    }
+    Array.from(notificationUsersIDs).map((userID) => {
+      if (req.app.connectedUsers[userID]) {
+        req.app.connectedUsers[userID].emit('updatingNotifications');
+      }
+    });
 
     res.status(200).json({
       status: 'success',

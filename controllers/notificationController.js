@@ -61,8 +61,10 @@ exports.readNotification = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
-  //updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  // updating notifications event in socket io
+  if (req.app.connectedUsers[notification.user]) {
+    req.app.connectedUsers[notification.user].emit('updatingNotifications');
+  }
 
   res.status(200).json({
     status: 'success',
@@ -82,8 +84,10 @@ exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
-  //updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  // updating notifications event in socket io
+  if (req.app.connectedUsers[req.user._id]) {
+    req.app.connectedUsers[req.user._id].emit('updatingNotifications');
+  }
 
   res.status(200).json({
     status: 'success',
@@ -105,8 +109,10 @@ exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
-  //updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  // updating notifications event in socket io
+  if (req.app.connectedUsers[req.user._id]) {
+    req.app.connectedUsers[req.user._id].emit('updatingNotifications');
+  }
 
   res.status(200).json({
     status: 'success',
@@ -122,8 +128,10 @@ exports.readAllUserNotifications = catchAsync(async (req, res, next) => {
     { new: true, runValidators: true }
   );
 
-  //updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  // updating notifications event in socket io
+  if (req.app.connectedUsers[req.user._id]) {
+    req.app.connectedUsers[req.user._id].emit('updatingNotifications');
+  }
 
   res.status(200).json({
     status: 'success',

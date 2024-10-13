@@ -200,6 +200,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  const notificationUsersIDs = new Set();
   let newComment;
   try {
     // =====================> Create Comment
@@ -261,6 +262,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
       );
 
       console.log('assigneeNotification', assigneeNotification);
+
+      notificationUsersIDs.add(ticket.assignee);
     }
 
     if (
@@ -275,6 +278,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
       );
 
       console.log('creatorNotification', creatorNotification);
+
+      notificationUsersIDs.add(ticket.creator);
     }
 
     // =====================> Status Ticket Log
@@ -334,6 +339,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
         );
 
         console.log('creatorNotification', creatorNotification);
+
+        notificationUsersIDs.add(ticket.creator);
       }
 
       // -----------------> assignee notification
@@ -355,6 +362,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
         );
 
         console.log('assigneeNotification', assigneeNotification);
+
+        notificationUsersIDs.add(ticket.assignee);
       }
     }
 
@@ -405,7 +414,11 @@ exports.createComment = catchAsync(async (req, res, next) => {
   req.app.io.emit('updatingTickets');
 
   //--------------------> updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  Array.from(notificationUsersIDs).map((userID) => {
+    if (req.app.connectedUsers[userID]) {
+      req.app.connectedUsers[userID].emit('updatingNotifications');
+    }
+  });
 
   res.status(201).json({
     status: 'success',

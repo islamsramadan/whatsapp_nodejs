@@ -215,6 +215,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
   const transactionSession = await mongoose.startSession();
   transactionSession.startTransaction();
 
+  const notificationUsersIDs = new Set();
   let updatedChat;
   try {
     //**********Update chat notification
@@ -283,6 +284,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         );
 
         console.log('archiveNotification', archiveNotification);
+
+        notificationUsersIDs.add(chat.currentUser);
       }
       // Updating chat
       await Chat.findByIdAndUpdate(
@@ -399,6 +402,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       );
 
       console.log('transferNotification', transferNotification);
+
+      notificationUsersIDs.add(chat.currentUser);
 
       //**********Transfer to another user in the same team
     } else if (type === 'transferToUser') {
@@ -517,6 +522,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         );
 
         console.log('transferToNotification', transferToNotification);
+
+        notificationUsersIDs.add(req.body.user);
       }
 
       // --------> Transfer From Notification
@@ -539,6 +546,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         );
 
         console.log('transferFromNotification', transferFromNotification);
+
+        notificationUsersIDs.add(previousUserID);
       }
 
       //********** Transfer the chat to another team and remove the current user
@@ -691,6 +700,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
       console.log('transferToNotification', transferToNotification);
 
+      notificationUsersIDs.add(teamUsers[0]._id);
+
       // --------> Transfer From Notification
       if (!req.user._id.equals(previousUserID)) {
         const transferFromNotification = await Notification.create(
@@ -708,6 +719,8 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         );
 
         console.log('transferFromNotification', transferFromNotification);
+
+        notificationUsersIDs.add(previousUserID);
       }
     }
 
@@ -732,8 +745,12 @@ exports.updateChat = catchAsync(async (req, res, next) => {
   //updating event in socket io
   req.app.io.emit('updating');
 
-  //updating notifications event in socket io
-  req.app.io.emit('updatingNotifications');
+  //--------------------> updating notifications event in socket io
+  Array.from(notificationUsersIDs).map((userID) => {
+    if (req.app.connectedUsers[userID]) {
+      req.app.connectedUsers[userID].emit('updatingNotifications');
+    }
+  });
 
   res.status(200).json({
     status: 'success',
