@@ -67,6 +67,7 @@ const sessionSchema = new mongoose.Schema(
     referenceNo: {
       type: String,
     },
+
     refRequired: {
       type: Boolean,
       default: false,
@@ -74,6 +75,11 @@ const sessionSchema = new mongoose.Schema(
 
     botReply: {
       type: String,
+    },
+
+    secret: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

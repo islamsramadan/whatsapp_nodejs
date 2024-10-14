@@ -1,9 +1,5 @@
 const axios = require('axios');
 const multer = require('multer');
-const xlsx = require('xlsx');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -107,10 +103,9 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     return next(new AppError('Kindly provide chat number!', 400));
   }
 
-  const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
-    'contactName',
-    'name'
-  );
+  const chat = await Chat.findOne({ client: req.params.chatNumber })
+    .populate('contactName', 'name')
+    .populate('lastSession', 'status secret');
   // console.log('chat', chat);
 
   if (!chat) {
@@ -130,7 +125,16 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
 
   const page = req.query.page * 1 || 1;
 
-  const messages = await Message.find({ chat: chat._id })
+  const messageFilteredBody = { chat: chat._id };
+
+  if (!req.user.secret) {
+    messageFilteredBody.$or = [
+      { secret: false },
+      { secret: { $exists: false } },
+    ];
+  }
+
+  const messages = await Message.find(messageFilteredBody)
     .sort('-createdAt')
     .populate({
       path: 'user',
@@ -148,7 +152,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     })
     .limit(page * 20);
 
-  const totalResults = await Message.count({ chat: chat._id });
+  const totalResults = await Message.count(messageFilteredBody);
   const totalPages = Math.ceil(totalResults / 20);
 
   const histories = await ChatHistory.find({ chat: chat._id })
@@ -195,6 +199,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       // messages: messages.reverse(),
       messages: historyMessages.reverse(),
       notification: chat.notification,
+      lastSession: chat.lastSession,
     },
   });
 });
@@ -314,6 +319,10 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     type: req.body.type,
   };
 
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
+
   const whatsappPayload = {
     messaging_product: 'whatsapp',
     to: selectedChat.client,
@@ -387,23 +396,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }));
   }
 
-  // // Image Message ===========> changed for multi files
-  // if (req.body.type === 'image') {
-  //   if (!req.file) {
-  //     return next(new AppError('No image found!', 404));
-  //   }
-  //   whatsappPayload.recipient_type = 'individual';
-  //   whatsappPayload.image = {
-  //     link: `${productionLink}/${req.file.filename}`,
-  //     caption: req.body.caption,
-  //   };
-
-  //   newMessageObj.image = {
-  //     file: req.file.filename,
-  //     caption: req.body.caption,
-  //   };
-  // }
-
   // Video Message
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
@@ -430,23 +422,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
       voice: false,
     };
   }
-
-  // Document Message =============> changed for multi files
-  // if (req.body.type === 'document') {
-  //   whatsappPayload.recipient_type = 'individual';
-  //   whatsappPayload.document = {
-  //     link: `${productionLink}/${req.files[0].filename}`,
-  //     filename: req.files[0].originalname,
-  //     caption: req.body.caption,
-  //   };
-
-  //   newMessageObj.document = {
-  //     file: req.files[0].filename,
-  //     filename: req.files[0].originalname,
-  //     caption: req.body.caption,
-  //   };
-  // }
-  // console.log('whatsappPayload', whatsappPayload);
 
   let newMessage;
   if (req.body.type === 'image' || req.body.type === 'document') {
@@ -504,7 +479,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 });
 
 const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
-  console.log('req.files', req.files);
+  // console.log('req.files', req.files);
   if (!req.files || req.files.length === 0) {
     return next(new AppError('No file found!', 404));
   }
@@ -997,6 +972,10 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       components: [],
     },
   };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
 
   template.components.map((component) => {
     const templateComponent = { type: component.type };

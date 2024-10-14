@@ -462,7 +462,13 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     filteredBody.$unset = { token: '' };
   }
 
-  // console.log('filteredBody', filteredBody);
+  // ===================>  Update secret field
+  if (
+    (req.body.secret === false || req.body.secret === true) &&
+    req.user.superAdmin === true
+  ) {
+    filteredBody.secret = req.body.secret;
+  }
 
   // 3) Update user document
   const updatedUser = await User.findByIdAndUpdate(

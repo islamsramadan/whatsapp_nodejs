@@ -489,6 +489,11 @@ const messageSchema = new mongoose.Schema(
     seen: {
       type: String,
     },
+
+    secret: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

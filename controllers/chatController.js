@@ -11,11 +11,30 @@ const Log = require('../models/logModel');
 const Notification = require('../models/notificationModel');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
-  const chats = await Chat.find()
+  let chats = await Chat.find()
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+    .populate('lastSession', 'status secret')
+    .populate('contactName', 'name')
+    .lean();
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -35,11 +54,30 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find({ currentUser: req.user._id })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+    .populate('lastSession', 'status secret')
+    .populate('contactName', 'name')
+    .lean();
 
   // console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -67,11 +105,30 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
   })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+    .populate('lastSession', 'status secret')
+    .populate('contactName', 'name')
+    .lean();
 
   // console.log('statuses', statuses);
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -83,16 +140,30 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
-  // const statuses = ['open', 'onTime', 'danger', 'tooLate'];
-
-  const chats = await Chat.find({ currentUser: req.params.userID })
+  let chats = await Chat.find({ currentUser: req.params.userID })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+    .populate('lastSession', 'status secret')
+    .populate('contactName', 'name')
+    .lean();
 
-  // console.log('statuses', statuses);
-  // chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -133,9 +204,28 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
     chats = await Chat.find({ _id: { $in: chatsIDs } })
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
-      .limit(page * 10);
+      .limit(page * 10)
+      .lean();
+
+    chats = chats.map((chat) => {
+      if (chat.lastMessage?.secret === true) {
+        return {
+          ...chat,
+          lastMessage: {
+            _id: chat.lastMessage._id,
+            status: chat.lastMessage.status,
+            received: chat.lastMessage.received,
+            sent: chat.lastMessage.sent,
+            delivered: chat.lastMessage.delivered,
+            read: chat.lastMessage.read,
+          },
+        };
+      } else {
+        return chat;
+      }
+    });
 
     totalResults = await Chat.count({ _id: { $in: chatsIDs } });
     totalPages = Math.ceil(totalResults / 10);
@@ -158,9 +248,28 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
-      .limit(page * 10);
+      .limit(page * 10)
+      .lean();
+
+    chats = chats.map((chat) => {
+      if (chat.lastMessage?.secret === true) {
+        return {
+          ...chat,
+          lastMessage: {
+            _id: chat.lastMessage._id,
+            status: chat.lastMessage.status,
+            received: chat.lastMessage.received,
+            sent: chat.lastMessage.sent,
+            delivered: chat.lastMessage.delivered,
+            read: chat.lastMessage.read,
+          },
+        };
+      } else {
+        return chat;
+      }
+    });
 
     totalResults = await Chat.count(chatFilterObj);
     totalPages = Math.ceil(totalResults / 10);
