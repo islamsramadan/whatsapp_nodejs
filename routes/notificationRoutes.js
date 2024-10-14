@@ -32,7 +32,7 @@ router
   );
 
 router
-  .route('/chat/:chatID')
+  .route('/chat/:chatNumber')
   .patch(
     authController.protect,
     notificationController.readAllUserChatNotifications
