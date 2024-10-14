@@ -140,7 +140,13 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       path: 'user',
       select: { firstName: 1, lastName: 1, photo: 1 },
     })
-    .populate('reply')
+    .populate({
+      path: 'reply',
+      populate: {
+        path: 'user',
+        select: { firstName: 1, lastName: 1, photo: 1 },
+      },
+    })
     .populate({
       path: 'userReaction.user',
       select: 'firstName lastName photo',

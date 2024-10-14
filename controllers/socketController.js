@@ -395,7 +395,13 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
     messages = await Message.find(messageFilteredBody)
       .sort('-createdAt')
       .populate('user', 'firstName lastName photo')
-      .populate('reply')
+      .populate({
+        path: 'reply',
+        populate: {
+          path: 'user',
+          select: { firstName: 1, lastName: 1, photo: 1 },
+        },
+      })
       .populate({
         path: 'userReaction.user',
         select: 'firstName lastName photo',
