@@ -12,6 +12,11 @@ exports.getAllUserNotifications = catchAsync(async (req, res, next) => {
     .populate('chat', 'client')
     .limit(page * 10);
 
+  const newNotifications = await Notification.count({
+    user: req.user._id,
+    read: false,
+  });
+
   const totalResults = await Notification.count({ user: req.user._id });
 
   const totalPages = Math.ceil(totalResults / 10);
@@ -23,6 +28,7 @@ exports.getAllUserNotifications = catchAsync(async (req, res, next) => {
       page,
       totalPages,
       totalResults,
+      newNotifications,
       notifications,
     },
   });
@@ -78,7 +84,7 @@ exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
     return next(new AppError('No ticket found with that ID', 404));
   }
 
-  const updatedNotifications = await Notification.updateMany(
+  await Notification.updateMany(
     { ticket: ticket._id, user: req.user._id },
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
@@ -92,7 +98,6 @@ exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'Ticket notifications updated successfully!',
-    updatedNotifications,
   });
 });
 
@@ -103,7 +108,7 @@ exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
     return next(new AppError('No chat found with that ID', 404));
   }
 
-  const updatedNotifications = await Notification.updateMany(
+  await Notification.updateMany(
     { chat: chat._id, user: req.user._id },
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
@@ -116,13 +121,12 @@ exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: 'Ticket notifications updated successfully!',
-    updatedNotifications,
+    message: 'Chat notifications updated successfully!',
   });
 });
 
 exports.readAllUserNotifications = catchAsync(async (req, res, next) => {
-  const updatedNotifications = await Notification.updateMany(
+  await Notification.updateMany(
     { user: req.user._id },
     { read: true, numbers: 0 },
     { new: true, runValidators: true }
@@ -135,7 +139,6 @@ exports.readAllUserNotifications = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: 'Ticket notifications updated successfully!',
-    updatedNotifications,
+    message: 'User notifications updated successfully!',
   });
 });
