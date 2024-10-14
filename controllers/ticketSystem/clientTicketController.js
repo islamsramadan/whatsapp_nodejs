@@ -21,7 +21,8 @@ const getPopulatedTicket = async (filterObj) => {
       path: 'questions.field',
       select: '-updatedAt -createdAt -forms -creator',
       populate: { path: 'type', select: 'name value description' },
-    });
+    })
+    .lean();
 };
 
 const multerStorage = multer.diskStorage({
@@ -104,7 +105,14 @@ exports.protectClientTicket = catchAsync(async (req, res, next) => {
 exports.getClientTicket = catchAsync(async (req, res, next) => {
   const ticketID = req.ticket._id;
 
-  const ticket = await getPopulatedTicket({ _id: ticketID });
+  let ticket = await getPopulatedTicket({ _id: ticketID });
+
+  ticket = {
+    ...ticket,
+    questions: ticket.questions.filter((item) =>
+      ['view', 'edit'].includes(item.field.endUserPermission)
+    ),
+  };
 
   const ticketLogs = await TicketLog.find({ ticket: ticketID })
     .populate('ticket', 'order')
