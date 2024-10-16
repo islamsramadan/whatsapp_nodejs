@@ -7,6 +7,7 @@ const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const User = require('../models/userModel');
 const Message = require('../models/messageModel');
+const Chat = require('../models/chatModel');
 
 exports.getAllSessions = catchAsync(async (req, res, next) => {
   let userSessions = await Session.find({
@@ -185,6 +186,7 @@ exports.getTeamUsersSessions = catchAsync(async (req, res, next) => {
 
 exports.updateSecretSession = catchAsync(async (req, res, next) => {
   const session = await Session.findById(req.params.sessionID);
+  const chat = await Chat.findbyid(session.chat);
 
   if (!session) {
     return next(new AppError('No session found with that ID!', 404));
@@ -235,7 +237,7 @@ exports.updateSecretSession = catchAsync(async (req, res, next) => {
   }
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: chat.client });
 
   res.status(200).json({
     status: 'success',

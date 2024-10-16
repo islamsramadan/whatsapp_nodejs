@@ -252,7 +252,7 @@ const receiveMessageHandler = async (req, res, next) => {
     await reactedMessage.save();
 
     //updating event in socket io
-    req.app.io.emit('updating');
+    req.app.io.emit('updating', { chatNumber: from });
 
     res.status(200).json({ reactedMessage });
 
@@ -634,7 +634,7 @@ const receiveMessageHandler = async (req, res, next) => {
     }
 
     //updating event in socket io
-    req.app.io.emit('updating');
+    req.app.io.emit('updating', { chatNumber: from });
 
     res.status(200).json({ newMessage });
   }
@@ -643,6 +643,9 @@ const receiveMessageHandler = async (req, res, next) => {
 const updateMessageStatusHandler = async (req, res, next) => {
   const msgStatus = req.body.entry[0].changes[0].value.statuses[0];
   const msgWhatsappID = req.body.entry[0].changes[0].value.statuses[0].id;
+  const chatNumber =
+    req.body.entry[0].changes[0].value.statuses[0].recipient_id;
+
   const msgToUpdate = await Message.findOne({
     whatsappID: msgWhatsappID,
   });
@@ -657,7 +660,7 @@ const updateMessageStatusHandler = async (req, res, next) => {
   await msgToUpdate.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber });
 
   res.status(200).json({ msgToUpdate });
 };
@@ -748,7 +751,7 @@ const sendMessageHandler = async (
     await selectedSession.save();
 
     //updating event in socket io
-    req.app.io.emit('updating');
+    req.app.io.emit('updating', { chatNumber: selectedChat.client });
   }
 };
 

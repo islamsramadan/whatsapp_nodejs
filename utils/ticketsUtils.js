@@ -341,7 +341,7 @@ const sendTicketTemplate = async (req, client, templateName) => {
   await selectedChat.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: selectedChat.client });
 };
 
 const sendTicketSms = async (number) => {

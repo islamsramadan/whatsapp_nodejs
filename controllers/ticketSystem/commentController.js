@@ -411,7 +411,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
   }
 
   //--------------------> updating ticket event in socket io
-  req.app.io.emit('updatingTickets');
+  req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
   //--------------------> updating notifications event in socket io
   Array.from(notificationUsersIDs).map((userID) => {

@@ -489,7 +489,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: selectedChat.client });
 
   res.status(201).json({
     status: 'success',
@@ -708,7 +708,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   await failedMessage.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: chat.client });
 
   res.status(200).json({
     status: 'success',
@@ -796,7 +796,7 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   const updatedMessage = await reactedMessage.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: chat.client });
 
   res.status(200).json({
     status: 'success',
@@ -1105,7 +1105,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: selectedChat.client });
 
   res.status(201).json({
     status: 'success',

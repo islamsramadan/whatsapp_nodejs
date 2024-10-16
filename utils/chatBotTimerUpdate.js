@@ -103,9 +103,6 @@ const sendMessageHandler = async (
   session.timer = undefined;
   if (session.type === 'bot') session.lastBotMessage = newMessage._id;
   await session.save();
-
-  //updating event in socket io
-  req.app.io.emit('updating');
 };
 
 const updateTask = (
@@ -211,7 +208,7 @@ const updateTask = (
         }
 
         //updating event in socket io
-        req.app.io.emit('updating');
+        req.app.io.emit('updating', { chatNumber: chat.client });
       }
     });
   });

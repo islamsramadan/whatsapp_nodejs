@@ -852,7 +852,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
   }
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatNumber: chat.client });
 
   //--------------------> updating notifications event in socket io
   Array.from(notificationUsersIDs).map((userID) => {

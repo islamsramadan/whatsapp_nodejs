@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Session = require('../models/sessionModel');
 const Message = require('../models/messageModel');
+const Chat = require('../models/chatModel');
 
 const getCronExpression = (timer) => {
   const timerExpression = {
@@ -46,7 +47,8 @@ const updateTask = (
       await session.save();
 
       //updating event in socket io
-      req.app.io.emit('updating');
+      const chat = await Chat.findById(session.chat);
+      req.app.io.emit('updating', { chatNumber: chat.client });
     }
   });
 };
