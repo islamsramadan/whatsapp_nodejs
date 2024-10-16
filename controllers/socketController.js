@@ -419,9 +419,7 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
       if (
         !message.reply ||
         (message.reply && message.reply.secret !== true) ||
-        (message.reply &&
-          message.reply.secret === true &&
-          req.user.secret === true)
+        (message.reply && message.reply.secret === true && user.secret === true)
       ) {
         return message;
       } else {
