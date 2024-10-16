@@ -134,7 +134,7 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
     ];
   }
 
-  const messages = await Message.find(messageFilteredBody)
+  let messages = await Message.find(messageFilteredBody)
     .sort('-createdAt')
     .populate({
       path: 'user',
@@ -156,7 +156,23 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       select: 'team',
       populate: { path: 'team', select: 'name' },
     })
-    .limit(page * 20);
+    .limit(page * 20)
+    .lean();
+
+  // Revome secret reply
+  messages = messages.map((message) => {
+    if (
+      !message.reply ||
+      (message.reply && message.reply.secret !== true) ||
+      (message.reply &&
+        message.reply.secret === true &&
+        req.user.secret === true)
+    ) {
+      return message;
+    } else {
+      return { ...message, reply: undefined };
+    }
+  });
 
   const totalResults = await Message.count(messageFilteredBody);
   const totalPages = Math.ceil(totalResults / 20);

@@ -411,7 +411,23 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
         select: 'team',
         populate: { path: 'team', select: 'name' },
       })
-      .limit(page * 20);
+      .limit(page * 20)
+      .lean();
+
+    // Revome secret reply
+    messages = messages.map((message) => {
+      if (
+        !message.reply ||
+        (message.reply && message.reply.secret !== true) ||
+        (message.reply &&
+          message.reply.secret === true &&
+          req.user.secret === true)
+      ) {
+        return message;
+      } else {
+        return { ...message, reply: undefined };
+      }
+    });
 
     histories = await ChatHistory.find({ chat: chat._id })
       .populate('user', 'firstName lastName')
