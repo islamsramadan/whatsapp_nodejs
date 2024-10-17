@@ -496,7 +496,7 @@ exports.getTabsStatuses = async (tabs) => {
         .populate('lastSession', 'status secret')
         .lean();
 
-      if (chat.lastMessage?.secret === true) {
+      if (chat && chat.lastMessage?.secret === true) {
         chat = {
           ...chat,
           lastMessage: {
