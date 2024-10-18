@@ -521,7 +521,7 @@ exports.getAllUserNotifications = async (user, notificationPage) => {
   const page = notificationPage * 1 || 1;
 
   const notifications = await Notification.find({ user: user._id })
-    .sort('-createdAt')
+    .sort('-sortingDate')
     .populate('ticket', 'order')
     .populate('chat', 'client')
     .limit(page * 10);

@@ -8,7 +8,7 @@ exports.getAllUserNotifications = catchAsync(async (req, res, next) => {
   const page = req.query.page * 1 || 1;
 
   const notifications = await Notification.find({ user: req.user._id })
-    .sort('-createdAt')
+    .sort('-sortingDate')
     .populate('ticket', 'order')
     .populate('chat', 'client')
     .limit(page * 10);
