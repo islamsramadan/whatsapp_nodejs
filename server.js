@@ -4,11 +4,32 @@ const http = require('http');
 const socketio = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
-const cron = require('node-cron');
 
 const socketController = require('./controllers/socketController');
 const ticketSocketController = require('./controllers/ticketSystem/ticketSocketController');
-const sessionTimerUpdate = require('./utils/sessionTimerUpdate');
+
+const AppError = require('./utils/appError');
+const User = require('./models/userModel');
+
+const fs = require('fs');
+const path = require('path');
+
+if (process.env.NODE_ENV === 'production') {
+  // Create a write stream for the log file
+  const logFile = fs.createWriteStream(path.join(__dirname, 'app.log'), {
+    flags: 'a',
+  });
+
+  // Redirect console.log to write to the log file
+  console.log = function (message) {
+    logFile.write(`${new Date().toISOString()} - LOG: ${message}\n`);
+  };
+
+  // Redirect console.error to write to the log file
+  console.error = function (message) {
+    logFile.write(`${new Date().toISOString()} - ERROR: ${message}\n`);
+  };
+}
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
@@ -19,10 +40,7 @@ process.on('uncaughtException', (err) => {
 dotenv.config({ path: './config.env' });
 
 const app = require('./app');
-const Message = require('./models/messageModel');
-const Chat = require('./models/chatModel');
-const AppError = require('./utils/appError');
-const User = require('./models/userModel');
+
 const appSocket = http.createServer(app);
 const io = socketio(appSocket, {
   cors: { origin: '*' },
@@ -386,12 +404,6 @@ mongoose
   })
   .then((client) => {
     console.log('DB connected successfully!!');
-    // const delay = 100;
-    // // Schedule the update task
-    // const cronExpression = `*/${delay / 60000} * * * * *`; // Your schedule
-    // cron.schedule(cronExpression, () => {
-    //   sessionTimerUpdate.updateDocumentsBasedOnTimer(client);
-    // });
   });
 
 const port = process.env.PORT || 8080;
