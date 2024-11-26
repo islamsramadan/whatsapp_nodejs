@@ -132,6 +132,7 @@ const getTicketsSheet = async (res, ticketsData) => {
       by: questions['Received by استلم بواسطة'],
       creator: `${ticket.creator.firstName} ${ticket.creator.lastName}`,
       requestNature: ticket.requestNature,
+      requestType: ticket.requestType,
       ...filteredQuestions,
     };
   });
@@ -162,11 +163,16 @@ const getTicketsSheet = async (res, ticketsData) => {
       width: 20,
     },
     { header: 'Received by \n استلم بواسطة', key: 'by', width: 20 },
-    { header: 'Received from \n تم الاستلام من', key: 'creator', width: 20 },
+    { header: 'Received from \n تم الاستلام من', key: 'creator', width: 27 },
     {
       header: 'Nature of request \n  طبيعة الطلب',
       key: 'requestNature',
-      width: 21,
+      width: 27,
+    },
+    {
+      header: 'Type of request \n  نوع الطلب',
+      key: 'requestType',
+      width: 29,
     },
 
     { header: 'Description in brief \n وصف الحالة بشكل مفصل', width: 42 },
