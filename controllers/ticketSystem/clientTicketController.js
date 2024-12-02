@@ -126,8 +126,6 @@ exports.getClientTicket = catchAsync(async (req, res, next) => {
       select: 'firstName lastName photo team',
       populate: { path: 'team', select: 'name' },
     })
-    // .populate('user', 'firstName lastName photo team')
-    // .populate('assignee', 'firstName lastName photo team')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')
     .populate('transfer.from.team', 'name')
