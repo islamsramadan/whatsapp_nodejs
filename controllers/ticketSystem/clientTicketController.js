@@ -116,8 +116,18 @@ exports.getClientTicket = catchAsync(async (req, res, next) => {
 
   const ticketLogs = await TicketLog.find({ ticket: ticketID })
     .populate('ticket', 'order')
-    .populate('user', 'firstName lastName photo')
-    .populate('assignee', 'firstName lastName photo')
+    .populate({
+      path: 'user',
+      select: 'firstName lastName photo team',
+      populate: { path: 'team', select: 'name' },
+    })
+    .populate({
+      path: 'assignee',
+      select: 'firstName lastName photo team',
+      populate: { path: 'team', select: 'name' },
+    })
+    // .populate('user', 'firstName lastName photo team')
+    // .populate('assignee', 'firstName lastName photo team')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')
     .populate('transfer.from.team', 'name')
@@ -126,6 +136,7 @@ exports.getClientTicket = catchAsync(async (req, res, next) => {
 
   const ticketComments = await Comment.find({
     ticket: ticketID,
+    type: { $ne: 'note' },
   }).populate('user', 'firstName lastName photo');
 
   res.status(200).json({
