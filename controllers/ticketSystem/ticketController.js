@@ -189,7 +189,11 @@ const getTicketsSheet = async (res, ticketsData) => {
       width: 22,
     },
     { header: 'reason for reports \n اسباب طلب عمل شكوي', width: 22 },
-    { header: 'Date of resolving \n تاريخ حل الشكوي', width: 21 },
+    {
+      header: 'Date of resolving \n تاريخ حل الشكوي',
+      key: 'solvingTime',
+      width: 21,
+    },
     // {
     //   header: 'approval of concerned manager \n اعتماد المدير المختص',
     //   width: 24,
