@@ -394,7 +394,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
   
     يمكنك متابعة الردود علي الرابط التالي
     
-    https://whatsappdome-client.onrender.com/${ticket.clientToken}
+    ${process.env.CLIENT_URL}/${ticket.clientToken}
     `;
 
     const emailDetails = {
