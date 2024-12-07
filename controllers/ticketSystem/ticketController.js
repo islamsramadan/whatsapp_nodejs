@@ -57,7 +57,7 @@ const getTicketsSheet = async (res, ticketsData) => {
     'Resolved byتم حل الحالة بواسطة ',
     'Is there need to initiate report هل هناك حاجة لعمل تقرير شكوي',
     'reason for reportsاسباب طلب عمل شكوي',
-    'Date of resolvingتاريخ حل الشكوي',
+    'Date of resolving تاريخ حل الشكوي',
     'approval of concerned managerاعتماد المدير المختص',
   ];
 
@@ -122,7 +122,8 @@ const getTicketsSheet = async (res, ticketsData) => {
       Object.entries(questions).filter(
         ([key, value]) =>
           key !== 'Date of receipt تاريخ الاستلام' &&
-          key !== 'Received by استلم بواسطة'
+          key !== 'Received by استلم بواسطة' &&
+          key !== 'Date of resolving تاريخ حل الشكوي'
       )
     );
 
@@ -134,7 +135,8 @@ const getTicketsSheet = async (res, ticketsData) => {
       requestNature: ticket.requestNature,
       requestType: ticket.requestType,
       ...filteredQuestions,
-      solvingTime: ticket.solvingTime,
+      solvingTime:
+        ticket.status.category === 'solved' ? ticket.solvingTime : '',
     };
   });
 
