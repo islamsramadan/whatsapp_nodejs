@@ -134,6 +134,7 @@ const getTicketsSheet = async (res, ticketsData) => {
       requestNature: ticket.requestNature,
       requestType: ticket.requestType,
       ...filteredQuestions,
+      solvingTime: ticket.solvingTime,
     };
   });
 
