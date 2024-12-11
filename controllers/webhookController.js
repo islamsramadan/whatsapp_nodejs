@@ -1084,11 +1084,16 @@ const chatBotHandler = async (
         const msgBody =
           req.body.entry[0].changes[0].value.messages[0].text.body;
 
+        const validatedMsgBody = msgBody
+          .split('')
+          .filter((letter) => !isNaN(letter))
+          .join('');
+
         // *** API from RD app ***
         const refResult = await RDAppHandler({
           Action: '1',
           Phone: from,
-          ReferenceNo: msgBody,
+          ReferenceNo: validatedMsgBody,
         });
 
         //===========> valid reference no
