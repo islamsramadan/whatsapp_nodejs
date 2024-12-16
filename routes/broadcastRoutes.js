@@ -19,6 +19,12 @@ router
     broadcastController.sendBroadcast
   );
 
+router.route('/grouped').get(
+  authController.protect,
+  // authController.restrictTo('admin'),
+  broadcastController.getAllBroadcastsByMonth
+);
+
 router.route('/:broadcastID').get(
   authController.protect,
   // authController.restrictTo('admin'),

@@ -776,3 +776,169 @@ exports.getOneBroadcast = catchAsync(async (req, res, next) => {
     });
   }
 });
+
+//http://localhost:8080/api/v1/broadcast/grouped?templates=malath_appointment,malath_missing_data
+exports.getAllBroadcastsByMonth = catchAsync(async (req, res, next) => {
+  const type = req.query.type;
+  const getBroadcastData = (broadcast) => {
+    let pending = 0;
+    let failed = 0;
+    let sent = 0;
+    let delivered = 0;
+    let read = 0;
+    broadcast.results.map((result) => {
+      if (
+        (result.status && result.status === 'failed') ||
+        result.message.status === 'failed'
+      ) {
+        failed += 1;
+      } else if (result.message.status === 'pending') {
+        pending += 1;
+      } else if (result.message.status === 'sent') {
+        sent += 1;
+      } else if (result.message.status === 'delivered') {
+        delivered += 1;
+      } else if (result.message.status === 'read') {
+        read += 1;
+      }
+    });
+
+    return {
+      totalMessages: broadcast.results.length,
+      pending,
+      failed,
+      sent,
+      delivered,
+      read,
+    };
+  };
+
+  let broadcasts;
+
+  const filterObj = {};
+  if (req.query.users) {
+    const users = req.query.users.split(',');
+    filterObj.user = { $in: users };
+  }
+
+  if (req.query.templates) {
+    const templates = req.query.templates.split(',');
+    filterObj.template = { $in: templates };
+  }
+
+  if (req.query.startDate) {
+    filterObj.createdAt = { $gt: new Date(req.query.startDate) };
+  }
+  if (req.query.endDate) {
+    const endDate = new Date(req.query.endDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    filterObj.createdAt = {
+      ...filterObj.createdAt,
+      $lt: endDate,
+    };
+  }
+
+  broadcasts = await Broadcast.find(filterObj)
+    .populate('user', 'firstName lastName')
+    .populate('results.message', 'status delivered sent createdAt')
+    .sort('-createdAt');
+
+  // broadcasts = broadcasts.map((broadcast) => ({
+  //   _id: broadcast._id,
+  //   template: broadcast.template,
+  //   user: broadcast.user,
+  //   time: convertDate(broadcast.createdAt),
+  //   results: broadcast.results.length,
+  //   broadcastData: getBroadcastData(broadcast),
+  // }));
+
+  const formatDate = (date) => {
+    // const dateString = date.toISOString().split('T')[0];
+    // // const month = date.toGetMonth();
+    // return date.getMonth();
+
+    console.log('date ======================== ', date.getDate(), date);
+
+    // Get the day of the month
+    const day = String(date.getDate()).padStart(2, '0');
+
+    // Get the month name
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    const month = monthNames[date.getMonth()];
+
+    // Format the date as "DD Month"
+    // return `${day} ${month}`;
+    return `${month}`;
+  };
+
+  const groupedBroadcasts = {};
+
+  broadcasts.forEach((broadcast) => {
+    const ticketDate = new Date(broadcast.createdAt);
+
+    const month = formatDate(ticketDate);
+
+    if (!groupedBroadcasts[month]) {
+      groupedBroadcasts[month] = {
+        month: month,
+        totalMessages: 0,
+        pending: 0,
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
+      };
+    }
+
+    const boradcastData = getBroadcastData(broadcast);
+
+    groupedBroadcasts[month].totalMessages += boradcastData.totalMessages;
+    groupedBroadcasts[month].pending += boradcastData.pending;
+    groupedBroadcasts[month].sent += boradcastData.sent;
+    groupedBroadcasts[month].delivered += boradcastData.delivered;
+    groupedBroadcasts[month].read += boradcastData.read;
+    groupedBroadcasts[month].failed += boradcastData.failed;
+  });
+
+  if (type && type === 'sheet') {
+    const results = Object.values(groupedBroadcasts);
+
+    console.log('results', results);
+
+    // Convert JSON to Excel
+    const xls = json2xls(results);
+
+    // Generate a unique filename
+    const fileName = `broadcast_${Date.now()}.xlsx`;
+
+    // Write the Excel file to disk
+    fs.writeFileSync(fileName, xls, 'binary');
+
+    // Send the Excel file as a response
+    res.download(fileName, () => {
+      // Remove the file after sending
+      fs.unlinkSync(fileName);
+    });
+  } else {
+    res.status(200).json({
+      status: 'success',
+      data: {
+        groupedBroadcasts,
+      },
+    });
+  }
+});
