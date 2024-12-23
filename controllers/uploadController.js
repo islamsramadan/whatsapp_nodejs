@@ -50,6 +50,7 @@ const upload = multer({
 exports.uploadSingleFile = upload.single('file');
 exports.uploadMultiFiles = upload.array('files');
 // exports.uploadMessageImage = upload.array('files', 2);
+exports.uploadFields = upload.any('fields');
 
 exports.resFileName = (req, res, next) => {
   console.log('req.file', req.file);
@@ -65,7 +66,7 @@ exports.resFileName = (req, res, next) => {
 };
 
 exports.resFilesNames = (req, res, next) => {
-  //   console.log('req.files', req.files);
+  // console.log('req.files ===============================', req.files);
 
   if (!req.files || req.files.length === 0) {
     return next(new AppError('No file found!', 400));

@@ -14,7 +14,8 @@ router.route('/single').post(
 router.route('/multi').post(
   authController.protect,
   // authController.restrictTo('admin'),
-  uploadController.uploadMultiFiles,
+  // uploadController.uploadMultiFiles,
+  uploadController.uploadFields,
   uploadController.resFilesNames
 );
 

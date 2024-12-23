@@ -19,6 +19,14 @@ router
     broadcastController.sendBroadcast
   );
 
+router
+  .route('/rd')
+  .post(
+    authController.protect,
+    uploadController.uploadFields,
+    broadcastController.sendRDBroadcast
+  );
+
 router.route('/grouped').get(
   authController.protect,
   // authController.restrictTo('admin'),
