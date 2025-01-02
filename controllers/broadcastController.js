@@ -614,8 +614,8 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
 });
 
 exports.sendRDBroadcast = catchAsync(async (req, res, next) => {
-  console.log('req.body', req.body.clients[0]);
-  console.log('req.fields', req.files);
+  // console.log('req.body', req.body);
+  // console.log('req.files', req.files);
 
   const insertType = req.body.type;
   let countryCode = req.body.countryCode;
@@ -654,6 +654,8 @@ exports.sendRDBroadcast = catchAsync(async (req, res, next) => {
 
       return client;
     });
+  } else {
+    jsonData = req.body.clients;
   }
 
   console.log('jsonData ============= ', jsonData);
