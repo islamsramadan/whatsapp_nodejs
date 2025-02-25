@@ -679,35 +679,52 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         return next(new AppError("Couldn't transfer to the same team!", 400));
       }
 
+      let teamUser;
+      if (req.body.teamUser) {
+        const user = await User.findById(req.body.teamUser);
+        if (user.team.equals(team.id)) {
+          teamUser = user;
+        }
+      }
+
       //previous chat user to be updated later
       const previousUserID = chat.currentUser;
 
-      //Selecting new chat current user
-      let teamUsers = [];
-      for (let i = 0; i < team.users.length; i++) {
-        let teamUser = await User.findOne({
-          _id: team.users[i],
-          deleted: false,
-        });
-        teamUsers = [...teamUsers, teamUser];
-      }
-
-      // status sorting order
-      const statusSortingOrder = ['Online', 'Service hours', 'Offline', 'Away'];
-
-      // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
-      teamUsers = teamUsers.sort((a, b) => {
-        const orderA = statusSortingOrder.indexOf(a.status);
-        const orderB = statusSortingOrder.indexOf(b.status);
-
-        // If 'status' is the same, then sort by chats length
-        if (orderA === orderB) {
-          return a.chats.length - b.chats.length;
+      if (!teamUser) {
+        //Selecting new chat current user
+        let teamUsers = [];
+        for (let i = 0; i < team.users.length; i++) {
+          let teamUser = await User.findOne({
+            _id: team.users[i],
+            deleted: false,
+          });
+          teamUsers = [...teamUsers, teamUser];
         }
 
-        // Otherwise, sort by 'status'
-        return orderA - orderB;
-      });
+        // status sorting order
+        const statusSortingOrder = [
+          'Online',
+          'Service hours',
+          'Offline',
+          'Away',
+        ];
+
+        // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+        teamUsers = teamUsers.sort((a, b) => {
+          const orderA = statusSortingOrder.indexOf(a.status);
+          const orderB = statusSortingOrder.indexOf(b.status);
+
+          // If 'status' is the same, then sort by chats length
+          if (orderA === orderB) {
+            return a.chats.length - b.chats.length;
+          }
+
+          // Otherwise, sort by 'status'
+          return orderA - orderB;
+        });
+
+        teamUser = teamUsers[0];
+      }
 
       // console.log('teamUsers=============', teamUsers);
 
@@ -721,7 +738,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         [
           {
             chat: chat._id,
-            user: teamUsers[0]._id,
+            user: teamUser._id,
             team: req.body.team,
             status: 'open',
           },
@@ -737,7 +754,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         transfer: {
           type: 'team',
           from: chat.currentUser,
-          to: teamUsers[0]._id,
+          to: teamUser._id,
           fromTeam: chat.team,
           toTeam: req.body.team,
         },
@@ -749,7 +766,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       //Update chat
       const chatUpdatedBody = {
         team: req.body.team,
-        currentUser: teamUsers[0]._id,
+        currentUser: teamUser._id,
         lastSession: newSession[0]._id,
       };
       if (!chat.users.includes(chat.currentUser)) {
@@ -764,9 +781,9 @@ exports.updateChat = catchAsync(async (req, res, next) => {
       });
 
       //Update selected user open chats
-      if (!teamUsers[0].chats.includes(chat._id)) {
+      if (!teamUser.chats.includes(chat._id)) {
         await User.findByIdAndUpdate(
-          teamUsers[0]._id,
+          teamUser._id,
           { $push: { chats: chat._id } },
           { new: true, runValidators: true, session: transactionSession }
         );
@@ -794,7 +811,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         [
           {
             ...transferNotificationData,
-            user: teamUsers[0]._id,
+            user: teamUser._id,
             session: newSession[0]._id,
             message: `Chat number ${chat.client} has been transfered from ${previousUserDoc.firstName} ${previousUserDoc.lastName}`,
           },
@@ -806,7 +823,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
       console.log('transferToNotification', transferToNotification);
 
-      notificationUsersIDs.add(teamUsers[0]._id);
+      notificationUsersIDs.add(teamUser._id);
 
       // --------> Transfer From Notification
       if (!req.user._id.equals(previousUserID)) {
@@ -816,7 +833,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
               ...transferNotificationData,
               user: previousUserID,
               session: chat.lastSession,
-              message: `Chat number ${chat.client} has been transfered to ${teamUsers[0].firstName} ${teamUsers[0].lastName}`,
+              message: `Chat number ${chat.client} has been transfered to ${teamUser.firstName} ${teamUser.lastName}`,
             },
           ],
           {
