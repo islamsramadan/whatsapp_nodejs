@@ -9,6 +9,11 @@ const catchAsync = require('../utils/catchAsync');
 const Chat = require('./../models/chatModel');
 const Log = require('../models/logModel');
 const Notification = require('../models/notificationModel');
+const interactiveMessages = require('../utils/interactiveMessages');
+const { default: axios } = require('axios');
+const Message = require('../models/messageModel');
+
+const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
 
 exports.getAllChats = catchAsync(async (req, res, next) => {
   let chats = await Chat.find()
@@ -326,6 +331,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
 
   const notificationUsersIDs = new Set();
   let updatedChat;
+  let feedbackSession;
   try {
     //**********Update chat notification
     if (type === 'notification') {
@@ -412,6 +418,130 @@ exports.updateChat = catchAsync(async (req, res, next) => {
         { $pull: { chats: chat._id } },
         { new: true, runValidators: true, session: transactionSession }
       );
+
+      //**********the user in chat team take the ownership
+    } else if (type === 'feedback') {
+      //********** Archive and Feedback
+      // if (chat.notification === true) {
+      //   return next(
+      //     new AppError("Couldn't archive chat with unread messages", 400)
+      //   );
+      // }
+
+      if (chat.status === 'archived') {
+        return next(new AppError('The chat is already archived!', 400));
+      }
+
+      if (!chat.currentUser.equals(req.user._id) && req.user.role !== 'admin') {
+        return next(
+          new AppError("You don't have permission to perform this action!", 403)
+        );
+      }
+
+      // Add end date to the session and remove it from chat
+      await Session.findByIdAndUpdate(
+        chat.lastSession,
+        { end: Date.now(), status: 'finished', $unset: { timer: '' } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+
+      // =======> Create chat history session
+      const chatHistoryData = {
+        chat: chat._id,
+        user: req.user._id,
+        actionType: 'archive',
+        archive: 'user',
+      };
+      await ChatHistory.create([chatHistoryData], {
+        session: transactionSession,
+      });
+
+      // =======> Archive Chat Notification
+      if (!chat.currentUser.equals(req.user._id)) {
+        const archiveNotificationData = {
+          type: 'messages',
+          user: chat.currentUser,
+          chat: chat._id,
+          session: chat.lastSession,
+          event: 'archiveChat',
+          message: `Chat number ${chat.client} has been archived by ${req.user.firstName} ${req.user.lastName}`,
+        };
+        const archiveNotification = await Notification.create(
+          [archiveNotificationData],
+          {
+            session: transactionSession,
+          }
+        );
+
+        console.log('archiveNotification', archiveNotification);
+
+        notificationUsersIDs.add(chat.currentUser);
+      }
+      // // Updating chat
+      // await Chat.findByIdAndUpdate(
+      //   chat._id,
+      //   {
+      //     status: 'archived',
+      //     $unset: { currentUser: '', team: '', lastSession: '' },
+      //   },
+      //   { new: true, runValidators: true, session: transactionSession }
+      // );
+
+      // Removing chat from user open chats
+      await User.findByIdAndUpdate(
+        req.user._id,
+        { $pull: { chats: chat._id } },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+
+      ////////////////////////////////////////
+      ////////////////////////////////////////
+      ////////////////////////////////////////
+      ////////////////////////////////////////
+      ////////////////////////////////////////
+      ////////////////////////////////////////
+
+      // Create new bot session for the feedback
+      const botTeam = await Team.findOne({ bot: true }).session(
+        transactionSession
+      );
+      const newSession = await Session.create(
+        [
+          {
+            chat: chat._id,
+            user: botTeam.supervisor,
+            team: botTeam._id,
+            status: 'open',
+            type: 'feedback',
+          },
+        ],
+        { session: transactionSession }
+      );
+
+      // Updating chat
+      await Chat.findByIdAndUpdate(
+        chat._id,
+        {
+          currentUser: botTeam.supervisor,
+          team: botTeam._id,
+          lastSession: newSession[0]._id,
+        },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+
+      feedbackSession = newSession[0];
+      // //===========> Sending feedback interactive message
+      // const interactiveMsgObj = interactiveMessages.filter(
+      //   (item) => item.id === 'feedback_1'
+      // )[0];
+      // const interactiveMsg = { ...interactiveMsgObj };
+      // delete interactiveMsg.id;
+      // const interactiveReplyMsg = {
+      //   type: 'interactive',
+      //   interactive: interactiveMsg,
+      // };
+
+      // await sendMessageHandler(req, interactiveReplyMsg, chat, newSession[0]);
 
       //**********the user in chat team take the ownership
     } else if (type === 'takeOwnership') {
@@ -875,9 +1005,156 @@ exports.updateChat = catchAsync(async (req, res, next) => {
     }
   });
 
+  if (type === 'feedback' && feedbackSession) {
+    //===========> Sending feedback interactive message
+
+    const textMsg = {
+      type: 'text',
+      text: `
+      عزيزي العميل
+
+      نشكر تواصلك واهتمامك بخدماتنا. نود الاستماع إلى رأيك حول تجربتك مع موظف خدمة العملاء لتحسين جودة خدماتنا.
+
+      يرجي تقييم النقاط التالية: 
+      `,
+    };
+    await sendMessageHandler(req, textMsg, chat, feedbackSession);
+
+    const interactiveMsgObj = interactiveMessages.filter(
+      (item) => item.id === 'feedback_1'
+    )[0];
+    const interactiveMsg = { ...interactiveMsgObj };
+    delete interactiveMsg.id;
+    const interactiveReplyMsg = {
+      type: 'interactive',
+      interactive: interactiveMsg,
+    };
+    await sendMessageHandler(req, interactiveReplyMsg, chat, feedbackSession);
+
+    // ************* Updating session botTimer **************
+    const delayMins = 2;
+    // const delayMins = process.env.BOT_EXPIRE_TIME;
+    let botTimer = new Date();
+    botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
+
+    feedbackSession.botTimer = botTimer;
+    feedbackSession.reminder = true;
+    await feedbackSession.save();
+
+    const sessions = await Session.find({
+      status: 'open',
+      botTimer: {
+        $exists: true,
+        $ne: '',
+      },
+    });
+
+    await chatBotTimerUpdate.scheduleDocumentUpdateTask(
+      sessions,
+      req,
+      //from config.env
+      delayMins,
+      process.env.RESPONSE_DANGER_TIME,
+      process.env.WHATSAPP_VERSION,
+      process.env.WHATSAPP_PHONE_ID,
+      process.env.WHATSAPP_TOKEN,
+      process.env.WHATSAPP_PHONE_NUMBER
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: 'Chat updated successfully!',
     updatedChat,
   });
 });
+
+const sendMessageHandler = async (
+  req,
+  msgToBeSent,
+  selectedChat,
+  selectedSession
+) => {
+  const newMessageObj = {
+    user: selectedSession.user,
+    chat: selectedChat._id,
+    session: selectedSession._id,
+    from: process.env.WHATSAPP_PHONE_NUMBER,
+    type: msgToBeSent.type,
+  };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: selectedChat.client,
+    type: msgToBeSent.type,
+  };
+
+  if (msgToBeSent.type === 'interactive') {
+    newMessageObj.interactive = msgToBeSent.interactive;
+    whatsappPayload.interactive = msgToBeSent.interactive;
+  }
+  if (msgToBeSent.type === 'text') {
+    newMessageObj.text = msgToBeSent.text;
+    whatsappPayload.text = { preview_url: false, body: msgToBeSent.text };
+  }
+  if (msgToBeSent.type === 'contacts') {
+    whatsappPayload.contacts = msgToBeSent.contacts;
+    newMessageObj.contacts = msgToBeSent.contacts.map((contact) => ({
+      ...contact,
+      name: contact.name.formatted_name,
+    }));
+  }
+  if (msgToBeSent.type === 'document') {
+    whatsappPayload.document = msgToBeSent.document;
+    newMessageObj.document = { type: 'link', ...msgToBeSent.document };
+  }
+
+  // console.log('whatsappPayload =======', whatsappPayload);
+  // console.log('newMessageObj =======', newMessageObj);
+
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: `https://graph.facebook.com/${process.env.WHATSAPP_VERSION}/${process.env.WHATSAPP_PHONE_ID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  if (response) {
+    // console.log('response.data----------------', response.data);
+    const newMessage = await Message.create({
+      ...newMessageObj,
+      whatsappID: response.data.messages[0].id,
+    });
+
+    // Adding the sent message as last message in the chat and update chat status
+    selectedChat.lastMessage = newMessage._id;
+    selectedChat.status = 'open';
+    // updating chat notification to false
+    selectedChat.notification = false;
+    await selectedChat.save();
+
+    // Updating session to new status ((open))
+    selectedSession.status = 'open';
+    selectedSession.timer = undefined;
+    if (selectedSession.type === 'bot' || selectedSession.type === 'feedback')
+      selectedSession.lastBotMessage = newMessage._id;
+    await selectedSession.save();
+
+    //updating event in socket io
+    req.app.io.emit('updating', { chatNumber: selectedChat.client });
+  }
+};
