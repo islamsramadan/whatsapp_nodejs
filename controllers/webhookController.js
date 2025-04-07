@@ -1693,6 +1693,30 @@ const RDAppHandler = async (data) => {
   return response.data;
 };
 
+const sendFeedbackHandler = async (data) => {
+  // console.log('data ===========', data);
+
+  // console.log({ Token: process.env.RD_APP_TOKEN, ...data });
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://rd0.cpvarabia.com/api/Care/AddSurvey.php',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data', response.data);
+
+  // return response.data;
+};
+
 const feedbackHandler = async (
   req,
   from,
@@ -2350,6 +2374,27 @@ const feedbackHandler = async (
           { $pull: { chats: selectedChat._id } },
           { new: true, runValidators: true }
         );
+
+        // =======> Send feed back to RD App
+        const updatedfeedbackSession = await Session.findById(
+          selectedSession._id
+        );
+        const feedbackQuestions = updatedfeedbackSession.feedback.map(
+          (item, i) => ({
+            qid: i,
+            text: item.text,
+            Value: item.value,
+          })
+        );
+
+        const feedbackData = {
+          phoneno: selectedChat.client,
+          session: selectedSession._id,
+          questions: feedbackQuestions,
+        };
+        console.log('feedbackData ===================', feedbackData);
+
+        await sendFeedbackHandler(feedbackData);
       }
 
       // ************** the client doesn't reply to the last bot message

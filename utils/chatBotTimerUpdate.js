@@ -105,6 +105,30 @@ const sendMessageHandler = async (
   await session.save();
 };
 
+const sendFeedbackHandler = async (data) => {
+  // console.log('data ===========', data);
+
+  // console.log({ Token: process.env.RD_APP_TOKEN, ...data });
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://rd0.cpvarabia.com/api/Care/AddSurvey.php',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data', response.data);
+
+  return response.data;
+};
+
 const updateTask = (
   req,
   timer,
@@ -205,6 +229,27 @@ const updateTask = (
             { $pull: { chats: chat._id } },
             { new: true, runValidators: true }
           );
+
+          if (session.type === 'feedback') {
+            // =======> Send feed back to RD App
+            // const updatedfeedbackSession = await Session.findById(
+            //   session._id
+            // );
+            const feedbackQuestions = session.feedback.map((item, i) => ({
+              qid: i,
+              text: item.text,
+              Value: item.value,
+            }));
+
+            const feedbackData = {
+              phoneno: chat.client,
+              session: session._id,
+              questions: feedbackQuestions,
+            };
+            // console.log('feedbackData ===================', feedbackData);
+
+            await sendFeedbackHandler(feedbackData);
+          }
         }
 
         //updating event in socket io
