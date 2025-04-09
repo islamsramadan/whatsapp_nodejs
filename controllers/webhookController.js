@@ -1058,7 +1058,7 @@ const checkInteractiveHandler = async (
       type: 'text',
       text: `شكرا لتعاونكم! 
 
-      ملاحظتكم تساهم في تحسين خدماتنا ..`,
+      ملاحظاتكم تساهم في تحسين خدماتنا ..`,
     };
 
     if (selectedSession.type === 'feedback') {
