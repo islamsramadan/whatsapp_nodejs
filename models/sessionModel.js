@@ -35,7 +35,7 @@ const sessionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ['bot', 'normal'],
+      enum: ['bot', 'normal', 'feedback'],
       default: 'normal',
     },
 
@@ -81,6 +81,13 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    feedback: [
+      {
+        text: String,
+        value: String,
+      },
+    ],
   },
   { timestamps: true }
 );

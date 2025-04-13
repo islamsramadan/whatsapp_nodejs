@@ -235,15 +235,15 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
     const users = await User.find(filteredBody)
       .select(select)
       .populate(populate)
-      .skip((page - 1) * 20)
-      .limit(20);
+      .skip((page - 1) * 30)
+      .limit(30);
 
     const totalUsers = await User.count({ bot: false });
     const activeUsers = await User.count({ bot: false, deleted: false });
     const inactiveUsers = await User.count({ bot: false, deleted: true });
 
     const totalResults = await User.count(filteredBody);
-    const totalPages = Math.ceil(totalResults / 20);
+    const totalPages = Math.ceil(totalResults / 30);
 
     res.status(200).json({
       status: 'success',

@@ -633,6 +633,20 @@ const receiveMessageHandler = async (req, res, next) => {
       );
     }
 
+    // *************************************************************************
+    // ************************* Feedback Handlers *****************************
+    if (selectedSession.type === 'feedback') {
+      await feedbackHandler(
+        req,
+        from,
+        selectedMessage,
+        selectedChat,
+        selectedSession,
+        session,
+        msgType
+      );
+    }
+
     //updating event in socket io
     req.app.io.emit('updating', { chatNumber: from });
 
@@ -746,7 +760,7 @@ const sendMessageHandler = async (
     // Updating session to new status ((open))
     selectedSession.status = 'open';
     selectedSession.timer = undefined;
-    if (selectedSession.type === 'bot')
+    if (selectedSession.type === 'bot' || selectedSession.type === 'feedback')
       selectedSession.lastBotMessage = newMessage._id;
     await selectedSession.save();
 
@@ -1000,6 +1014,60 @@ const checkInteractiveHandler = async (
       type: 'text',
       text: 'شكرا لتواصلكم مع شركة CPV العربية \n نأمل أن تحوز خدماتنا على رضاكم',
     };
+  } else if (['1', '2', '3', '4', '5'].includes(option.id)) {
+    const interactiveFeedback = interactiveMessages.filter((item) => {
+      return item.id === 'feedback_2';
+    });
+
+    const interactive = { ...interactiveFeedback[0] };
+
+    delete interactive.id;
+
+    replyMessage = {
+      type: 'interactive',
+      interactive,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      selectedSession.feedback = [{ text: option.title, value: option.id }];
+      await selectedSession.save();
+    }
+  } else if (['6', '7', '8', '9', '10'].includes(option.id)) {
+    const interactiveFeedback = interactiveMessages.filter((item) => {
+      return item.id === 'feedback_3';
+    });
+
+    const interactive = { ...interactiveFeedback[0] };
+
+    delete interactive.id;
+
+    replyMessage = {
+      type: 'interactive',
+      interactive,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      await Session.findByIdAndUpdate(
+        selectedSession._id,
+        { $push: { feedback: { text: option.title, value: option.id } } },
+        { new: true, runValidators: true }
+      );
+    }
+  } else if (['11', '12', '13', '14', '15'].includes(option.id)) {
+    replyMessage = {
+      type: 'text',
+      text: `شكرا لتعاونكم! 
+
+      ملاحظاتكم تساهم في تحسين خدماتنا ..`,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      await Session.findByIdAndUpdate(
+        selectedSession._id,
+        { $push: { feedback: { text: option.title, value: option.id } } },
+        { new: true, runValidators: true }
+      );
+    }
   }
   // else {
   //   replyMessage.type = 'text';
@@ -1623,4 +1691,842 @@ const RDAppHandler = async (data) => {
   // console.log('response.data', response.data);
 
   return response.data;
+};
+
+const sendFeedbackHandler = async (data) => {
+  // console.log('data ===========', data);
+
+  // console.log({ Token: process.env.RD_APP_TOKEN, ...data });
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://rd0.cpvarabia.com/api/Care/AddSurvey.php',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data', response.data);
+
+  // return response.data;
+};
+
+const feedbackHandler = async (
+  req,
+  from,
+  selectedMessage,
+  selectedChat,
+  selectedSession,
+  session,
+  msgType
+) => {
+  // ******************* All cases if it is a bot session **************
+
+  // ---------> checkingSession for checking for refRequired
+  const checkingChat = await Chat.findById(selectedChat._id);
+  const checkingSession = await Session.findById(checkingChat.lastSession);
+
+  // ================> updating session bot reply
+  // if (checkingSession.botReply && checkingSession.botReply !== 'proceeding') {
+  //   checkingSession.botReply = 'normal';
+
+  //   await checkingSession.save();
+  // }
+
+  // ******************* Startng chat bot **************
+  // if (!session) {
+  //   if (!checkingSession.botReply) {
+  //     checkingSession.botReply = 'welcome';
+  //     await checkingSession.save();
+
+  //     // =======> Send bot welcome message
+  //     const interactiveObj = interactiveMessages.filter(
+  //       (message) => message.id === 'CPV'
+  //     )[0]; // from test data
+  //     const interactive = { ...interactiveObj };
+  //     delete interactive.id;
+
+  //     const msgToBeSent = { type: 'interactive', interactive };
+
+  //     await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+  //     // =======> Create chat history session
+  //     const chatHistoryData = {
+  //       chat: selectedChat._id,
+  //       user: selectedSession.user,
+  //       actionType: 'botReceive',
+  //     };
+  //     await ChatHistory.create(chatHistoryData);
+  //   } else {
+  //     console.log(
+  //       '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
+  //     );
+  //   }
+  // } else if (checkingSession.refRequired) {
+  //   const checkingChat = await Chat.findById(selectedChat._id);
+  //   const checkingSession = await Session.findById(selectedChat.lastSession);
+
+  //   if (checkingSession.botReply === 'normal') {
+  //     checkingSession.botReply = 'proceeding';
+  //     await checkingSession.save();
+
+  //     // ************* Checking interactive reply message type **************
+  //     if (msgType === 'text') {
+  //       const textWaitingMsg = {
+  //         type: 'text',
+  //         text: 'برجاء الانتظار',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textWaitingMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       const msgBody =
+  //         req.body.entry[0].changes[0].value.messages[0].text.body;
+
+  //       const validatedMsgBody = msgBody
+  //         .split('')
+  //         .filter((letter) => !isNaN(letter))
+  //         .join('');
+
+  //       // *** API from RD app ***
+  //       const refResult = await RDAppHandler({
+  //         Action: '1',
+  //         Phone: from,
+  //         ReferenceNo: validatedMsgBody,
+  //       });
+
+  //       //===========> valid reference no
+  //       if (refResult.Result) {
+  //         selectedSession.referenceNo = msgBody;
+  //         selectedSession.refRequired = false;
+  //         await selectedSession.save();
+
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'inspection'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> invalid reference no
+  //       } else {
+  //         selectedSession.refRequired = false;
+  //         await selectedSession.save();
+
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'ref_error'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+  //       }
+  //     } else {
+  //       // ******** Checking for reference no. reply
+  //       selectedSession.refRequired = false;
+  //       selectedSession.referenceNo = undefined;
+  //       await selectedSession.save();
+
+  //       //===========> Sending error text message
+  //       const textErrorMsg = {
+  //         type: 'text',
+  //         text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textErrorMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       //===========> Sending error interactive message
+  //       const interactiveMsgObj = interactiveMessages.filter(
+  //         (item) => item.id === 'error'
+  //       )[0];
+  //       const interactiveMsg = { ...interactiveMsgObj };
+  //       delete interactiveMsg.id;
+  //       const interactiveReplyMsg = {
+  //         type: 'interactive',
+  //         interactive: interactiveMsg,
+  //       };
+
+  //       await sendMessageHandler(
+  //         req,
+  //         interactiveReplyMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+  //     }
+
+  //     checkingSession.botReply = 'normal';
+  //     await checkingSession.save();
+  //   }
+  // } else if (!checkingSession.refRequired) {
+  //   // ************* Receiving interactive reply **************
+  //   if (msgType === 'interactive') {
+  //     if (checkingSession.botReply !== 'proceeding') {
+  //       checkingSession.botReply = 'proceeding';
+  //       await checkingSession.save();
+
+  //       const interactive =
+  //         req.body.entry[0].changes[0].value.messages[0].interactive;
+
+  //       const replyMessage = await Message.findOne({
+  //         whatsappID: selectedMessage.context.id,
+  //       });
+
+  //       // ************** the client reply to the last bot message
+  //       if (
+  //         replyMessage &&
+  //         replyMessage._id.equals(selectedSession.lastBotMessage)
+  //       ) {
+  //         // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+  //         let msgOption;
+
+  //         if (interactive.type === 'button_reply') {
+  //           const replyButtons = replyMessage.interactive.action.buttons;
+  //           // console.log('replyButtons', replyButtons);
+  //           const button = replyButtons.filter(
+  //             (btn) => btn.reply.id === interactive.button_reply.id
+  //           )[0];
+  //           // console.log('button', button);
+
+  //           //===========> Selecting reply message
+  //           msgOption = button.reply;
+  //         } else if (interactive.type === 'list_reply') {
+  //           // to join all options in one array
+  //           const listOptions = [];
+  //           replyMessage.interactive.action.sections.map((section) => {
+  //             section.rows.map((row) => {
+  //               listOptions.push({
+  //                 id: row.id,
+  //                 title: row.title,
+  //                 description: row.description,
+  //               });
+  //             });
+  //           });
+  //           // console.log('listOptions', listOptions);
+
+  //           const selectedOption = listOptions.filter(
+  //             (option) => option.id === interactive.list_reply.id
+  //           )[0];
+  //           // console.log('selectedOption', selectedOption);
+
+  //           //===========> Selecting reply message
+  //           msgOption = selectedOption;
+  //         }
+
+  //         const msgToBeSent = await checkInteractiveHandler(
+  //           msgOption,
+  //           selectedSession,
+  //           selectedChat
+  //         );
+
+  //         //===========> Sending an intro message
+  //         if (
+  //           msgOption.id === 'inspector_phone' &&
+  //           msgToBeSent.type === 'contacts'
+  //         ) {
+  //           const introMsg = {
+  //             type: 'text',
+  //             text: 'رقم الفاحص الفني الخاص بمشروعكم',
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             introMsg,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Sending first reply message
+  //         await sendMessageHandler(
+  //           req,
+  //           msgToBeSent,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> Sending a footer message
+  //         if (
+  //           msgOption.id === 'inspector_phone' &&
+  //           msgToBeSent.type === 'contacts'
+  //         ) {
+  //           const footerMsg = {
+  //             type: 'text',
+  //             text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             footerMsg,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Sending second reply message
+  //         if (
+  //           [
+  //             'inspector_phone',
+  //             'visits_reports',
+  //             'project_tickets',
+  //             'missing_data',
+  //             'payment_status',
+  //             'contractor_instructions',
+  //             'inspection_stages',
+  //             'common_questions',
+  //             'complete_building',
+  //             'work_hours',
+  //           ].includes(msgOption.id)
+  //         ) {
+  //           const interactiveObj = interactiveMessages.filter(
+  //             (message) => message.id === 'check'
+  //           )[0]; // from test data
+  //           const interactive = { ...interactiveObj };
+  //           delete interactive.id;
+
+  //           const secondMsgToBeSent = { type: 'interactive', interactive };
+  //           await sendMessageHandler(
+  //             req,
+  //             secondMsgToBeSent,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Following action (archive, transfer, ...)
+  //         // ***** Archive
+  //         if (['end'].includes(msgOption.id)) {
+  //           // Add end date to the session and remove it from chat
+  //           selectedSession.end = Date.now();
+  //           selectedSession.status = 'finished';
+  //           selectedSession.timer = undefined;
+  //           selectedSession.botTimer = undefined;
+  //           await selectedSession.save();
+
+  //           // =======> Create chat history session
+  //           const chatHistoryData = {
+  //             chat: selectedChat._id,
+  //             user: selectedSession.user,
+  //             actionType: 'archive',
+  //             archive: 'bot',
+  //           };
+  //           await ChatHistory.create(chatHistoryData);
+
+  //           // Updating chat
+  //           selectedChat.currentUser = undefined;
+  //           selectedChat.team = undefined;
+  //           selectedChat.status = 'archived';
+  //           selectedChat.lastSession = undefined;
+  //           await selectedChat.save();
+
+  //           // Removing chat from bot user chats
+  //           await User.findByIdAndUpdate(
+  //             selectedSession.user,
+  //             { $pull: { chats: selectedChat._id } },
+  //             { new: true, runValidators: true }
+  //           );
+  //         }
+
+  //         // ***** Transfer
+  //         if (['inquiries', 'customer_service'].includes(msgOption.id)) {
+  //           // =========> Selecting team and user
+  //           const selectedTeam = await Team.findOne({ default: true });
+
+  //           let teamUsers = await Promise.all(
+  //             selectedTeam.users.map(async function (user) {
+  //               let teamUser = await User.findById(user);
+  //               return teamUser;
+  //             })
+  //           );
+  //           // console.log('teamUsers', teamUsers);
+
+  //           // status sorting order
+  //           const statusSortingOrder = [
+  //             'Online',
+  //             'Service hours',
+  //             'Offline',
+  //             'Away',
+  //           ];
+
+  //           // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+  //           teamUsers = teamUsers.sort((a, b) => {
+  //             const orderA = statusSortingOrder.indexOf(a.status);
+  //             const orderB = statusSortingOrder.indexOf(b.status);
+
+  //             // If 'status' is the same, then sort by chats length
+  //             if (orderA === orderB) {
+  //               return a.chats.length - b.chats.length;
+  //             }
+
+  //             // Otherwise, sort by 'status'
+  //             return orderA - orderB;
+  //           });
+  //           // console.log('teamUsers', teamUsers);
+
+  //           // ========> Finishing bot session
+  //           selectedSession.end = Date.now();
+  //           selectedSession.status = 'finished';
+  //           selectedSession.timer = undefined;
+  //           selectedSession.botTimer = undefined;
+  //           await selectedSession.save();
+
+  //           // ==========> Creating new session
+  //           const newSession = await Session.create({
+  //             chat: selectedChat._id,
+  //             user: teamUsers[0]._id,
+  //             team: selectedTeam._id,
+  //             status: 'onTime',
+  //           });
+
+  //           // =======> Create chat history session
+  //           const chatHistoryData = {
+  //             chat: selectedChat._id,
+  //             user: selectedChat.currentUser,
+  //             actionType: 'transfer',
+  //             transfer: {
+  //               type: 'bot',
+  //               to: teamUsers[0]._id,
+  //               toTeam: selectedTeam._id,
+  //             },
+  //           };
+  //           await ChatHistory.create(chatHistoryData);
+
+  //           // =======> New Chat Notification
+  //           const newChatNotificationData = {
+  //             type: 'messages',
+  //             user: teamUsers[0]._id,
+  //             chat: selectedChat._id,
+  //             event: 'newChat',
+  //           };
+
+  //           const newChatNotification = await Notification.create(
+  //             newChatNotificationData
+  //           );
+  //           console.log(
+  //             'newChatNotification -------------',
+  //             newChatNotification
+  //           );
+
+  //           // updating notifications event in socket io
+  //           if (req.app.connectedUsers[teamUsers[0]._id]) {
+  //             req.app.connectedUsers[teamUsers[0]._id].emit(
+  //               'updatingNotifications'
+  //             );
+  //           }
+
+  //           // ==========> Updating chat
+  //           selectedChat.lastSession = newSession._id;
+  //           selectedChat.team = selectedTeam._id;
+  //           selectedChat.currentUser = teamUsers[0]._id;
+  //           await selectedChat.save();
+
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           // ************ where to send another message depending on service hours
+
+  //           const selectedTeamServiceHours = await Service.findById(
+  //             selectedTeam.serviceHours
+  //           );
+  //           // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
+  //           const selectedTeamConversation = await Conversation.findById(
+  //             selectedTeam.conversation
+  //           );
+  //           // console.log('selectedTeamConversation', selectedTeamConversation);
+
+  //           const msgText = serviceHoursUtils.checkInsideServiceHours(
+  //             selectedTeamServiceHours.durations
+  //           )
+  //             ? selectedTeamConversation.bodyOn
+  //             : selectedTeamConversation.bodyOff;
+  //           const msgToBeSent = {
+  //             type: 'text',
+  //             text: msgText,
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             msgToBeSent,
+  //             selectedChat,
+  //             newSession
+  //           );
+  //           //  *******************************************
+
+  //           // Adding the selected chat to the user chats
+  //           if (!teamUsers[0].chats.includes(selectedChat._id)) {
+  //             await User.findByIdAndUpdate(
+  //               teamUsers[0]._id,
+  //               { $push: { chats: selectedChat._id } },
+  //               { new: true, runValidators: true }
+  //             );
+  //           }
+
+  //           // Removing chat from bot user chats
+  //           await User.findByIdAndUpdate(
+  //             selectedSession.user,
+  //             { $pull: { chats: selectedChat._id } },
+  //             { new: true, runValidators: true }
+  //           );
+  //         }
+
+  //         // ************** the client doesn't reply to the last bot message
+  //       } else {
+  //         //===========> Sending error text message
+  //         const textErrorMsg = {
+  //           type: 'text',
+  //           text: 'عفوا لم استطع التعرف على اختيارك.',
+  //         };
+  //         await sendMessageHandler(
+  //           req,
+  //           textErrorMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> Sending error interactive message
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'error'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+  //       }
+
+  //       checkingSession.botReply = 'normal';
+  //       await checkingSession.save();
+  //     }
+  //   } else {
+  //     // // ******** Checking for interactive reply
+  //     // selectedSession.refRequired = false;
+  //     // selectedSession.referenceNo = undefined;
+  //     // await selectedSession.save();
+
+  //     if (checkingSession.botReply === 'normal') {
+  //       checkingSession.botReply = 'proceeding';
+  //       await checkingSession.save();
+
+  //       //===========> Sending error text message
+  //       const textErrorMsg = {
+  //         type: 'text',
+  //         text: 'عفوا لم استطع التعرف على اختيارك.',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textErrorMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       //===========> Sending error interactive message
+  //       const interactiveMsgObj = interactiveMessages.filter(
+  //         (item) => item.id === 'error'
+  //       )[0];
+  //       const interactiveMsg = { ...interactiveMsgObj };
+  //       delete interactiveMsg.id;
+  //       const interactiveReplyMsg = {
+  //         type: 'interactive',
+  //         interactive: interactiveMsg,
+  //       };
+
+  //       await sendMessageHandler(
+  //         req,
+  //         interactiveReplyMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       checkingSession.botReply = 'error';
+  //       await checkingSession.save();
+  //     }
+  //   }
+  // }
+
+  // ************* Receiving interactive reply **************
+  if (msgType === 'interactive') {
+    // if (checkingSession.botReply !== 'proceeding') {
+    checkingSession.botReply = 'proceeding';
+    await checkingSession.save();
+
+    const interactive =
+      req.body.entry[0].changes[0].value.messages[0].interactive;
+
+    const replyMessage = await Message.findOne({
+      whatsappID: selectedMessage.context.id,
+    });
+
+    // ************** the client reply to the last bot message
+    if (
+      replyMessage &&
+      replyMessage._id.equals(selectedSession.lastBotMessage)
+    ) {
+      // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+      let msgOption;
+
+      if (interactive.type === 'button_reply') {
+        const replyButtons = replyMessage.interactive.action.buttons;
+        // console.log('replyButtons', replyButtons);
+        const button = replyButtons.filter(
+          (btn) => btn.reply.id === interactive.button_reply.id
+        )[0];
+        // console.log('button', button);
+
+        //===========> Selecting reply message
+        msgOption = button.reply;
+      } else if (interactive.type === 'list_reply') {
+        // to join all options in one array
+        const listOptions = [];
+        replyMessage.interactive.action.sections.map((section) => {
+          section.rows.map((row) => {
+            listOptions.push({
+              id: row.id,
+              title: row.title,
+              description: row.description,
+            });
+          });
+        });
+        // console.log('listOptions', listOptions);
+
+        const selectedOption = listOptions.filter(
+          (option) => option.id === interactive.list_reply.id
+        )[0];
+        // console.log('selectedOption', selectedOption);
+
+        //===========> Selecting reply message
+        msgOption = selectedOption;
+      }
+
+      const msgToBeSent = await checkInteractiveHandler(
+        msgOption,
+        selectedSession,
+        selectedChat
+      );
+
+      //===========> Sending first reply message
+      await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+      //===========> Following action (archive, transfer, ...)
+      // ***** Archive
+      if (['11', '12', '13', '14', '15'].includes(msgOption.id)) {
+        // Add end date to the session and remove it from chat
+        selectedSession.end = Date.now();
+        selectedSession.status = 'finished';
+        selectedSession.timer = undefined;
+        selectedSession.botTimer = undefined;
+        await selectedSession.save();
+
+        // =======> Create chat history session
+        const chatHistoryData = {
+          chat: selectedChat._id,
+          user: selectedSession.user,
+          actionType: 'archive',
+          archive: 'bot',
+        };
+        await ChatHistory.create(chatHistoryData);
+
+        // Updating chat
+        selectedChat.currentUser = undefined;
+        selectedChat.team = undefined;
+        selectedChat.status = 'archived';
+        selectedChat.lastSession = undefined;
+        await selectedChat.save();
+
+        // Removing chat from bot user chats
+        await User.findByIdAndUpdate(
+          selectedSession.user,
+          { $pull: { chats: selectedChat._id } },
+          { new: true, runValidators: true }
+        );
+
+        // =======> Send feed back to RD App
+        const updatedfeedbackSession = await Session.findById(
+          selectedSession._id
+        );
+        const feedbackQuestions = updatedfeedbackSession.feedback.map(
+          (item, i) => ({
+            qid: i,
+            text: item.text,
+            Value: item.value,
+          })
+        );
+
+        const feedbackData = {
+          phoneno: selectedChat.client,
+          session: selectedSession._id,
+          questions: feedbackQuestions,
+        };
+        console.log('feedbackData ===================', feedbackData);
+
+        await sendFeedbackHandler(feedbackData);
+      }
+
+      // ************** the client doesn't reply to the last bot message
+    } else {
+      //===========> Sending error text message
+      const textErrorMsg = {
+        type: 'text',
+        text: 'عفوا لم استطع التعرف على اختيارك.',
+      };
+      await sendMessageHandler(
+        req,
+        textErrorMsg,
+        selectedChat,
+        selectedSession
+      );
+
+      //===========> Sending error interactive message
+      const interactiveMsgObj = interactiveMessages.filter(
+        (item) => item.id === 'error'
+      )[0];
+      const interactiveMsg = { ...interactiveMsgObj };
+      delete interactiveMsg.id;
+      const interactiveReplyMsg = {
+        type: 'interactive',
+        interactive: interactiveMsg,
+      };
+
+      await sendMessageHandler(
+        req,
+        interactiveReplyMsg,
+        selectedChat,
+        selectedSession
+      );
+    }
+
+    checkingSession.botReply = 'normal';
+    await checkingSession.save();
+    // }
+  } else {
+    // ******** Checking for interactive reply
+
+    // if (checkingSession.botReply === 'normal') {
+    //   checkingSession.botReply = 'proceeding';
+    //   await checkingSession.save();
+
+    //   //===========> Sending error text message
+    //   const textErrorMsg = {
+    //     type: 'text',
+    //     text: 'عفوا لم استطع التعرف على اختيارك.',
+    //   };
+    //   await sendMessageHandler(
+    //     req,
+    //     textErrorMsg,
+    //     selectedChat,
+    //     selectedSession
+    //   );
+
+    //   //===========> Sending error interactive message
+    //   const interactiveMsgObj = interactiveMessages.filter(
+    //     (item) => item.id === 'error'
+    //   )[0];
+    //   const interactiveMsg = { ...interactiveMsgObj };
+    //   delete interactiveMsg.id;
+    //   const interactiveReplyMsg = {
+    //     type: 'interactive',
+    //     interactive: interactiveMsg,
+    //   };
+
+    //   await sendMessageHandler(
+    //     req,
+    //     interactiveReplyMsg,
+    //     selectedChat,
+    //     selectedSession
+    //   );
+
+    //   checkingSession.botReply = 'error';
+    //   await checkingSession.save();
+    // }
+
+    //===========> Sending error text message
+    const textErrorMsg = {
+      type: 'text',
+      text: 'عفوا لم استطع التعرف على اختيارك.',
+    };
+    await sendMessageHandler(req, textErrorMsg, selectedChat, selectedSession);
+
+    //===========> Sending error interactive message
+    const interactiveMsgObj = interactiveMessages.filter(
+      (item) => item.id === 'checkFeedback'
+    )[0];
+    const interactiveMsg = { ...interactiveMsgObj };
+    delete interactiveMsg.id;
+    const interactiveReplyMsg = {
+      type: 'interactive',
+      interactive: interactiveMsg,
+    };
+
+    await sendMessageHandler(
+      req,
+      interactiveReplyMsg,
+      selectedChat,
+      selectedSession
+    );
+  }
+
+  // ************* Updating session botTimer **************
+  const delayMins = 2;
+  // const delayMins = process.env.BOT_EXPIRE_TIME;
+  let botTimer = new Date();
+  botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
+
+  selectedSession.botTimer = botTimer;
+  selectedSession.reminder = true;
+  await selectedSession.save();
+
+  const sessions = await Session.find({
+    status: 'open',
+    botTimer: {
+      $exists: true,
+      $ne: '',
+    },
+  });
+
+  await chatBotTimerUpdate.scheduleDocumentUpdateTask(
+    sessions,
+    req,
+    //from config.env
+    delayMins,
+    responseDangerTime,
+    process.env.WHATSAPP_VERSION,
+    process.env.WHATSAPP_PHONE_ID,
+    process.env.WHATSAPP_TOKEN,
+    process.env.WHATSAPP_PHONE_NUMBER
+  );
 };
