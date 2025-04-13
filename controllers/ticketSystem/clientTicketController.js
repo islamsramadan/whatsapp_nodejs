@@ -151,7 +151,7 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
   const { rating, feedback } = req.body;
 
   if (!rating) {
-    return next(new AppError('Client rating is required', 400));
+    return next(new AppError('Client rating is required!', 400));
   }
 
   const updatedBody = { rating };

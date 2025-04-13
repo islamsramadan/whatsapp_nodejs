@@ -34,6 +34,9 @@ const clientTicketRouter = require('./ticketSystem/clientTicketRoutes');
 
 const notificationRouter = require('./notificationRoutes');
 
+//end user routes
+const endUserRouter = require('./endUser/endUserRoutes');
+
 const router = express.Router();
 
 router.use('/webhook', webhookRouter);
@@ -70,5 +73,7 @@ router.use('/ticket-performance', ticketPerformanceRouter);
 router.use('/client', clientTicketRouter);
 
 router.use('/notifications', notificationRouter);
+
+router.use('/endUser', endUserRouter);
 
 module.exports = router;

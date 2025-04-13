@@ -583,7 +583,7 @@ exports.getAllPastTickets = catchAsync(async (req, res, next) => {
   const ticket = await Ticket.findById(req.params.ticketID);
 
   if (!ticket) {
-    return next(new AppError('No ticket found with that ID!', 400));
+    return next(new AppError('No ticket found with that ID!', 404));
   }
 
   const tickets = await Ticket.find({

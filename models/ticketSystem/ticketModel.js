@@ -18,7 +18,7 @@ const ticketSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['manual', 'automatic'],
+      enum: ['manual', 'endUser'],
       default: 'manual',
     },
 
@@ -47,6 +47,18 @@ const ticketSchema = new mongoose.Schema(
       required: function () {
         if (this.type === 'manual') {
           return [true, 'Ticket creator is required!'];
+        } else {
+          return false;
+        }
+      },
+    },
+
+    endUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
+      required: function () {
+        if (this.type === 'endUser') {
+          return [true, 'Ticket end user is required!'];
         } else {
           return false;
         }
