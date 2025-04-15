@@ -1,8 +1,9 @@
 const express = require('express');
 const authController = require('../../controllers/authController');
 const ticketController = require('../../controllers/ticketSystem/ticketController');
-const endUserTicketController = require('../../controllers/endUser/endUserTicketController');
 const endUserAuthController = require('../../controllers/endUser/endUserAuthController');
+const endUserTicketController = require('../../controllers/endUser/endUserTicketController');
+const endUserChatController = require('../../controllers/endUser/endUserChatController');
 // const commentRouter = require('./commentRoutes');
 // const ticketLogRouter = require('./ticketLogRoutes');
 
@@ -27,6 +28,13 @@ router
   .post(
     endUserAuthController.protectEndUser,
     endUserTicketController.createEndUserTicket
+  );
+
+router
+  .route('/ticket-categories')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllEndUserTicketCategories
   );
 
 router
@@ -56,6 +64,14 @@ router
     endUserAuthController.protectEndUser,
     endUserTicketController.uploadMultiFiles,
     endUserTicketController.createEndUserComment
+  );
+
+router
+  .route('/messages')
+  .get(endUserAuthController.protectEndUser)
+  .post(
+    endUserAuthController.protectEndUser,
+    endUserChatController.sendEndUserMessage
   );
 
 module.exports = router;

@@ -468,6 +468,18 @@ exports.getAllEndUserTickets = catchAsync(async (req, res, next) => {
   }
 });
 
+exports.getAllEndUserTicketCategories = catchAsync(async (req, res, next) => {
+  const categories = await TicketCategory.find();
+
+  res.status(200).json({
+    status: 'success',
+    results: categories.length,
+    data: {
+      categories,
+    },
+  });
+});
+
 exports.getEndUserTicket = catchAsync(async (req, res, next) => {
   const ticketID = req.params.ticketID;
 

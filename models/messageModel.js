@@ -2,10 +2,23 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema(
   {
+    chatType: {
+      type: String,
+      enum: ['whatsapp', 'endUser'],
+      default: 'whatsapp',
+    },
+
     whatsappID: {
       type: String,
-      required: [true, 'Message must have a whatsapp message id!'],
+      required: function () {
+        if (!this.chatType || this.chatType === 'whatsapp') {
+          return [true, 'Message must have a whatsapp message ID!'];
+        } else {
+          return false;
+        }
+      },
       unique: true,
+      sparse: true, // Allows the field to be unique only when it is not null
     },
 
     user: {
@@ -32,8 +45,27 @@ const messageSchema = new mongoose.Schema(
 
     from: {
       type: String,
-      required: [true, 'Message must have a sender!'],
+      // required: [true, 'Message must have a sender!'],
+      required: function () {
+        if (!this.chatType || this.chatType === 'whatsapp') {
+          return [true, 'Message must have a sender!'];
+        } else {
+          return false;
+        }
+      },
       match: [/\d{10,}/, 'Invalid sender whatsapp number!'],
+    },
+
+    fromEndUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
+      required: function () {
+        if (this.chatType === 'endUser' && !this.from) {
+          return [true, 'Message must have a sender!'];
+        } else {
+          return false;
+        }
+      },
     },
 
     // to: {
