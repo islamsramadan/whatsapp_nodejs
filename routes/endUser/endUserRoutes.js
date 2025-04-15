@@ -30,6 +30,13 @@ router
   );
 
 router
+  .route('/ticket-categories')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllEndUserTicketCategories
+  );
+
+router
   .route('/tickets/:ticketID')
   .get(
     endUserAuthController.protectEndUser,
