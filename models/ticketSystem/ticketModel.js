@@ -32,13 +32,7 @@ const ticketSchema = new mongoose.Schema(
     category: {
       type: mongoose.Schema.ObjectId,
       ref: 'TicketCategory',
-      required: function () {
-        if (this.type === 'manual') {
-          return [true, 'Ticket category is required!'];
-        } else {
-          return false;
-        }
-      },
+      required: [true, 'Ticket category is required!'],
     },
 
     creator: {
