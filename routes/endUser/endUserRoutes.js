@@ -30,13 +30,6 @@ router
   );
 
 router
-  .route('/ticket-categories')
-  .get(
-    endUserAuthController.protectEndUser,
-    endUserTicketController.getAllEndUserTicketCategories
-  );
-
-router
   .route('/tickets/:ticketID')
   .get(
     endUserAuthController.protectEndUser,
@@ -63,6 +56,27 @@ router
     endUserAuthController.protectEndUser,
     endUserTicketController.uploadMultiFiles,
     endUserTicketController.createEndUserComment
+  );
+
+router
+  .route('/ticket-categories')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllEndUserTicketCategories
+  );
+
+router
+  .route('/ticket-statuses')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllEndUserTicketStatuses
+  );
+
+router
+  .route('/teams')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllTicketsTeams
   );
 
 module.exports = router;
