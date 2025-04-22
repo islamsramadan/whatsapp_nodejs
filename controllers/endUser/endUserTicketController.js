@@ -737,7 +737,7 @@ exports.createEndUserTicket = catchAsync(async (req, res, next) => {
       [
         {
           ticket: ticket[0]._id,
-          log: 'endUser',
+          log: 'endUserTicket',
           //   user: req.user._id,
           assignee: newTicketData.assignee,
         },
