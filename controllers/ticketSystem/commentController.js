@@ -267,6 +267,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
     }
 
     if (
+      ticket.creator &&
       !ticket.creator.equals(req.user._id) &&
       !ticket.creator.equals(ticket.assignee)
     ) {
