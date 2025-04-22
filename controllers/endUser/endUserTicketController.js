@@ -900,14 +900,14 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
     return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
-  const previousComments = await Comment.find({
-    ticket: ticket._id,
-    type: 'public',
-  });
+  // const previousComments = await Comment.find({
+  //   ticket: ticket._id,
+  //   type: 'public',
+  // });
 
-  if (previousComments.length === 0) {
-    return next(new AppError("Couldn't add comments!", 400));
-  }
+  // if (previousComments.length === 0) {
+  //   return next(new AppError("Couldn't add comments!", 400));
+  // }
 
   if (!req.body.text && (!req.files || req.files.length === 0)) {
     return next(new AppError('Comment body is required!', 400));
