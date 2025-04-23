@@ -958,16 +958,16 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
 
   notificationUsersIDs.add(ticket.assignee);
 
-  if (!ticket.creator || !ticket.creator.equals(ticket.assignee)) {
-    const creatorNotification = await Notification.create({
-      ...newNotificationData,
-      user: ticket.creator,
-    });
+  // if (!ticket.creator || !ticket.creator.equals(ticket.assignee)) {
+  //   const creatorNotification = await Notification.create({
+  //     ...newNotificationData,
+  //     user: ticket.creator,
+  //   });
 
-    // console.log('creatorNotification', creatorNotification);
+  //   // console.log('creatorNotification', creatorNotification);
 
-    notificationUsersIDs.add(ticket.creator);
-  }
+  //   notificationUsersIDs.add(ticket.creator);
+  // }
 
   //--------------------> updating ticket event in socket io
   req.app.io.emit('updatingTickets', { ticketID: ticket._id });
