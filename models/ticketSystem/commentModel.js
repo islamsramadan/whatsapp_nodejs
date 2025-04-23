@@ -24,7 +24,11 @@ const commentSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        return this.type !== 'user';
+        if (this.type === 'note' || this.user === 'public') {
+          return true;
+        } else {
+          return false;
+        }
       },
     },
 
