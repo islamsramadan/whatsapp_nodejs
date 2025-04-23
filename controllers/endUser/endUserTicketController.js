@@ -477,6 +477,7 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
       select: 'firstName lastName photo team',
       populate: { path: 'team', select: 'name' },
     })
+    .populate('endUser', 'nationalID name phone')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')
     .populate('transfer.from.team', 'name')
@@ -1008,7 +1009,7 @@ exports.getAllEndUserTicketStatuses = catchAsync(async (req, res, next) => {
   }
 
   const statuses = await TicketStatus.find(filteredBody).select(
-    'endUserDisplayName category status'
+    'endUserDisplayName category'
   );
 
   res.status(200).json({
