@@ -18,7 +18,7 @@ const ticketSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['manual', 'endUser'],
+      enum: ['manual', 'endUser', 'automatic'],
       default: 'manual',
     },
 

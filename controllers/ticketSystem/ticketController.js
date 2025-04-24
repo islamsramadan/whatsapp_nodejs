@@ -2138,3 +2138,303 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     });
   }
 });
+
+exports.createInspectionTicket = catchAsync(async (req, res, next) => {
+  let { refNo, ticketDescription, clientName, clientNumber } = req.body;
+
+  //================> Selecting category
+  const category = process.env.INSPECTION_TICKET_CATEGORY;
+
+  //================> Selecting Request Nature and Type
+  const requestNature = 'Request';
+  const requestType = 'Inspection';
+
+  //================> Selecting type
+  const type = 'automatic';
+
+  //================> creating client
+  if (clientNumber.startsWith('5')) {
+    clientNumber = `966${clientNumber}`;
+  } else if (clientNumber.startsWith('05')) {
+    clientNumber = clientNumber.slice(1);
+    clientNumber = `966${clientNumber}`;
+  } else if (clientNumber.startsWith('+')) {
+    clientNumber = clientNumber.slice(1);
+  }
+  const client = {
+    name: clientName,
+    number: clientNumber,
+  };
+  if (req.body.email) {
+    client.email = req.body.email;
+  }
+
+  //================> Selecting priority
+  const priority = 'Normal';
+
+  //================> Selecting Status
+  const statusDoc = await TicketStatus.findOne({ default: true });
+  const status = statusDoc._id;
+
+  //================> Selecting team
+  const team = await Team.findOne({ default: true });
+
+  //================> Selecting assignee
+  const teamDoc = await Team.findById(team);
+
+  let teamUsers = [];
+  for (let i = 0; i < teamDoc.users.length; i++) {
+    let teamUser = await User.findOne({
+      _id: teamDoc.users[i],
+      deleted: false,
+    });
+
+    if (!teamUser.tasks || teamUser.tasks.includes('tickets')) {
+      teamUsers = [...teamUsers, teamUser];
+    }
+  }
+
+  if (teamUsers.length === 0) {
+    return next(
+      new AppError("This team doesn't have any user to deal with tickets!", 400)
+    );
+  }
+
+  // status sorting order
+  const statusSortingOrder = ['Online', 'Service hours', 'Offline', 'Away'];
+
+  // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+  teamUsers = teamUsers.sort((a, b) => {
+    const orderA = statusSortingOrder.indexOf(a.status);
+    const orderB = statusSortingOrder.indexOf(b.status);
+
+    // If 'status' is the same, then sort by chats length
+    if (orderA === orderB) {
+      return a.tickets.length - b.tickets.length;
+    }
+
+    // Otherwise, sort by 'status'
+    return orderA - orderB;
+  });
+
+  // console.log('teamUsers=============', teamUsers);
+  const assignee = teamUsers[0]._id;
+  //   console.log('assignee============>', assignee);
+
+  if (!refNo || !ticketDescription || !clientName || !clientNumber) {
+    return next(new AppError('Ticket details are required!', 422));
+  }
+
+  const newTicketData = {
+    type,
+    // endUser: req.endUser._id,
+    // creator: req.user._id,
+    category,
+    assignee,
+    team,
+    users: [],
+    client,
+    priority,
+    status,
+    refNo,
+    requestNature,
+    requestType,
+    tags: [],
+  };
+
+  // ----------> Adding complaint report ability
+  //   if (newTicketData.requestNature === 'Complaint') {
+  //     newTicketData.complaintReport = complaintReport;
+  //   }
+
+  // ----------> Adding questions
+  const formID = process.env.ENDUSER_FORM;
+  const formDoc = await Form.findById(formID);
+  //   const formDoc = await Form.findById(form);
+  //   if (questions.length !== formDoc.fields.length) {
+  //     return next(
+  //       new AppError('Invalid questions depending on form fields!', 400)
+  //     );
+  //   }
+
+  const questions = formDoc.fields.map((field) => {
+    if (field.order === 1) {
+      return { field: field.field, answer: [new Date().toLocaleDateString()] };
+    } else if (field.order === 2) {
+      return { field: field.field, answer: ['EUA'] };
+    } else if (field.order === 3) {
+      return { field: field.field, answer: [ticketDescription] };
+    } else {
+      return { field: field.field };
+    }
+  });
+
+  newTicketData.form = formDoc._id;
+  newTicketData.questions = questions;
+
+  // ----------> Field validation and Adding Tags
+  await Promise.all(
+    questions.map(async (item) => {
+      const field = await Field.findById(item.field);
+      if (!field || field.status === 'inactive') {
+        return next(new AppError('Invalid field!', 400));
+      }
+
+      if (field.required && (!item.answer || item.answer.length === 0)) {
+        return next(new AppError('Answer is required!', 400));
+      }
+
+      // ----------> Adding tags
+      if (field.tag && !newTicketData.tags.includes(item.answer[0])) {
+        newTicketData.tags.push(item.answer[0]);
+      }
+    })
+  );
+
+  // ----------> Add ticket order
+  const ticketsTotalNumber = await Ticket.count();
+  newTicketData.order = ticketsTotalNumber + 1;
+
+  // ----------> Add ticket users array
+  newTicketData.users.push(assignee);
+  //   newTicketData.users.push(req.user._id);
+  //   if (!req.user._id.equals(assignee)) {
+  //     newTicketData.users.push(assignee);
+  //   }
+
+  // ===============================> Create ticket in transaction session
+
+  const transactionSession = await mongoose.startSession();
+  transactionSession.startTransaction();
+
+  let newTicket;
+  try {
+    // =====================> Create Ticket
+    const ticket = await Ticket.create([newTicketData], {
+      session: transactionSession,
+    });
+    // console.log('ticket', ticket);
+
+    // =====================> Add ticket to the assigned user tickets
+    await User.findByIdAndUpdate(
+      assignee,
+      { $push: { tickets: ticket[0]._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
+
+    // =====================> Add ticket to the category
+    await TicketCategory.findByIdAndUpdate(
+      category,
+      { $push: { tickets: ticket[0]._id } },
+      { new: true, runValidators: true, session: transactionSession }
+    );
+
+    // =====================> Create Ticket Log
+    // await TicketLog.create(
+    //   [
+    //     {
+    //       ticket: ticket[0]._id,
+    //       log: 'create',
+    //       user: req.user._id,
+    //       status: newTicketData.status,
+    //     },
+    //   ],
+    //   {
+    //     session: transactionSession,
+    //   }
+    // );
+
+    // =====================> Assign Ticket Log
+    const ticketCreateLog = await TicketLog.create(
+      [
+        {
+          ticket: ticket[0]._id,
+          log: 'endUserTicket',
+          //   user: req.user._id,
+          assignee: newTicketData.assignee,
+        },
+      ],
+      {
+        session: transactionSession,
+      }
+    );
+    console.log('ticketCreateLog', ticketCreateLog);
+
+    // =====================> New Ticket Notification
+    const newNotificationData = {
+      type: 'tickets',
+      user: ticket[0].assignee,
+      ticket: ticket[0]._id,
+      event: 'newTicket',
+    };
+    const newNotification = await Notification.create([newNotificationData], {
+      session: transactionSession,
+    });
+
+    console.log('newNotification', newNotification);
+
+    newTicket = ticket[0];
+
+    await transactionSession.commitTransaction(); // Commit the transaction
+
+    // console.log('New ticket created: ============', ticket[0]._id);
+  } catch (error) {
+    await transactionSession.abortTransaction();
+
+    console.error(
+      'Transaction aborted due to an error: ===========================',
+      error
+    );
+
+    return next(new AppError('Creating ticket aborted! Try again later.', 400));
+  } finally {
+    transactionSession.endSession();
+  }
+
+  if (newTicket) {
+    // req.body.ticketID = newTicket._id;
+    // req.body.link = 'Not found!';
+    // await ticketUtilsHandler.notifyClientHandler(req, newTicket);
+
+    const updatedTicket = await getPopulatedTicket({ _id: newTicket._id });
+
+    const text = `Dear ${updatedTicket.assignee.firstName},
+
+    Kindly check your tickets, you have a new ticket no. ${newTicket.order} with Ref No. ${newTicket.refNo}
+    
+    Regards.`;
+
+    const emailDetails = {
+      to: updatedTicket.assignee.email,
+      subject: `New ticket no. ${newTicket.order}`,
+      text,
+      attachments: [],
+    };
+
+    // console.log('emailDetails', emailDetails);
+
+    mailerSendEmail(emailDetails);
+    //--------------------> updating ticket event in socket io
+    req.app.io.emit('updatingTickets', { ticketID: newTicket._id });
+
+    //--------------------> updating notifications event in socket io
+    if (
+      //   !newTicket.creator.equals(newTicket.assignee) &&
+      req.app.connectedUsers[newTicket.assignee]
+    ) {
+      req.app.connectedUsers[newTicket.assignee].emit('updatingNotifications');
+    }
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        ticket: updatedTicket,
+      },
+    });
+  } else {
+    res.status(400).json({
+      status: 'fail',
+      message: "Couldn't create the ticket! Kindly try again.",
+    });
+  }
+});
