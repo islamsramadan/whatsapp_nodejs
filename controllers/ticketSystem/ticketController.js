@@ -2236,7 +2236,7 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
   const newTicketData = {
     type,
     // endUser: req.endUser._id,
-    // creator: req.user._id,
+    creator: req.user._id,
     category,
     assignee,
     team,
