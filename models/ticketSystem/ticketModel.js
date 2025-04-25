@@ -195,6 +195,10 @@ const ticketSchema = new mongoose.Schema(
     feedback: {
       type: String,
     },
+
+    ver: { type: String },
+    system: { type: String },
+    device: { type: String },
   },
   { timestamps: true }
 );

@@ -2140,7 +2140,15 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
 });
 
 exports.createInspectionTicket = catchAsync(async (req, res, next) => {
-  let { refNo, ticketDescription, clientName, clientNumber } = req.body;
+  let {
+    refNo,
+    ticketDescription,
+    clientName,
+    clientNumber,
+    ver,
+    system,
+    device,
+  } = req.body;
 
   //================> Selecting category
   const category = process.env.INSPECTION_TICKET_CATEGORY;
@@ -2240,7 +2248,11 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
     requestNature,
     requestType,
     tags: [],
+    ver,
+    system,
+    device,
   };
+  console.log('newTicketData =============', newTicketData);
 
   // ----------> Adding complaint report ability
   //   if (newTicketData.requestNature === 'Complaint') {

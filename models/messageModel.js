@@ -137,9 +137,12 @@ const messageSchema = new mongoose.Schema(
             {
               type: {
                 type: String,
-                enum: ['QUICK_REPLY'],
+                enum: ['QUICK_REPLY', 'URL'],
               },
               text: {
+                type: String,
+              },
+              url: {
                 type: String,
               },
             },
