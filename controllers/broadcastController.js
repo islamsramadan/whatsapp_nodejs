@@ -380,6 +380,28 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
             type: component.type.toLowerCase(),
             parameters: parameters,
           });
+        } else if (component.type === 'BUTTONS') {
+          component.buttons.map((button, i) => {
+            if (button.example) {
+              const templateComponent = {};
+              templateComponent.type = 'button';
+              templateComponent.sub_type = 'url';
+              templateComponent.index = i;
+              templateComponent.parameters = [
+                {
+                  type: 'text',
+                  text:
+                    insertType === 'sheet'
+                      ? item[req.body.buttonVariable]
+                      : item.buttonVariable,
+                },
+              ];
+
+              whatsappPayloadForClient.template.components.push(
+                templateComponent
+              );
+            }
+          });
         }
       });
 
@@ -553,7 +575,21 @@ exports.sendBroadcast = catchAsync(async (req, res, next) => {
               }
             }
           } else if (component.type === 'BUTTONS') {
-            templateComponent.buttons = component.buttons;
+            const buttons = component.buttons.map((button) => {
+              if (button.example) {
+                const url = button.url.replace(
+                  '{{1}}',
+                  insertType === 'sheet'
+                    ? item[req.body.buttonVariable]
+                    : item.buttonVariable
+                );
+                return { ...button, url };
+              } else {
+                return button;
+              }
+            });
+
+            templateComponent.buttons = buttons;
           } else {
             templateComponent.text = component.text;
           }
@@ -866,6 +902,28 @@ exports.sendRDBroadcast = catchAsync(async (req, res, next) => {
             type: component.type.toLowerCase(),
             parameters: parameters,
           });
+        } else if (component.type === 'BUTTONS') {
+          component.buttons.map((button, i) => {
+            if (button.example) {
+              const templateComponent = {};
+              templateComponent.type = 'button';
+              templateComponent.sub_type = 'url';
+              templateComponent.index = i;
+              templateComponent.parameters = [
+                {
+                  type: 'text',
+                  text:
+                    insertType === 'sheet'
+                      ? item[req.body.buttonVariable]
+                      : item.buttonVariable,
+                },
+              ];
+
+              whatsappPayloadForClient.template.components.push(
+                templateComponent
+              );
+            }
+          });
         }
       });
 
@@ -1039,7 +1097,21 @@ exports.sendRDBroadcast = catchAsync(async (req, res, next) => {
               }
             }
           } else if (component.type === 'BUTTONS') {
-            templateComponent.buttons = component.buttons;
+            const buttons = component.buttons.map((button) => {
+              if (button.example) {
+                const url = button.url.replace(
+                  '{{1}}',
+                  insertType === 'sheet'
+                    ? item[req.body.buttonVariable]
+                    : item.buttonVariable
+                );
+                return { ...button, url };
+              } else {
+                return button;
+              }
+            });
+
+            templateComponent.buttons = buttons;
           } else {
             templateComponent.text = component.text;
           }
