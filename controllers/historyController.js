@@ -3,7 +3,7 @@ const ChatHistory = require('../models/historyModel');
 const catchAsync = require('../utils/catchAsync');
 
 exports.getAllChatHistory = catchAsync(async (req, res, next) => {
-  const chat = await Chat.find({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
   if (!chat) {
     return next(new AppError('No chat found with that number!', 404));
   }

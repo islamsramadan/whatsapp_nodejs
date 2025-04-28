@@ -8,6 +8,12 @@ const sessionSchema = new mongoose.Schema(
       required: [true, 'Session chat is required!'],
     },
 
+    chatType: {
+      type: String,
+      enum: ['whatsapp', 'endUser'],
+      default: 'whatsapp',
+    },
+
     user: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',

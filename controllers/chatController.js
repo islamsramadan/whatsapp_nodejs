@@ -301,9 +301,9 @@ exports.createChat = catchAsync(async (req, res, next) => {
 
   const newChat = await Chat.create({
     client: req.body.client,
-    currentUser: req.user._id,
+    // currentUser: req.user._id,
     users: [req.user._id],
-    team: req.user.team,
+    // team: req.user.team,
     status: 'archived',
   });
 
@@ -316,9 +316,9 @@ exports.createChat = catchAsync(async (req, res, next) => {
 });
 
 exports.updateChat = catchAsync(async (req, res, next) => {
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
   if (!chat) {
-    return next(new AppError('No chat found with that number', 404));
+    return next(new AppError('No chat found with that ID!', 404));
   }
 
   const { type } = req.body;

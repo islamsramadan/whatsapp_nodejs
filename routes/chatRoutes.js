@@ -8,9 +8,9 @@ const historyRouter = require('./historyRoutes');
 
 const router = express.Router();
 
-router.use('/:chatNumber/messages', messageRouter);
-router.use('/:chatNumber/notes', noteRouter);
-router.use('/:chatNumber/histories', historyRouter);
+router.use('/:chatID/messages', messageRouter);
+router.use('/:chatID/notes', noteRouter);
+router.use('/:chatID/histories', historyRouter);
 
 router
   .route('/')
@@ -42,7 +42,7 @@ router.get(
 );
 
 router
-  .route('/:chatNumber')
+  .route('/:chatID')
   .patch(authController.protect, chatController.updateChat);
 
 module.exports = router;

@@ -468,18 +468,6 @@ exports.getAllEndUserTickets = catchAsync(async (req, res, next) => {
   }
 });
 
-exports.getAllEndUserTicketCategories = catchAsync(async (req, res, next) => {
-  const categories = await TicketCategory.find();
-
-  res.status(200).json({
-    status: 'success',
-    results: categories.length,
-    data: {
-      categories,
-    },
-  });
-});
-
 exports.getEndUserTicket = catchAsync(async (req, res, next) => {
   const ticketID = req.params.ticketID;
 
@@ -990,6 +978,38 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       comment: newComment,
+    },
+  });
+});
+
+exports.getAllEndUserTicketCategories = catchAsync(async (req, res, next) => {
+  const categories = await TicketCategory.find().select('name');
+
+  res.status(200).json({
+    status: 'success',
+    results: categories.length,
+    data: {
+      categories,
+    },
+  });
+});
+
+exports.getAllEndUserTicketStatuses = catchAsync(async (req, res, next) => {
+  const filteredBody = {};
+
+  if (req.query.status) {
+    filteredBody.status = req.query.status;
+  }
+
+  const statuses = await TicketStatus.find(filteredBody).select(
+    'endUserDisplayName category status'
+  );
+
+  res.status(200).json({
+    status: 'success',
+    results: statuses.length,
+    data: {
+      statuses,
     },
   });
 });

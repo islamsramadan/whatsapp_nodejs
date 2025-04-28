@@ -88,7 +88,7 @@ exports.scheduleDocumentUpdateTask = async (
           dangerTimer,
           sessions[i]._id,
           'danger',
-          delayArray[i],
+          responseTimeInMelliSeconds,
           responseDangerTime
         );
         updateTask(
@@ -96,7 +96,7 @@ exports.scheduleDocumentUpdateTask = async (
           lateTimer,
           sessions[i]._id,
           'tooLate',
-          delayArray[i],
+          responseTimeInMelliSeconds,
           responseDangerTime
         );
       }
