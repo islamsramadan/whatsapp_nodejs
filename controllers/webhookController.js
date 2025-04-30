@@ -1211,6 +1211,26 @@ const chatBotHandler = async (
               selectedSession
             );
           }
+        } else {
+          selectedSession.refRequired = false;
+          await selectedSession.save();
+
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'ref_error'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
+          );
         }
       } else {
         // ******** Checking for reference no. reply
