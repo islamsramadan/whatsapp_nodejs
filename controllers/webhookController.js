@@ -1138,76 +1138,79 @@ const chatBotHandler = async (
 
       // ************* Checking interactive reply message type **************
       if (msgType === 'text') {
-        const textWaitingMsg = {
-          type: 'text',
-          text: 'برجاء الانتظار',
-        };
-        await sendMessageHandler(
-          req,
-          textWaitingMsg,
-          selectedChat,
-          selectedSession
-        );
-
         const msgBody =
           req.body.entry[0].changes[0].value.messages[0].text.body;
+        const refRegex = /^\d{1,6}$/;
 
-        const validatedMsgBody = msgBody
-          .split('')
-          .filter((letter) => !isNaN(letter))
-          .join('');
-
-        // *** API from RD app ***
-        const refResult = await RDAppHandler({
-          Action: '1',
-          Phone: from,
-          ReferenceNo: validatedMsgBody,
-        });
-
-        //===========> valid reference no
-        if (refResult.Result) {
-          selectedSession.referenceNo = msgBody;
-          selectedSession.refRequired = false;
-          await selectedSession.save();
-
-          const interactiveMsgObj = interactiveMessages.filter(
-            (item) => item.id === 'inspection'
-          )[0];
-          const interactiveMsg = { ...interactiveMsgObj };
-          delete interactiveMsg.id;
-          const interactiveReplyMsg = {
-            type: 'interactive',
-            interactive: interactiveMsg,
+        if (refRegex.test(msgBody)) {
+          const textWaitingMsg = {
+            type: 'text',
+            text: 'برجاء الانتظار',
           };
-
           await sendMessageHandler(
             req,
-            interactiveReplyMsg,
+            textWaitingMsg,
             selectedChat,
             selectedSession
           );
 
-          //===========> invalid reference no
-        } else {
-          selectedSession.refRequired = false;
-          await selectedSession.save();
+          const validatedMsgBody = msgBody
+            .split('')
+            .filter((letter) => !isNaN(letter))
+            .join('');
 
-          const interactiveMsgObj = interactiveMessages.filter(
-            (item) => item.id === 'ref_error'
-          )[0];
-          const interactiveMsg = { ...interactiveMsgObj };
-          delete interactiveMsg.id;
-          const interactiveReplyMsg = {
-            type: 'interactive',
-            interactive: interactiveMsg,
-          };
+          // *** API from RD app ***
+          const refResult = await RDAppHandler({
+            Action: '1',
+            Phone: from,
+            ReferenceNo: validatedMsgBody,
+          });
 
-          await sendMessageHandler(
-            req,
-            interactiveReplyMsg,
-            selectedChat,
-            selectedSession
-          );
+          //===========> valid reference no
+          if (refResult.Result) {
+            selectedSession.referenceNo = msgBody;
+            selectedSession.refRequired = false;
+            await selectedSession.save();
+
+            const interactiveMsgObj = interactiveMessages.filter(
+              (item) => item.id === 'inspection'
+            )[0];
+            const interactiveMsg = { ...interactiveMsgObj };
+            delete interactiveMsg.id;
+            const interactiveReplyMsg = {
+              type: 'interactive',
+              interactive: interactiveMsg,
+            };
+
+            await sendMessageHandler(
+              req,
+              interactiveReplyMsg,
+              selectedChat,
+              selectedSession
+            );
+
+            //===========> invalid reference no
+          } else {
+            selectedSession.refRequired = false;
+            await selectedSession.save();
+
+            const interactiveMsgObj = interactiveMessages.filter(
+              (item) => item.id === 'ref_error'
+            )[0];
+            const interactiveMsg = { ...interactiveMsgObj };
+            delete interactiveMsg.id;
+            const interactiveReplyMsg = {
+              type: 'interactive',
+              interactive: interactiveMsg,
+            };
+
+            await sendMessageHandler(
+              req,
+              interactiveReplyMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
         }
       } else {
         // ******** Checking for reference no. reply
