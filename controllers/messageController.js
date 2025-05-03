@@ -1202,49 +1202,79 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
   template.components.map((component) => {
     if (component.example) {
-      let parameters =
-        component.format === 'DOCUMENT'
-          ? 'link'
-          : component.example[
-              `${component.type.toLowerCase()}_${
-                component.format ? component.format.toLowerCase() : 'text'
-              }`
-            ];
-      parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
-      // console.log('parameters', parameters);
+      let parameters;
+      if (component.type === 'HEADER') {
+        // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+        if (component.format !== 'TEXT') {
+          parameters = [{ type: component.format.toLowerCase() }];
+          parameters[0][component.format.toLowerCase()] = {
+            link: req.file
+              ? `${productionLink}/${req.file.filename}`
+              : req.body.link,
+          };
+          if (component.format === 'DOCUMENT') {
+            parameters[0].document = {
+              link: req.file
+                ? `${productionLink}/${req.file.filename}`
+                : req.body.link,
+              filename: req.file ? req.file.originalname : req.body.filename,
+            };
+          }
+        } else {
+          parameters = [];
+          let parametersValues =
+            component.example[`${component.type.toLowerCase()}_text`];
+          parametersValues = Array.isArray(parametersValues[0])
+            ? parametersValues[0]
+            : parametersValues;
+
+          parametersValues.map((el) => {
+            parameters.push({ type: 'text', text: req.body[el][0] });
+          });
+
+          parameters = parametersValues.map((el) => ({
+            type: 'text',
+            text: req.body[el],
+          }));
+        }
+      } else {
+        parameters = [];
+        let parametersValues =
+          component.example[`${component.type.toLowerCase()}_text`];
+        parametersValues = Array.isArray(parametersValues[0])
+          ? parametersValues[0]
+          : parametersValues;
+
+        parametersValues.map((el) => {
+          parameters.push({
+            type: 'text',
+            text: Array.isArray(req.body[el]) ? req.body[el][0] : req.body[el],
+          });
+        });
+
+        parameters = parametersValues.map((el) => ({
+          type: 'text',
+          text: req.body[el],
+        }));
+      }
 
       whatsappPayload.template.components.push({
-        type: component.type,
-        parameters:
-          component.format === 'DOCUMENT'
-            ? [
-                {
-                  type: 'document',
-                  document: {
-                    link: req.body.link,
-                    filename: req.body.filename,
-                  },
-                },
-              ]
-            : parameters.map((el) => {
-                let object = {
-                  type: component.format
-                    ? component.format.toLowerCase()
-                    : 'text',
-                };
-                if (component.format) {
-                  object[component.format.toLowerCase()] = {
-                    link: req.body.link,
-                  };
-                } else {
-                  object.text = req.body[`${el}`];
-                }
-                // return {
-                //   type: component.format ? component.format.toLowerCase() : 'text',
-                //   text: req.body[`${el}`],
-                // };
-                return object;
-              }),
+        type: component.type.toLowerCase(),
+        parameters: parameters,
+      });
+    } else if (component.type === 'BUTTONS') {
+      component.buttons.map((button, i) => {
+        if (button.example) {
+          const templateComponent = {};
+          templateComponent.type = 'button';
+          templateComponent.sub_type = 'url';
+          templateComponent.index = i;
+          templateComponent.parameters = [
+            { type: 'text', text: req.body.buttonVariable },
+          ];
+
+          whatsappPayload.template.components.push(templateComponent);
+        }
       });
     }
   });
@@ -1272,32 +1302,43 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
       templateComponent.format = component.format;
 
       if (component.example) {
-        if (component.format === 'DOCUMENT') {
-          templateComponent.document = { link: req.body.link };
-          if (req.body.filename)
-            templateComponent.document.filename = req.body.filename;
-        } else {
-          templateComponent[`${component.format.toLowerCase()}`] =
-            component[`${component.format.toLowerCase()}`];
+        const headerParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'header'
+        )[0].parameters;
+        // console.log('headerParameters', headerParameters);
 
-          const headerParameters = whatsappPayload.template.components.filter(
-            (comp) => comp.type === 'HEADER'
-          )[0].parameters;
-          // console.log('headerParameters', headerParameters);
+        if (component.format === 'TEXT') {
+          templateComponent.text = component.text;
+
           for (let i = 0; i < headerParameters.length; i++) {
-            templateComponent[`${component.format.toLowerCase()}`] =
-              templateComponent[`${component.format.toLowerCase()}`].replace(
-                `{{${i + 1}}}`,
-                headerParameters[i][`${component.format.toLowerCase()}`]
-              );
+            templateComponent.text = templateComponent.text.replace(
+              `{{${i + 1}}}`,
+              headerParameters[i].text
+            );
+          }
+        } else {
+          templateComponent[`${component.format.toLowerCase()}`] = {
+            link: req.file
+              ? `${productionLink}/${req.file.filename}`
+              : req.body.filename,
+            // link: req.file.filename,
+          };
+          if (component.format === 'DOCUMENT') {
+            templateComponent.document = {
+              link: req.file ? req.file.filename : req.body.filename,
+              filename: req.file?.originalname,
+            };
           }
         }
+      } else {
+        templateComponent[`${component.format.toLowerCase()}`] =
+          component[`${component.format.toLowerCase()}`];
       }
     } else if (component.type === 'BODY') {
       templateComponent.text = component.text;
       if (component.example) {
         const bodyParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'BODY'
+          (comp) => comp.type === 'body'
         )[0].parameters;
         // console.log('bodyParameters', bodyParameters);
         for (let i = 0; i < bodyParameters.length; i++) {
@@ -1308,12 +1349,20 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
         }
       }
     } else if (component.type === 'BUTTONS') {
-      templateComponent.buttons = component.buttons;
+      const buttons = component.buttons.map((button) => {
+        if (button.example) {
+          const url = button.url.replace('{{1}}', req.body.buttonVariable);
+          return { ...button, url };
+        } else {
+          return button;
+        }
+      });
+
+      templateComponent.buttons = buttons;
     } else {
       templateComponent.text = component.text;
     }
 
-    // console.log('templateComponent', templateComponent);
     newMessageObj.template.components.push(templateComponent);
   });
 
