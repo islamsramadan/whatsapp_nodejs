@@ -18,7 +18,7 @@ const ticketSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['manual', 'endUser'],
+      enum: ['manual', 'endUser', 'automatic'],
       default: 'manual',
     },
 
@@ -195,6 +195,10 @@ const ticketSchema = new mongoose.Schema(
     feedback: {
       type: String,
     },
+
+    ver: { type: String },
+    system: { type: String },
+    device: { type: String },
   },
   { timestamps: true }
 );

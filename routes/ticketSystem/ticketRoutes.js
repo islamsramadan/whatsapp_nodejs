@@ -86,4 +86,8 @@ router
     ticketController.getAllPastTickets
   );
 
+router
+  .route('/inspection')
+  .post(authController.protect, ticketController.createInspectionTicket);
+
 module.exports = router;

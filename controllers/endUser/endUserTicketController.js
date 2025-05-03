@@ -26,7 +26,7 @@ const getPopulatedTicket = async (filterObj) => {
     .populate('creator', 'firstName lastName photo')
     .populate('endUser', 'nationalID name phone')
     .populate('assignee', 'firstName lastName photo email')
-    .populate('solvingUser', 'firstName lastName photo')
+    // .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
     .populate('status', 'name category')
     .populate('form', 'name')
@@ -35,6 +35,9 @@ const getPopulatedTicket = async (filterObj) => {
       select: '-updatedAt -createdAt -forms -creator',
       populate: { path: 'type', select: 'name value description' },
     })
+    .select(
+      '-client -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser'
+    )
     .lean();
 };
 
@@ -399,79 +402,57 @@ exports.getAllEndUserTickets = catchAsync(async (req, res, next) => {
     filteredBody.requestType = req.query.requestType;
   }
 
-  if (req.query.type === 'download') {
-    // ==========> Checking permission for export tickets
-    const userTeam = await Team.findById(req.user.team);
-    if (
-      req.user.role !== 'admin' &&
-      !userTeam.default &&
-      !userTeam.supervisor.equals(req.user._id) &&
-      userTeam.name.toLowerCase() !== 'qc'
-    ) {
-      return next(
-        new AppError("You don't have permission to perform this action!", 403)
-      );
-    }
+  const page = req.query.page * 1 || 1;
 
-    let tickets = await Ticket.find(filteredBody)
-      .sort('-createdAt')
-      .populate('category', 'name')
-      .populate('creator', 'firstName lastName photo')
-      .populate('assignee', 'firstName lastName photo')
-      .populate('solvingUser', 'firstName lastName photo')
-      .populate('team', 'name')
-      .populate('status', 'name category')
-      .populate('form', 'name')
-      .populate({
-        path: 'questions.field',
-        select: '-updatedAt -createdAt -forms -creator',
-        populate: { path: 'type', select: 'name value description' },
-      });
-    // .populate('questions.field', 'name')
-    // .select('-questions -client -users -type');
+  const tickets = await Ticket.find(filteredBody)
+    .sort('-createdAt')
+    .populate('category', 'name')
+    .populate('endUser', 'name nationalID phone')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .select(
+      '-form -questions -client -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser -rating -feedback'
+    )
+    .skip((page - 1) * 20)
+    .limit(20);
 
-    if (tickets.length > 0) {
-      getTicketsSheet(res, tickets);
-    } else {
-      res.status(400).send('No tickets found');
-    }
-  } else {
-    const page = req.query.page || 1;
+  const totalResults = await Ticket.count(filteredBody);
+  const totalPages = Math.ceil(totalResults / 20);
 
-    const tickets = await Ticket.find(filteredBody)
-      .sort('-createdAt')
-      .populate('category', 'name')
-      .populate('creator', 'firstName lastName photo')
-      .populate('assignee', 'firstName lastName photo')
-      .populate('solvingUser', 'firstName lastName photo')
-      .populate('team', 'name')
-      .populate('status', 'name category')
-      // .populate('form', 'name')
-      // .populate('questions.field', 'name')
-      .select('-questions -client -users -type')
-      .skip((page - 1) * 20)
-      .limit(20);
-
-    const totalResults = await Ticket.count(filteredBody);
-    const totalPages = Math.ceil(totalResults / 20);
-
-    res.status(200).json({
-      status: 'success',
-      results: tickets.length,
-      data: {
-        totalResults,
-        totalPages,
-        page,
-        tickets,
-      },
-    });
-  }
+  res.status(200).json({
+    status: 'success',
+    results: tickets.length,
+    data: {
+      totalResults,
+      totalPages,
+      page,
+      tickets,
+    },
+  });
 });
 
 exports.getEndUserTicket = catchAsync(async (req, res, next) => {
   const ticketID = req.params.ticketID;
 
-  let ticket = await getPopulatedTicket({ _id: ticketID });
+  // let ticket = await getPopulatedTicket({ _id: ticketID });
+  let ticket = await Ticket.findById(ticketID)
+    .populate('category', 'name')
+    .populate('creator', 'firstName lastName photo')
+    .populate('endUser', 'nationalID name phone')
+    .populate('assignee', 'firstName lastName photo email')
+    .populate('solvingUser', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .populate('form', 'name')
+    .populate({
+      path: 'questions.field',
+      select: 'type endUserView endUserPermission',
+      populate: { path: 'type', select: 'name value description' },
+    })
+    .select('-client -users -clientToken -complaintReport -tags -priority')
+    .lean();
 
   if (!ticket) {
     return next(new AppError('No ticket found with that ID!', 404));
@@ -484,9 +465,8 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
     ),
   };
 
-  console.log('ticket', ticket);
-  const ticketLogs = await TicketLog.find({ ticket: ticketID })
-    .populate('ticket', 'order')
+  // console.log('ticket', ticket);
+  const ticketLogs = await TicketLog.find({ ticket: ticketID, type: 'public' })
     .populate({
       path: 'user',
       select: 'firstName lastName photo team',
@@ -497,16 +477,33 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
       select: 'firstName lastName photo team',
       populate: { path: 'team', select: 'name' },
     })
+    .populate('endUser', 'nationalID name phone')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')
     .populate('transfer.from.team', 'name')
     .populate('transfer.to.team', 'name')
-    .populate('status', 'endUserDisplayName category');
+    .populate('status', 'endUserDisplayName category')
+    .select('-updatedAt');
 
   const ticketComments = await Comment.find({
     ticket: ticketID,
     type: { $ne: 'note' },
-  }).populate('user', 'firstName lastName photo');
+  })
+    .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'nationalID name phone')
+    .select('-updatedAt');
+
+  const pastTickets = await Ticket.find({ refNo: ticket.refNo })
+    .sort('-createdAt')
+    .populate('category', 'name')
+    .populate('endUser', 'name nationalID phone')
+    .populate('creator', 'firstName lastName photo')
+    .populate('assignee', 'firstName lastName photo')
+    .populate('team', 'name')
+    .populate('status', 'name category')
+    .select(
+      '-form -questions -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser -rating -feedback'
+    );
 
   res.status(200).json({
     status: 'success',
@@ -514,6 +511,7 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
       ticket,
       ticketLogs,
       ticketComments,
+      pastTickets,
     },
   });
 });
@@ -543,6 +541,9 @@ exports.createEndUserTicket = catchAsync(async (req, res, next) => {
     name: req.endUser.name,
     number: req.endUser.phone,
   };
+  if (req.body.email) {
+    client.email = req.body.email;
+  }
 
   //================> Selecting priority
   const priority = 'Normal';
@@ -637,7 +638,7 @@ exports.createEndUserTicket = catchAsync(async (req, res, next) => {
   //   }
 
   // ----------> Adding questions
-  const formID = '67f94c061d965f6af7d00e24';
+  const formID = process.env.ENDUSER_FORM;
   const formDoc = await Form.findById(formID);
   //   const formDoc = await Form.findById(form);
   //   if (questions.length !== formDoc.fields.length) {
@@ -658,6 +659,7 @@ exports.createEndUserTicket = catchAsync(async (req, res, next) => {
     }
   });
 
+  newTicketData.form = formDoc._id;
   newTicketData.questions = questions;
 
   // ----------> Field validation and Adding Tags
@@ -737,7 +739,7 @@ exports.createEndUserTicket = catchAsync(async (req, res, next) => {
       [
         {
           ticket: ticket[0]._id,
-          log: 'endUser',
+          log: 'endUserTicket',
           //   user: req.user._id,
           assignee: newTicketData.assignee,
         },
@@ -861,7 +863,7 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
 
   const ticket = await Ticket.findById(req.params.ticketID);
   if (!ticket) {
-    return next(new AppError('No ticket found with that ID!'));
+    return next(new AppError('No ticket found with that ID!'), 404);
   }
 
   if (!rating) {
@@ -900,11 +902,14 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
     return next(new AppError("Couldn't update solved ticket!", 400));
   }
 
-  const previousComments = await Comment.find({ ticket: ticket._id });
+  // const previousComments = await Comment.find({
+  //   ticket: ticket._id,
+  //   type: 'public',
+  // });
 
-  if (previousComments.length === 0) {
-    return next(new AppError("Couldn't add comments!", 400));
-  }
+  // if (previousComments.length === 0) {
+  //   return next(new AppError("Couldn't add comments!", 400));
+  // }
 
   if (!req.body.text && (!req.files || req.files.length === 0)) {
     return next(new AppError('Comment body is required!', 400));
@@ -912,7 +917,8 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
 
   const newCommentData = {
     ticket: ticket._id,
-    type: 'user',
+    type: 'endUser',
+    endUser: req.endUser._id,
   };
 
   if (req.body.text) {
@@ -934,7 +940,8 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   // =====================> Comment Ticket Log
   await TicketLog.create({
     ticket: ticket._id,
-    log: 'clientComment',
+    log: 'endUserComment',
+    endUser: req.endUser._id,
   });
 
   // =====================> New Comment Notification
@@ -942,7 +949,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
     type: 'tickets',
     ticket: ticket._id,
     event: 'newComment',
-    message: `New comment on ticket no. ${ticket.order} from client`,
+    message: `New comment on ticket no. ${ticket.order} from end user`,
   };
 
   const assigneeNotification = await Notification.create({
@@ -953,7 +960,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
 
   notificationUsersIDs.add(ticket.assignee);
 
-  if (!ticket.creator || !ticket.creator.equals(ticket.assignee)) {
+  if (ticket.creator && !ticket.creator.equals(ticket.assignee)) {
     const creatorNotification = await Notification.create({
       ...newNotificationData,
       user: ticket.creator,
@@ -1010,6 +1017,18 @@ exports.getAllEndUserTicketStatuses = catchAsync(async (req, res, next) => {
     results: statuses.length,
     data: {
       statuses,
+    },
+  });
+});
+
+exports.getAllTicketsTeams = catchAsync(async (req, res, next) => {
+  const teams = await Team.find({ bot: false }).select('name');
+
+  res.status(200).json({
+    status: 'success',
+    results: teams.length,
+    data: {
+      teams,
     },
   });
 });

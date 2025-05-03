@@ -28,7 +28,8 @@ const ticketLogSchema = new mongoose.Schema(
         'client',
         'takeOwnership',
         'clientComment',
-        'endUser',
+        'endUserTicket',
+        'endUserComment',
       ],
       required: [true, 'Ticket log type is required!'],
     },
@@ -37,13 +38,22 @@ const ticketLogSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        if (this.log === 'clientComment' || this.log === 'endUser') {
+        if (
+          this.log === 'clientComment' ||
+          this.log === 'endUserTicket' ||
+          this.log === 'endUserComment'
+        ) {
           return false;
         } else {
           return true;
         }
         // return this.log !== 'clientComment' || this.log !== 'endUser';
       },
+    },
+
+    endUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
     },
 
     assignee: {

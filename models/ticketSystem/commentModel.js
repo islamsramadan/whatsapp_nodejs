@@ -16,7 +16,7 @@ const commentSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['note', 'public', 'user'],
+      enum: ['note', 'public', 'user', 'endUser'],
       default: 'public',
     },
 
@@ -24,8 +24,17 @@ const commentSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: function () {
-        return this.type !== 'user';
+        if (this.type === 'note' || this.user === 'public') {
+          return true;
+        } else {
+          return false;
+        }
       },
+    },
+
+    endUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
     },
 
     ticket: {

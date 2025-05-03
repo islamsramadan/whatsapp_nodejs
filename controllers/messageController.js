@@ -1032,6 +1032,20 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         type: component.type.toLowerCase(),
         parameters: parameters,
       });
+    } else if (component.type === 'BUTTONS') {
+      component.buttons.map((button, i) => {
+        if (button.example) {
+          const templateComponent = {};
+          templateComponent.type = 'button';
+          templateComponent.sub_type = 'url';
+          templateComponent.index = i;
+          templateComponent.parameters = [
+            { type: 'text', text: req.body.buttonVariable },
+          ];
+
+          whatsappPayload.template.components.push(templateComponent);
+        }
+      });
     }
   });
 
@@ -1106,7 +1120,16 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         }
       }
     } else if (component.type === 'BUTTONS') {
-      templateComponent.buttons = component.buttons;
+      const buttons = component.buttons.map((button) => {
+        if (button.example) {
+          const url = button.url.replace('{{1}}', req.body.buttonVariable);
+          return { ...button, url };
+        } else {
+          return button;
+        }
+      });
+
+      templateComponent.buttons = buttons;
     } else {
       templateComponent.text = component.text;
     }

@@ -83,6 +83,11 @@ router
     endUserAuthController.protectEndUser,
     endUserChatController.uploadMessageFile,
     endUserChatController.sendEndUserMessage
+  )
+  .route('/teams')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserTicketController.getAllTicketsTeams
   );
 
 module.exports = router;
