@@ -83,7 +83,9 @@ router
     endUserAuthController.protectEndUser,
     endUserChatController.uploadMessageFile,
     endUserChatController.sendEndUserMessage
-  )
+  );
+
+router
   .route('/teams')
   .get(
     endUserAuthController.protectEndUser,
