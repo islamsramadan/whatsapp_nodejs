@@ -1134,7 +1134,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
       };
 
       // -----------------> creator notification
-      if (!ticket.creator.equals(req.user._id)) {
+      if (ticket.creator && !ticket.creator.equals(req.user._id)) {
         const creatorNotification = await Notification.create(
           [
             {
