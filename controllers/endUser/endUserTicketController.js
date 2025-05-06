@@ -936,6 +936,10 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   const notificationUsersIDs = new Set();
 
   const newComment = await Comment.create(newCommentData);
+  const populatedComment = await newComment.populate(
+    'endUser',
+    'name phone nationalID'
+  );
 
   // =====================> Comment Ticket Log
   await TicketLog.create({
@@ -984,7 +988,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: 'success',
     data: {
-      comment: newComment,
+      comment: populatedComment,
     },
   });
 });
