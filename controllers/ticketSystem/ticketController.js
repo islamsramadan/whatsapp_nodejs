@@ -622,7 +622,7 @@ exports.getTicket = catchAsync(async (req, res, next) => {
     // !userTeam.supervisor.equals(req.user._id) &&     // in export only
     userTeam.name.toLowerCase() !== 'qc' &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator?.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id) &&
     !ticket.users.some((userId) => userId.equals(req.user._id))
   ) {
     return next(
@@ -966,7 +966,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     req.user.role !== 'admin' &&
     !ticketTeam.supervisor.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator?.equals(req.user._id)
+    !ticket.creator.equals(req.user._id)
   ) {
     return next(
       new AppError("You don't have permission to perform this action!", 403)
@@ -985,7 +985,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
   if (
     ticket.status.category === 'solved' && // ====> Unsolve solved ticket
     req.user.role !== 'admin' &&
-    !ticket.creator?.equals(req.user._id) &&
+    !ticket.creator.equals(req.user._id) &&
     !defaultTeam.supervisor.equals(req.user._id) &&
     !ticketTeam.supervisor.equals(req.user._id)
   ) {
@@ -999,7 +999,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     const ticketTeam = await Team.findById(ticket.team);
     if (
       req.user.role === 'admin' ||
-      ticket.creator?.equals(req.user._id) ||
+      ticket.creator.equals(req.user._id) ||
       ticketTeam.supervisor.equals(req.user._id)
     ) {
       updatedBody = filterObj(
@@ -1297,7 +1297,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     req.user.role !== 'admin' &&
     !ticketTeam.supervisor.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator?.equals(req.user._id)
+    !ticket.creator.equals(req.user._id)
   ) {
     return next(
       new AppError("You don't have permission to perform this action!", 403)
@@ -1788,7 +1788,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     req.user.role !== 'admin' &&
     !ticketTeam.supervisor.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator?.equals(req.user._id)
+    !ticket.creator.equals(req.user._id)
   ) {
     return next(
       new AppError("You don't have permission to perform this action!", 403)
@@ -2044,7 +2044,7 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     req.user.role !== 'admin' &&
     !ticketTeam.supervisor.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator?.equals(req.user._id)
+    !ticket.creator.equals(req.user._id)
   ) {
     return next(
       new AppError("You don't have permission to perform this action!", 403)
