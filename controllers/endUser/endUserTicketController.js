@@ -413,7 +413,7 @@ exports.getAllEndUserTickets = catchAsync(async (req, res, next) => {
     .populate('team', 'name')
     .populate('status', 'endUserDisplayName category')
     .select(
-      '-form -questions -client -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser -rating -feedback'
+      '-form -questions -client -users -clientToken -complaintReport -tags -solvingTime -solvingUser -rating -feedback'
     )
     .skip((page - 1) * 20)
     .limit(20);
