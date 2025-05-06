@@ -444,7 +444,7 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
     .populate('assignee', 'firstName lastName photo email')
     .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .populate('form', 'name')
     .populate({
       path: 'questions.field',
