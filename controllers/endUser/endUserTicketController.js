@@ -964,7 +964,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
 
   notificationUsersIDs.add(ticket.assignee);
 
-  if (ticket.creator && !ticket.creator.equals(ticket.assignee)) {
+  if (ticket.creator && !ticket.creator?.equals(ticket.assignee)) {
     const creatorNotification = await Notification.create({
       ...newNotificationData,
       user: ticket.creator,
