@@ -451,7 +451,7 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
       select: 'type endUserView endUserPermission',
       populate: { path: 'type', select: 'name value description' },
     })
-    .select('-client -users -clientToken -complaintReport -tags -priority')
+    .select('-users -clientToken -complaintReport -tags -priority')
     .lean();
 
   if (!ticket) {
