@@ -28,7 +28,7 @@ const getPopulatedTicket = async (filterObj) => {
     .populate('assignee', 'firstName lastName photo email')
     // .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .populate('form', 'name')
     .populate({
       path: 'questions.field',
@@ -411,9 +411,9 @@ exports.getAllEndUserTickets = catchAsync(async (req, res, next) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .select(
-      '-form -questions -client -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser -rating -feedback'
+      '-form -questions -client -users -clientToken -complaintReport -tags -solvingTime -solvingUser -rating -feedback'
     )
     .skip((page - 1) * 20)
     .limit(20);
@@ -444,14 +444,14 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
     .populate('assignee', 'firstName lastName photo email')
     .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .populate('form', 'name')
     .populate({
       path: 'questions.field',
       select: 'type endUserView endUserPermission',
       populate: { path: 'type', select: 'name value description' },
     })
-    .select('-client -users -clientToken -complaintReport -tags -priority')
+    .select('-users -clientToken -complaintReport -tags -priority')
     .lean();
 
   if (!ticket) {
@@ -500,7 +500,7 @@ exports.getEndUserTicket = catchAsync(async (req, res, next) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category')
+    .populate('status', 'endUserDisplayName category')
     .select(
       '-form -questions -users -clientToken -complaintReport -tags -priority -solvingTime -solvingUser -rating -feedback'
     );
@@ -847,7 +847,7 @@ exports.getAllEndUserPastTickets = catchAsync(async (req, res, next) => {
     .populate('assignee', 'firstName lastName photo')
     .populate('solvingUser', 'firstName lastName photo')
     .populate('team', 'name')
-    .populate('status', 'name category');
+    .populate('status', 'endUserDisplayName category');
 
   res.status(200).json({
     status: 'success',
@@ -946,6 +946,10 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   const notificationUsersIDs = new Set();
 
   const newComment = await Comment.create(newCommentData);
+  const populatedComment = await newComment.populate(
+    'endUser',
+    'name phone nationalID'
+  );
 
   // =====================> Comment Ticket Log
   await TicketLog.create({
@@ -970,7 +974,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
 
   notificationUsersIDs.add(ticket.assignee);
 
-  if (ticket.creator && !ticket.creator.equals(ticket.assignee)) {
+  if (ticket.creator && !ticket.creator?.equals(ticket.assignee)) {
     const creatorNotification = await Notification.create({
       ...newNotificationData,
       user: ticket.creator,
@@ -994,7 +998,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: 'success',
     data: {
-      comment: newComment,
+      comment: populatedComment,
     },
   });
 });

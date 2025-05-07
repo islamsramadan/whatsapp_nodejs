@@ -67,7 +67,7 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
     !userTeam.default &&
     userTeam?.name.toLowerCase() !== 'qc' &&
     !ticket.assignee.equals(req.user._id) &&
-    !ticket.creator.equals(req.user._id) &&
+    !ticket.creator?.equals(req.user._id) &&
     !ticket.users.some((userId) => userId.equals(req.user._id))
   ) {
     return next(
@@ -128,7 +128,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
   const defaultTeam = await Team.findOne({ default: true });
   if (
     req.user.role !== 'admin' &&
-    !ticket.creator.equals(req.user._id) &&
+    !ticket.creator?.equals(req.user._id) &&
     !ticket.assignee.equals(req.user._id) &&
     !ticketTeam.supervisor.equals(req.user._id) &&
     !defaultTeam._id.equals(req.user.team) &&
@@ -325,7 +325,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
       };
 
       // -----------------> creator notification
-      if (!ticket.creator.equals(req.user._id)) {
+      if (ticket.creator && !ticket.creator.equals(req.user._id)) {
         const creatorNotification = await Notification.create(
           [
             {
