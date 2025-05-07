@@ -35,7 +35,7 @@ const clientTicketRouter = require('./ticketSystem/clientTicketRoutes');
 const notificationRouter = require('./notificationRoutes');
 
 //end user routes
-const endUserRouter = require('./endUser/endUserRoutes');
+const endUserRouter = require('./endUser/index');
 
 const router = express.Router();
 
