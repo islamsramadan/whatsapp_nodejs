@@ -371,8 +371,8 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
   return { totalResults, totalPages, chats };
 };
 
-exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
-  const chat = await Chat.findOne({ client: chatNumber })
+exports.getAllChatMessages = async (user, chatID, chatPage) => {
+  const chat = await Chat.findById(chatID)
     .populate('contactName', 'name')
     .populate('lastSession', 'status secret');
 
@@ -490,7 +490,7 @@ exports.getAllChatMessages = async (user, chatNumber, chatPage) => {
 exports.getTabsStatuses = async (tabs) => {
   const tabsStatus = await Promise.all(
     tabs.map(async (tab) => {
-      let chat = await Chat.findOne({ client: tab })
+      let chat = await Chat.findById(tab)
         .populate('lastMessage')
         .populate('contactName', 'name')
         .populate('lastSession', 'status secret')

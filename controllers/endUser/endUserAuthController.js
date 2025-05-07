@@ -5,7 +5,7 @@ const { promisify } = require('util');
 const catchAsync = require('../../utils/catchAsync');
 const AppError = require('../../utils/appError');
 
-const EndUser = require('../../models/endUserModel');
+const EndUser = require('../../models/endUser/endUserModel');
 
 const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET);

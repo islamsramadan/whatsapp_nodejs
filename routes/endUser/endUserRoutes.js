@@ -4,6 +4,8 @@ const ticketController = require('../../controllers/ticketSystem/ticketControlle
 const endUserAuthController = require('../../controllers/endUser/endUserAuthController');
 const endUserTicketController = require('../../controllers/endUser/endUserTicketController');
 const endUserChatController = require('../../controllers/endUser/endUserChatController');
+const endUserNotificationController = require('../../controllers/endUser/endUserNotificationController');
+
 // const commentRouter = require('./commentRoutes');
 // const ticketLogRouter = require('./ticketLogRoutes');
 
@@ -90,6 +92,41 @@ router
   .get(
     endUserAuthController.protectEndUser,
     endUserTicketController.getAllTicketsTeams
+  );
+
+router
+  .route('/notifications')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.getAllEndUserNotifications
+  );
+
+router
+  .route('/notifications/new')
+  .get(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.getAllEndUserNotificationsNumbers
+  );
+
+router
+  .route('/notifications/:notificationID')
+  .patch(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.readEndUserNotification
+  );
+
+router
+  .route('/notifications/ticket/:ticketID')
+  .patch(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.readAllEndUserTicketNotifications
+  );
+
+router
+  .route('/notifications/chat/:chatNumber')
+  .patch(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.readAllEndUserChatNotifications
   );
 
 module.exports = router;
