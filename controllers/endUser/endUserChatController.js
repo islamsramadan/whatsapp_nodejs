@@ -13,7 +13,7 @@ const chatBotTimerUpdate = require('../../utils/chatBotTimerUpdate');
 const serviceHoursUtils = require('../../utils/serviceHoursUtils');
 
 const Chat = require('../../models/chatModel');
-const EndUser = require('../../models/endUserModel');
+const EndUser = require('../../models/endUser/endUserModel');
 const Team = require('../../models/teamModel');
 const User = require('../../models/userModel');
 const Session = require('../../models/sessionModel');
@@ -96,7 +96,13 @@ exports.uploadMessageFile = upload.single('file');
 exports.uploadMultiFiles = upload.array('files');
 
 exports.getAllEndUserMessages = catchAsync(async (req, res, next) => {
-  const chat = await Chat.findOne({ endUser: req.endUser._id });
+  let chat = await Chat.findOne({ endUser: req.endUser._id });
+  if (!chat) {
+    chat = await Chat.create({
+      type: 'endUser',
+      endUser: req.endUser._id,
+    });
+  }
 
   const page = req.query.page * 1 || 1;
 
