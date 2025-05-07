@@ -22,7 +22,7 @@
     "imap-simple": "^5.1.0",
     "imapflow": "^1.0.164",
     "json2xls": "^0.1.2",
-    "jsonwebtoken": "^9.0.1",
+    "jsonwebtoken": "^9.0.2",
     "mailersend": "^2.2.0",
     "mailparser": "^3.7.1",
     "moment-timezone": "^0.5.45",
