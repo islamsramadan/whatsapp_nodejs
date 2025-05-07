@@ -870,6 +870,16 @@ exports.sendFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError('Client rating is required!', 400));
   }
 
+  // make sure the end user is the owner of the ticket
+  if (
+    !req.endUser._id.equals(ticket.endUser) &&
+    ticket.client.number !== req.endUser.phone
+  ) {
+    return next(
+      new AppError(`You don't have the permission to perform this action!`, 404)
+    );
+  }
+
   const updatedBody = { rating };
 
   if (feedback) updatedBody.feedback = feedback;
