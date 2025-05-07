@@ -61,7 +61,7 @@ const chatSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['open', 'archived'],
-      default: 'open',
+      default: 'archived',
     },
 
     lastMessage: {
