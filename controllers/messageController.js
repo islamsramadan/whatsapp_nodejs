@@ -909,9 +909,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
     }
     newChat = await Chat.create({
       client: req.params.chatNumber,
-      currentUser: req.user._id,
       users: [req.user._id],
-      team: req.user.team,
     });
   }
   // console.log('chat', chat);
@@ -928,11 +926,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       team: req.user.team,
       status: 'onTime',
     });
-
-    selectedChat.lastSession = newSession._id;
-    selectedChat.currentUser = req.user._id;
-    selectedChat.team = req.user.team;
-    await selectedChat.save();
 
     // =======> Create chat history session
     const chatHistoryData = {
@@ -1174,6 +1167,9 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   //********************************************************************************* */
   // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
+  selectedChat.currentUser = req.user._id;
+  selectedChat.team = req.user.team;
+  selectedChat.lastSession = selectedSession._id;
   selectedChat.status = 'open';
   await selectedChat.save();
 

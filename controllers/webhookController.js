@@ -270,6 +270,7 @@ const receiveMessageHandler = async (req, res, next) => {
               client: from,
               team: botTeam._id,
               currentUser: botTeam.supervisor,
+              status: 'open',
             });
           }
 
@@ -340,6 +341,7 @@ const receiveMessageHandler = async (req, res, next) => {
               chat.lastSession = newSession[0]._id;
               chat.currentUser = botTeam.supervisor;
               chat.team = botTeam._id;
+              chat.status = 'open';
               await chat.save({ session: transactionSession });
 
               await transactionSession.commitTransaction(); // Commit the transaction

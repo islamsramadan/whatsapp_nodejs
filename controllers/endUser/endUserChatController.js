@@ -101,6 +101,7 @@ exports.getAllEndUserMessages = catchAsync(async (req, res, next) => {
     chat = await Chat.create({
       type: 'endUser',
       endUser: req.endUser._id,
+      status: 'archived',
     });
   }
 
@@ -539,6 +540,7 @@ exports.sendEndUserMessage = catchAsync(async (req, res, next) => {
           {
             type: 'endUser',
             endUser: req.endUser._id,
+            status: 'archived',
           },
         ],
         { session: transactionSession }
@@ -626,6 +628,7 @@ exports.sendEndUserMessage = catchAsync(async (req, res, next) => {
     selectedChat.lastSession = selectedSession;
     selectedChat.team = selectedSession.team;
     selectedChat.currentUser = selectedSession.user;
+    selectedChat.status = 'open';
     await selectedChat.save({ session: transactionSession });
 
     // ================> updating session performance
