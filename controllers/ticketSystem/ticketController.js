@@ -17,6 +17,8 @@ const Field = require('../../models/ticketSystem/fieldModel');
 const Team = require('../../models/teamModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Notification = require('../../models/notificationModel');
+const EndUser = require('../../models/endUser/endUserModel');
+const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 
 const filterObj = (obj, ...allowedFields) => {
   const newObj = {};
@@ -886,6 +888,23 @@ exports.createTicket = catchAsync(async (req, res, next) => {
       console.log('newNotification', newNotification);
     }
 
+    // =====================> New Ticket End User Notification
+    const endUser = await EndUser.findOne({ phone: client.number });
+    if (endUser) {
+      const endUserNotificationData = {
+        type: 'tickets',
+        endUser: endUser._id,
+        ticket: ticket[0]._id,
+        event: 'newTicket',
+      };
+      const endUserNotification = await EndUserNotification.create(
+        [endUserNotificationData],
+        { session: transactionSession }
+      );
+
+      console.log('endUserNotification ==============>', endUserNotification);
+    }
+
     newTicket = ticket[0];
 
     await transactionSession.commitTransaction(); // Commit the transaction
@@ -1175,6 +1194,29 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
 
         console.log('assigneeNotification', assigneeNotification);
       }
+
+      // -----------------> end user notification
+      let endUser;
+      if (ticket.endUser) {
+        endUser = await EndUser.findById(ticket.endUser);
+      } else {
+        endUser = await EndUser.findOne({ phone: ticket.client.number });
+      }
+
+      if (endUser) {
+        const endUserNotificationData = {
+          type: 'tickets',
+          endUser: endUser._id,
+          ticket: ticket._id,
+          event: 'solvedTicket',
+        };
+        const endUserNotification = await EndUserNotification.create(
+          [endUserNotificationData],
+          { session: transactionSession }
+        );
+
+        console.log('endUserNotification ==============>', endUserNotification);
+      }
     }
 
     // =====================> Reopen Ticket Notification
@@ -1230,6 +1272,29 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
         notificationUsersIDs.add(ticket.assignee);
 
         console.log('assigneeReopenNotification', assigneeReopenNotification);
+      }
+
+      // -----------------> end user notification
+      let endUser;
+      if (ticket.endUser) {
+        endUser = await EndUser.findById(ticket.endUser);
+      } else {
+        endUser = await EndUser.findOne({ phone: ticket.client.number });
+      }
+
+      if (endUser) {
+        const endUserNotificationData = {
+          type: 'tickets',
+          endUser: endUser._id,
+          ticket: ticket._id,
+          event: 'reopenTicket',
+        };
+        const endUserNotification = await EndUserNotification.create(
+          [endUserNotificationData],
+          { session: transactionSession }
+        );
+
+        console.log('endUserNotification ==============>', endUserNotification);
       }
     }
 
@@ -1978,6 +2043,30 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
 
         notificationUsersIDs.add(ticket.assignee);
       }
+
+      // -----------------> end user notification
+      let endUser;
+      if (ticket.endUser) {
+        endUser = await EndUser.findById(ticket.endUser);
+      } else {
+        endUser = await EndUser.findOne({ phone: ticket.client.number });
+      }
+
+      if (endUser) {
+        const endUserNotificationData = {
+          type: 'tickets',
+          endUser: endUser._id,
+          ticket: ticket._id,
+          event: 'solvedTicket',
+        };
+
+        const endUserNotification = await EndUserNotification.create(
+          [endUserNotificationData],
+          { session: transactionSession }
+        );
+
+        console.log('endUserNotification ==============>', endUserNotification);
+      }
     }
 
     await transactionSession.commitTransaction(); // Commit the transaction
@@ -2385,6 +2474,24 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
     });
 
     console.log('newNotification', newNotification);
+
+    // -----------------> end user notification
+    const endUser = await EndUser.findOne({ phone: ticket[0].client.number });
+
+    if (endUser) {
+      const endUserNotificationData = {
+        type: 'tickets',
+        endUser: endUser._id,
+        ticket: ticket[0]._id,
+        event: 'newTicket',
+      };
+      const endUserNotification = await EndUserNotification.create(
+        [endUserNotificationData],
+        { session: transactionSession }
+      );
+
+      console.log('endUserNotification ==============>', endUserNotification);
+    }
 
     newTicket = ticket[0];
 

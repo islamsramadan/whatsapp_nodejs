@@ -19,6 +19,7 @@ const Team = require('../../models/teamModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Notification = require('../../models/notificationModel');
 const Comment = require('../../models/ticketSystem/commentModel');
+const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 
 const getPopulatedTicket = async (filterObj) => {
   return await Ticket.findOne(filterObj)
@@ -983,6 +984,21 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
     // console.log('creatorNotification', creatorNotification);
 
     notificationUsersIDs.add(ticket.creator);
+  }
+
+  // -----------------> end user notification
+  if (ticket.endUser && !ticket.endUser.equals(req.endUser._id)) {
+    const endUserNotificationData = {
+      type: 'tickets',
+      endUser: ticket.endUser._id,
+      ticket: ticket._id,
+      event: 'newComment',
+    };
+    const endUserNotification = await EndUserNotification.create(
+      endUserNotificationData
+    );
+
+    console.log('endUserNotification ==============>', endUserNotification);
   }
 
   //--------------------> updating ticket event in socket io

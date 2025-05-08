@@ -14,6 +14,8 @@ const { mailerSendEmail } = require('../../utils/emailHandler');
 const Team = require('../../models/teamModel');
 const Notification = require('../../models/notificationModel');
 const User = require('../../models/userModel');
+const EndUser = require('../../models/endUser/endUserModel');
+const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 
 const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -283,6 +285,29 @@ exports.createComment = catchAsync(async (req, res, next) => {
       notificationUsersIDs.add(ticket.creator);
     }
 
+    // -----------------> end user notification
+    let endUser;
+    if (ticket.endUser) {
+      endUser = await EndUser.findById(ticket.endUser);
+    } else {
+      endUser = await EndUser.findOne({ phone: ticket.client.number });
+    }
+
+    if (endUser) {
+      const endUserNotificationData = {
+        type: 'tickets',
+        endUser: endUser._id,
+        ticket: ticket._id,
+        event: 'newComment',
+      };
+      const endUserNotification = await EndUserNotification.create(
+        [endUserNotificationData],
+        { session: transactionSession }
+      );
+
+      console.log('endUserNotification ==============>', endUserNotification);
+    }
+
     // =====================> Status Ticket Log
     if (status) {
       await TicketLog.create(
@@ -365,6 +390,21 @@ exports.createComment = catchAsync(async (req, res, next) => {
         console.log('assigneeNotification', assigneeNotification);
 
         notificationUsersIDs.add(ticket.assignee);
+      }
+
+      if (endUser) {
+        const endUserNotificationData = {
+          type: 'tickets',
+          endUser: endUser._id,
+          ticket: ticket._id,
+          event: 'solvedTicket',
+        };
+        const endUserNotification = await EndUserNotification.create(
+          [endUserNotificationData],
+          { session: transactionSession }
+        );
+
+        console.log('endUserNotification ==============>', endUserNotification);
       }
     }
 

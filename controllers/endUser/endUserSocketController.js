@@ -17,14 +17,8 @@ const Form = require('../../models/ticketSystem/formModel');
 const Field = require('../../models/ticketSystem/fieldModel');
 const Team = require('../../models/teamModel');
 const TicketLog = require('../../models/ticketSystem/ticketLogModel');
-const Notification = require('../../models/notificationModel');
 const Comment = require('../../models/ticketSystem/commentModel');
-
 const Chat = require('../../models/chatModel');
-const EndUser = require('../../models/endUser/endUserModel');
-const Session = require('../../models/sessionModel');
-const ChatHistory = require('../../models/historyModel');
-const Service = require('../../models/serviceModel');
 const Message = require('../../models/messageModel');
 
 exports.getAllEndUserTickets = async (socket, data) => {
