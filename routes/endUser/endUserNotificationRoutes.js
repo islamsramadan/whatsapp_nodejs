@@ -10,6 +10,10 @@ router
   .get(
     endUserAuthController.protectEndUser,
     endUserNotificationController.getAllEndUserNotifications
+  )
+  .patch(
+    endUserAuthController.protectEndUser,
+    endUserNotificationController.readAllEndUserNotifications
   );
 
 router
