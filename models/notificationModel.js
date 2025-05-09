@@ -111,19 +111,19 @@ notificationSchema.pre('save', async function (next) {
     }
 
     if (this.event === 'newChat') {
-      message = `New Chat number ${this.chat.client}`;
+      message = `New Chat ${this.chat._id}`;
     }
 
     if (this.event === 'newMessages') {
-      message = `New messages on chat number ${this.chat.client}`;
+      message = `New messages on chat with ID ${this.chat._id}`;
     }
 
     if (this.event === 'chatTransfer') {
-      message = `Chat number ${this.chat.client} has been transferred`;
+      message = `Chat with ID ${this.chat._id} has been transferred`;
     }
 
     if (this.event === 'archiveChat') {
-      message = `Chat number ${this.chat.client} has been archived`;
+      message = `Chat with ID ${this.chat._id} has been archived`;
     }
 
     this.message = message;

@@ -889,7 +889,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
     }
 
     // =====================> New Ticket End User Notification
-    const endUser = await EndUser.findOne({ phone: client.number });
+    const endUser = await EndUser.findOne({ phone: ticket[0].client.number });
     if (endUser) {
       const endUserNotificationData = {
         type: 'tickets',

@@ -10,6 +10,7 @@ const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const User = require('../models/userModel');
 const ChatHistory = require('../models/historyModel');
+const EndUserNotification = require('../models/endUser/endUserNotificationModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -247,17 +248,16 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     return next(new AppError('Message type is required!', 400));
   }
 
-  // if (!req.params.chatNumber) {
-  //   return next(new AppError('Chat number is required!', 400));
-  // }
-
-  // selecting chat that the message belongs to
-  // const chat = await Chat.findOne({ client: req.params.chatNumber });
-
   const chat = await Chat.findById(req.params.chatID);
 
   if (!chat) {
     return next(new AppError('No chat found by that ID!', 404));
+  }
+
+  if (chatType !== chat.type) {
+    return next(
+      new AppError('This chat has a different type of chatType!', 400)
+    );
   }
 
   // let newChat;
@@ -535,6 +535,41 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   selectedSession.timer = undefined;
   selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
+
+  if (selectedChat.type === 'endUser') {
+    const previousNotification = await EndUserNotification.findOne({
+      chat: selectedChat._id,
+      session: selectedSession._id,
+      endUser: selectedChat.endUser,
+      event: 'newMessages',
+    });
+    if (previousNotification) {
+      const updatedNotification = await EndUserNotification.findByIdAndUpdate(
+        previousNotification._id,
+        { $inc: { numbers: 1 }, read: false, sortingDate: Date.now() },
+        { new: true, runValidators: true }
+      );
+
+      console.log('updatedNotification -------------', updatedNotification);
+    } else {
+      const newMessagesNotificationData = {
+        type: 'messages',
+        chat: selectedChat._id,
+        session: selectedSession._id,
+        endUser: selectedChat.endUser,
+        event: 'newMessages',
+      };
+
+      const newMessagesNotification = await EndUserNotification.create(
+        newMessagesNotificationData
+      );
+
+      console.log(
+        'newMessagesNotification ============================= >',
+        newMessagesNotification
+      );
+    }
+  }
 
   //updating event in socket io
   req.app.io.emit('updating', { chatNumber: selectedChat.client });

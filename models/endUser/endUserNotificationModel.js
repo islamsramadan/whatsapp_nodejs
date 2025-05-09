@@ -46,12 +46,8 @@ const notificationSchema = new mongoose.Schema(
         'newTicket',
         'solvedTicket',
         'newComment',
-        'ticketTransfer',
         'reopenTicket',
-        'newChat',
         'newMessages',
-        'chatTransfer',
-        'archiveChat',
       ],
       required: true,
     },
@@ -84,11 +80,6 @@ notificationSchema.pre('save', async function (next) {
     await this.populate('ticket', 'order');
   }
 
-  // Populate the chat field with the client number
-  if (this.type === 'messages' && !this.isModified('message')) {
-    await this.populate('chat', 'client');
-  }
-
   if (!this.message) {
     if (this.event === 'newTicket') {
       message = `New Ticket no. ${this.ticket.order}`;
@@ -102,28 +93,12 @@ notificationSchema.pre('save', async function (next) {
       message = `New comment on ticket no. ${this.ticket.order}`;
     }
 
-    if (this.event === 'ticketTransfer') {
-      message = `Ticket no. ${this.ticket.order} has been transferred`;
-    }
-
     if (this.event === 'reopenTicket') {
       message = `Ticket no. ${this.ticket.order} has been reopened`;
     }
 
-    if (this.event === 'newChat') {
-      message = `New Chat number ${this.chat.client}`;
-    }
-
     if (this.event === 'newMessages') {
-      message = `New messages on chat number ${this.chat.client}`;
-    }
-
-    if (this.event === 'chatTransfer') {
-      message = `Chat number ${this.chat.client} has been transferred`;
-    }
-
-    if (this.event === 'archiveChat') {
-      message = `Chat number ${this.chat.client} has been archived`;
+      message = `New messages from customer services`;
     }
 
     this.message = message;

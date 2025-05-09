@@ -20,6 +20,7 @@ const Session = require('../../models/sessionModel');
 const ChatHistory = require('../../models/historyModel');
 const Service = require('../../models/serviceModel');
 const Message = require('../../models/messageModel');
+const Notification = require('../../models/notificationModel');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -608,6 +609,23 @@ exports.sendEndUserMessage = catchAsync(async (req, res, next) => {
 
       // selectedChat.lastSession = selectedSession;
       // await selectedChat.save({ session: transactionSession });
+
+      // =============================> New Chat Notification
+      const newChatNotificationData = {
+        type: 'messages',
+        user: teamUsers[0]._id,
+        chat: selectedChat._id,
+        event: 'newChat',
+      };
+
+      const newChatNotification = await Notification.create(
+        [newChatNotificationData],
+        { session: transactionSession }
+      );
+      console.log(
+        'newChatNotification ====================',
+        newChatNotification
+      );
     }
     console.log('selectedSession ========================', selectedSession);
 
@@ -646,6 +664,41 @@ exports.sendEndUserMessage = catchAsync(async (req, res, next) => {
       session: transactionSession,
     });
     console.log('chatHistory ========================', chatHistory);
+
+    const previousNotification = await Notification.findOne({
+      user: selectedSession.user,
+      chat: selectedChat._id,
+      event: 'newMessages',
+      session: selectedSession._id,
+    }).session(transactionSession);
+
+    if (previousNotification) {
+      const updatedNotification = await Notification.findByIdAndUpdate(
+        previousNotification._id,
+        { $inc: { numbers: 1 }, read: false, sortingDate: Date.now() },
+        { new: true, runValidators: true, session: transactionSession }
+      );
+
+      console.log('updatedNotification -------------', updatedNotification);
+    } else {
+      const newMessagesNotificationData = {
+        type: 'messages',
+        user: selectedSession.user,
+        chat: selectedChat._id,
+        session: selectedSession._id,
+        event: 'newMessages',
+      };
+
+      const newMessagesNotification = await Notification.create(
+        [newMessagesNotificationData],
+        { session: transactionSession }
+      );
+
+      console.log(
+        'newMessagesNotification ============================= >',
+        newMessagesNotification
+      );
+    }
 
     await transactionSession.commitTransaction(); // Commit the transaction
   } catch (error) {

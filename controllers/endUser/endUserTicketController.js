@@ -990,7 +990,7 @@ exports.createEndUserComment = catchAsync(async (req, res, next) => {
   if (ticket.endUser && !ticket.endUser.equals(req.endUser._id)) {
     const endUserNotificationData = {
       type: 'tickets',
-      endUser: ticket.endUser._id,
+      endUser: ticket.endUser,
       ticket: ticket._id,
       event: 'newComment',
     };
