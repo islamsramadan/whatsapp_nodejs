@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const http = require('http');
 const socketio = require('socket.io');
 const jwt = require('jsonwebtoken');
-const { promisify } = require('util');
+const { promisify, inspect } = require('util');
 
 const socketController = require('./controllers/socketController');
 const ticketSocketController = require('./controllers/ticketSystem/ticketSocketController');
@@ -15,31 +15,39 @@ const User = require('./models/userModel');
 const fs = require('fs');
 const path = require('path');
 
-// if (process.env.NODE_ENV === 'production') {
-//   // Create a write stream for the log file
-//   const logFile = fs.createWriteStream(path.join(__dirname, 'customLogs.log'), {
-//     flags: 'a',
-//   });
+if (process.env.NODE000_ENV === 'production') {
+  // Create a write stream for the log file
+  const logFile = fs.createWriteStream(path.join(__dirname, 'customLogs.log'), {
+    flags: 'a',
+  });
 
-//   // Redirect console.log to write to the log file
-//   console.log = function (...messages) {
-//     messages.map((message) => {
-//       logFile.write(
-//         `${new Date().toISOString()} - LOG: ${JSON.stringify(message)}\n`
-//       );
-//     });
-//     // };
+  const originalLog = console.log;
+  const originalError = console.error;
 
-//     // Redirect console.error to write to the log file
-//     console.error = function (...messages) {
-//       messages.map((message) => {
-//         logFile.write(
-//           `${new Date().toISOString()} - ERROR: ${JSON.stringify(message)}\n`
-//         );
-//       });
-//     };
-//   };
-// }
+  // Redirect console.log to write to the log file
+  console.log = function (...messages) {
+    messages.map((message) => {
+      logFile.write(
+        `${new Date().toISOString()} - LOG: ${inspect(message, {
+          depth: null,
+        })}\n`
+      );
+      originalLog(message); // preserve original behavior
+    });
+  };
+
+  // Redirect console.error to write to the log file
+  console.error = function (...messages) {
+    messages.map((message) => {
+      logFile.write(
+        `${new Date().toISOString()} - ERROR: ${inspect(message, {
+          depth: null,
+        })}\n`
+      );
+      originalError(message);
+    });
+  };
+}
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
