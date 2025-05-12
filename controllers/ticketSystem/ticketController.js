@@ -2451,8 +2451,8 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
       [
         {
           ticket: ticket[0]._id,
-          log: 'endUserTicket',
-          //   user: req.user._id,
+          log: 'create',
+          user: req.user._id,
           assignee: newTicketData.assignee,
         },
       ],
