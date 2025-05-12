@@ -108,10 +108,7 @@ exports.getAllEndUserMessages = catchAsync(async (req, res, next) => {
 
   const page = req.query.page * 1 || 1;
 
-  const messages = await Message.find({
-    chat: chat._id,
-    session: chat.lastSession,
-  })
+  const messages = await Message.find({ chat: chat._id })
     .sort('-createdAt')
     .populate('reply')
     .limit(page * 20);

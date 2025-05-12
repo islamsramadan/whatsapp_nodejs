@@ -20,6 +20,7 @@ const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Comment = require('../../models/ticketSystem/commentModel');
 const Chat = require('../../models/chatModel');
 const Message = require('../../models/messageModel');
+const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 
 exports.getAllEndUserTickets = async (socket, data) => {
   const filteredBody = {
@@ -137,10 +138,6 @@ exports.getEndUserTicket = async (socket, data) => {
     .select('-client -users -clientToken -complaintReport -tags -priority')
     .lean();
 
-  // if (!ticket) {
-  //   return next(new AppError('No ticket found with that ID!', 404));
-  // }
-
   ticket = {
     ...ticket,
     questions: ticket.questions.filter((item) =>
@@ -201,10 +198,7 @@ exports.getAllEndUserMessages = async (socket, data) => {
 
   const page = data.page * 1 || 1;
 
-  const messages = await Message.find({
-    chat: chat._id,
-    session: chat.lastSession,
-  })
+  const messages = await Message.find({ chat: chat._id })
     .sort('-createdAt')
     .populate('reply')
     .limit(page * 20);
@@ -215,4 +209,35 @@ exports.getAllEndUserMessages = async (socket, data) => {
   return { page, totalPages, totalResults, messages: messages.reverse() };
 };
 
-exports.getAllEndUserNotifications = async (socket, data) => {};
+exports.getAllEndUserNewNotifications = async (socket, data) => {
+  const newNotifications = await EndUserNotification.count({
+    endUser: socket.endUser._id,
+    read: false,
+  });
+
+  return { newNotifications };
+};
+
+exports.getAllEndUserNotifications = async (socket, data) => {
+  const page = data.page * 1 || 1;
+  const notifications = await EndUserNotification.find({
+    endUser: socket.endUser._id,
+  })
+    .sort('-sortingDate')
+    .populate('ticket', 'order')
+    .populate('chat', 'client')
+    .limit(page * 10);
+
+  const newNotifications = await EndUserNotification.count({
+    endUser: socket.endUser._id,
+    read: false,
+  });
+
+  const totalResults = await EndUserNotification.count({
+    endUser: socket.endUser._id,
+  });
+
+  const totalPages = Math.ceil(totalResults / 10);
+
+  return { page, totalPages, totalResults, newNotifications, notifications };
+};

@@ -310,6 +310,9 @@ const notificationSocketHandler = async (socket, data) => {
 const userNamespace = io.of('/user');
 const endUserNamespace = io.of('/endUser');
 
+app.io.user = userNamespace;
+app.io.endUser = endUserNamespace;
+
 // Authenticating socket request
 userNamespace.use(async (socket, next) => {
   // console.log('socket ===========', socket);
@@ -495,6 +498,16 @@ endUserNamespace.on('connection', (socket) => {
         response = await endUserSocketController.getEndUserTicket(socket, data);
       } else if (data.type === 'messagesList') {
         response = await endUserSocketController.getAllEndUserMessages(
+          socket,
+          data
+        );
+      } else if (data.type === 'newNotifications') {
+        response = await endUserSocketController.getAllEndUserNewNotifications(
+          socket,
+          data
+        );
+      } else if (data.type === 'notifications') {
+        response = await endUserSocketController.getAllEndUserNotifications(
           socket,
           data
         );
