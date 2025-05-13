@@ -2526,8 +2526,7 @@ const feedbackHandler = async (
   }
 
   // ************* Updating session botTimer **************
-  const delayMins = 2;
-  // const delayMins = process.env.BOT_EXPIRE_TIME;
+  const delayMins = process.env.FEEDBACK_EXPIRE_TIME;
   let botTimer = new Date();
   botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
 
