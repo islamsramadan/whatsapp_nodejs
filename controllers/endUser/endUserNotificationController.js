@@ -165,3 +165,22 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
     message: 'User notifications updated successfully!',
   });
 });
+
+exports.sendEndUserNotifications = async () => {
+  const notifications = await EndUserNotification.find({ sent: false });
+
+  console.log('notifications.length', notifications.length);
+
+  const notificationsIDs = notifications.map(
+    (notification) => notification._id
+  );
+
+  console.log('notificationsIDs', notificationsIDs);
+
+  // await EndUserNotification.updateMany(
+  //   { _id: { $in: notificationsIDs } },
+  //   {
+  //     sent: true,
+  //   }
+  // );
+};

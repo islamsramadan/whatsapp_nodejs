@@ -27,28 +27,9 @@ const notificationSchema = new mongoose.Schema(
       },
     },
 
-    chat: {
-      type: mongoose.Schema.ObjectId,
-      ref: 'Chat',
-      required: function () {
-        this.type === 'messages';
-      },
-    },
-
-    session: {
-      type: mongoose.Schema.ObjectId,
-      ref: 'Session',
-    },
-
     event: {
       type: String,
-      enum: [
-        'newTicket',
-        'solvedTicket',
-        'newComment',
-        'reopenTicket',
-        'newMessages',
-      ],
+      enum: ['newTicket', 'solvedTicket', 'newComment', 'reopenTicket'],
       required: true,
     },
 
@@ -56,14 +37,9 @@ const notificationSchema = new mongoose.Schema(
       type: String,
     },
 
-    numbers: {
-      type: Number,
-      min: 0,
-      default: 1,
-    },
-
-    sortingDate: {
-      type: Date,
+    sent: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
@@ -71,8 +47,6 @@ const notificationSchema = new mongoose.Schema(
 
 // Pre-save middleware to add client token before saving
 notificationSchema.pre('save', async function (next) {
-  if (!this.sortingDate) this.sortingDate = this.createdAt;
-
   let message = '';
 
   // Populate the ticket field with the order
@@ -95,10 +69,6 @@ notificationSchema.pre('save', async function (next) {
 
     if (this.event === 'reopenTicket') {
       message = `Ticket no. ${this.ticket.order} has been reopened`;
-    }
-
-    if (this.event === 'newMessages') {
-      message = `New messages from customer services`;
     }
 
     this.message = message;

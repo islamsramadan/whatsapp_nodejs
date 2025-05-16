@@ -4,10 +4,12 @@ const http = require('http');
 const socketio = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { promisify, inspect } = require('util');
+const cron = require('node-cron');
 
 const socketController = require('./controllers/socketController');
 const ticketSocketController = require('./controllers/ticketSystem/ticketSocketController');
 const endUserSocketController = require('./controllers/endUser/endUserSocketController');
+const endUserNotificationController = require('./controllers/endUser/endUserNotificationController');
 
 const AppError = require('./utils/appError');
 const User = require('./models/userModel');
@@ -546,6 +548,15 @@ mongoose
 const port = process.env.PORT || 8080;
 const server = appSocket.listen(port, () => {
   console.log(`server is running on port: ${port} ...`);
+});
+
+// Send end user notifications
+cron.schedule('*/1 * * * *', async () => {
+  try {
+    await endUserNotificationController.sendEndUserNotifications();
+  } catch (err) {
+    console.error('Error in scheduled task:', err);
+  }
 });
 
 process.on('unhandledRejection', (err) => {
