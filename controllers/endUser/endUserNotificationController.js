@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 const Chat = require('../../models/chatModel');
 const Ticket = require('../../models/ticketSystem/ticketModel');
@@ -165,6 +167,20 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
     message: 'User notifications updated successfully!',
   });
 });
+
+const sendDataToThirdParty = async () => {
+  try {
+    const response = await axios.post('https://api.thirdparty.com/endpoint', {
+      name: 'John Doe',
+      email: 'john@example.com',
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log('Success:', response.data);
+  } catch (error) {
+    console.error('Error sending data:', error.response?.data || error.message);
+  }
+};
 
 exports.sendEndUserNotifications = async () => {
   const notifications = await EndUserNotification.find({ sent: false });

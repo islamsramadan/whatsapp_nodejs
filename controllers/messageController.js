@@ -10,7 +10,6 @@ const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const User = require('../models/userModel');
 const ChatHistory = require('../models/historyModel');
-const EndUserNotification = require('../models/endUser/endUserNotificationModel');
 
 const whatsappVersion = process.env.WHATSAPP_VERSION;
 const whatsappToken = process.env.WHATSAPP_TOKEN;
@@ -535,41 +534,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   selectedSession.timer = undefined;
   selectedSession.lastUserMessage = newMessage._id;
   await selectedSession.save();
-
-  if (selectedChat.type === 'endUser') {
-    const previousNotification = await EndUserNotification.findOne({
-      chat: selectedChat._id,
-      session: selectedSession._id,
-      endUser: selectedChat.endUser,
-      event: 'newMessages',
-    });
-    if (previousNotification) {
-      const updatedNotification = await EndUserNotification.findByIdAndUpdate(
-        previousNotification._id,
-        { $inc: { numbers: 1 }, read: false, sortingDate: Date.now() },
-        { new: true, runValidators: true }
-      );
-
-      console.log('updatedNotification -------------', updatedNotification);
-    } else {
-      const newMessagesNotificationData = {
-        type: 'messages',
-        chat: selectedChat._id,
-        session: selectedSession._id,
-        endUser: selectedChat.endUser,
-        event: 'newMessages',
-      };
-
-      const newMessagesNotification = await EndUserNotification.create(
-        newMessagesNotificationData
-      );
-
-      console.log(
-        'newMessagesNotification ============================= >',
-        newMessagesNotification
-      );
-    }
-  }
 
   //updating event in socket io
   req.app.io.emit('updating', { chatNumber: selectedChat.client });
