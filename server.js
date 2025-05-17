@@ -309,10 +309,8 @@ const notificationSocketHandler = async (socket, data) => {
   return response;
 };
 
-// const userNamespace = io.of('/user');
 const endUserNamespace = io.of('/endUser');
 
-// app.io.user = userNamespace;
 app.io.endUser = endUserNamespace;
 
 // Authenticating socket request
@@ -491,25 +489,32 @@ endUserNamespace.on('connection', (socket) => {
     if (data) {
       let response = {};
 
-      if (data.type === 'ticketsList') {
-        response = await endUserSocketController.getAllEndUserTickets(
-          socket,
-          data
-        );
-      } else if (data.type === 'ticket' && data.ticketID) {
-        response = await endUserSocketController.getEndUserTicket(socket, data);
-      } else if (data.type === 'messagesList') {
+      // if (data.type === 'ticketsList') {
+      //   response = await endUserSocketController.getAllEndUserTickets(
+      //     socket,
+      //     data
+      //   );
+      // } else if (data.type === 'ticket' && data.ticketID) {
+      //   response = await endUserSocketController.getEndUserTicket(socket, data);
+      // } else if (data.type === 'messagesList') {
+      //   response = await endUserSocketController.getAllEndUserMessages(
+      //     socket,
+      //     data
+      //   );
+      // } else if (data.type === 'newNotifications') {
+      //   response = await endUserSocketController.getAllEndUserNewNotifications(
+      //     socket,
+      //     data
+      //   );
+      // } else if (data.type === 'notifications') {
+      //   response = await endUserSocketController.getAllEndUserNotifications(
+      //     socket,
+      //     data
+      //   );
+      // }
+
+      if (data.type === 'messageList') {
         response = await endUserSocketController.getAllEndUserMessages(
-          socket,
-          data
-        );
-      } else if (data.type === 'newNotifications') {
-        response = await endUserSocketController.getAllEndUserNewNotifications(
-          socket,
-          data
-        );
-      } else if (data.type === 'notifications') {
-        response = await endUserSocketController.getAllEndUserNotifications(
           socket,
           data
         );
