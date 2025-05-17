@@ -168,13 +168,19 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
   });
 });
 
-const sendDataToThirdParty = async () => {
+const sendDataToThirdParty = async (data) => {
   try {
-    const response = await axios.post('https://api.thirdparty.com/endpoint', {
-      name: 'John Doe',
-      email: 'john@example.com',
-      timestamp: new Date().toISOString(),
-    });
+    const response = await axios.post(
+      'https://api.althameen.net/api/v1/notification/store',
+      data,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization:
+            'Bearer bMWKde8ZDV2A3ZHjQcC3xhUaeSNe97gwS6jDb1rS812741ea',
+        },
+      }
+    );
 
     console.log('Success:', response.data);
   } catch (error) {
@@ -183,15 +189,42 @@ const sendDataToThirdParty = async () => {
 };
 
 exports.sendEndUserNotifications = async () => {
-  const notifications = await EndUserNotification.find({ sent: false });
+  const notifications = await EndUserNotification.find({
+    sent: false,
+  }).populate('endUser', 'phone');
 
-  console.log('notifications.length', notifications.length);
+  console.log('notifications.length', notifications);
 
   const notificationsIDs = notifications.map(
     (notification) => notification._id
   );
 
-  console.log('notificationsIDs', notificationsIDs);
+  const sentNoificationsArray = await Promise.all(
+    notifications.map(async (notification) => {
+      let mobile_number = notification.endUser.phone;
+
+      if (mobile_number.startsWith('966')) {
+        mobile_number = `05${mobile_number.slice(3)}`;
+      } else if (mobile_number.startsWith('2010')) {
+        mobile_number = mobile_number.slice(1);
+      }
+
+      const data = {
+        mobile_number,
+        title: notification.event,
+        content: notification.message,
+        item: notification.ticket,
+        type: notification.type,
+      };
+
+      await sendDataToThirdParty(data);
+
+      return data;
+    })
+  );
+
+  // console.log('notificationsIDs', notificationsIDs);
+  // console.log('sentNoificationsArray', sentNoificationsArray);
 
   // await EndUserNotification.updateMany(
   //   { _id: { $in: notificationsIDs } },
