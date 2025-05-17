@@ -945,7 +945,7 @@ exports.createTicket = catchAsync(async (req, res, next) => {
 
     mailerSendEmail(emailDetails);
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: newTicket._id });
+    req.app.io.emit('updatingTickets', { ticketID: newTicket._id });
 
     //--------------------> updating notifications event in socket io
     if (
@@ -1318,7 +1318,7 @@ exports.updateTicketInfo = catchAsync(async (req, res, next) => {
     });
 
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: ticket._id });
+    req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
     //--------------------> updating notifications event in socket io
     Array.from(notificationUsersIDs).map((userID) => {
@@ -1647,7 +1647,7 @@ exports.transferTicket = catchAsync(async (req, res, next) => {
     });
 
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: ticket._id });
+    req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
     //--------------------> updating notifications event in socket io
     Array.from(notificationUsersIDs).map((userID) => {
@@ -1809,7 +1809,7 @@ exports.takeTicketOwnership = catchAsync(async (req, res, next) => {
     });
 
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: ticket._id });
+    req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
     //--------------------> updating notifications event in socket io
     Array.from(notificationUsersIDs).map((userID) => {
@@ -2089,7 +2089,7 @@ exports.updateTicketForm = catchAsync(async (req, res, next) => {
     });
 
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: ticket._id });
+    req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
     //--------------------> updating notifications event in socket io
     Array.from(notificationUsersIDs).map((userID) => {
@@ -2212,7 +2212,7 @@ exports.updateTicketClientData = catchAsync(async (req, res, next) => {
     });
 
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: ticket._id });
+    req.app.io.emit('updatingTickets', { ticketID: ticket._id });
 
     res.status(200).json({
       status: 'success',
@@ -2535,7 +2535,7 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
 
     mailerSendEmail(emailDetails);
     //--------------------> updating ticket event in socket io
-    req.app.io.user.emit('updatingTickets', { ticketID: newTicket._id });
+    req.app.io.emit('updatingTickets', { ticketID: newTicket._id });
 
     //--------------------> updating notifications event in socket io
     if (

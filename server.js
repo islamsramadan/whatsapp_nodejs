@@ -309,14 +309,14 @@ const notificationSocketHandler = async (socket, data) => {
   return response;
 };
 
-const userNamespace = io.of('/user');
+// const userNamespace = io.of('/user');
 const endUserNamespace = io.of('/endUser');
 
-app.io.user = userNamespace;
+// app.io.user = userNamespace;
 app.io.endUser = endUserNamespace;
 
 // Authenticating socket request
-userNamespace.use(async (socket, next) => {
+io.use(async (socket, next) => {
   // console.log('socket ===========', socket);
   // 1) Getting token and check if it is there
   let token;
@@ -386,7 +386,7 @@ userNamespace.use(async (socket, next) => {
   next();
 });
 
-userNamespace.on('connection', async (socket) => {
+io.on('connection', async (socket) => {
   console.log(
     // 'connecting =========================================',
     socket.user._id
