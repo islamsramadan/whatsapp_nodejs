@@ -27,7 +27,7 @@ const notificationSchema = new mongoose.Schema(
       },
     },
 
-    ref: {
+    refNo: {
       type: String,
     },
 
