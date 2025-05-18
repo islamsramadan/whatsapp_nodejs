@@ -27,6 +27,10 @@ const notificationSchema = new mongoose.Schema(
       },
     },
 
+    ref: {
+      type: String,
+    },
+
     event: {
       type: String,
       enum: ['newTicket', 'solvedTicket', 'newComment', 'reopenTicket'],
@@ -51,7 +55,9 @@ notificationSchema.pre('save', async function (next) {
 
   // Populate the ticket field with the order
   if (this.type === 'tickets' && !this.isModified('message')) {
-    await this.populate('ticket', 'order');
+    await this.populate('ticket', 'order ref');
+
+    this.ref = ticket.ref;
   }
 
   if (!this.message) {
