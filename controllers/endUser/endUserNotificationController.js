@@ -210,7 +210,7 @@ exports.sendEndUserNotifications = async () => {
       return {
         uuid: notification._id,
         mobile_number,
-        reference_number: notification.ref,
+        reference_number: notification.refNo,
         title: notification.event,
         content: notification.message,
         item: notification.ticket,

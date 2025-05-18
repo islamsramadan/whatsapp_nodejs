@@ -55,9 +55,9 @@ notificationSchema.pre('save', async function (next) {
 
   // Populate the ticket field with the order
   if (this.type === 'tickets' && !this.isModified('message')) {
-    await this.populate('ticket', 'order ref');
+    await this.populate('ticket', 'order refNo');
 
-    this.ref = this.ticket.ref;
+    this.refNo = this.ticket.refNo;
   }
 
   if (!this.message) {
