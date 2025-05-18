@@ -57,7 +57,7 @@ notificationSchema.pre('save', async function (next) {
   if (this.type === 'tickets' && !this.isModified('message')) {
     await this.populate('ticket', 'order ref');
 
-    this.ref = ticket.ref;
+    this.ref = this.ticket.ref;
   }
 
   if (!this.message) {
