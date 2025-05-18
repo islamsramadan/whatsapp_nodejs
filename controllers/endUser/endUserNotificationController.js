@@ -169,17 +169,11 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
 });
 
 const sendDataToThirdParty = async (data) => {
+  console.log('data =======================', data);
   try {
     const response = await axios.post(
-      'https://api.althameen.net/api/v1/notification/store',
-      data,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization:
-            'Bearer bMWKde8ZDV2A3ZHjQcC3xhUaeSNe97gwS6jDb1rS812741ea',
-        },
-      }
+      'https://api.althameen.net/api/v1/notification-web/store',
+      data
     );
 
     console.log('Success:', response.data);
@@ -209,19 +203,17 @@ exports.sendEndUserNotifications = async () => {
         mobile_number = mobile_number.slice(1);
       }
 
-      const data = {
+      return {
         mobile_number,
         title: notification.event,
         content: notification.message,
         item: notification.ticket,
         type: notification.type,
       };
-
-      await sendDataToThirdParty(data);
-
-      return data;
     })
   );
+
+  // await sendDataToThirdParty(sentNoificationsArray);
 
   // console.log('notificationsIDs', notificationsIDs);
   // console.log('sentNoificationsArray', sentNoificationsArray);
