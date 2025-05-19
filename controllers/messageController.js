@@ -94,8 +94,8 @@ exports.uploadMultiFiles = upload.array('files');
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const chat = await Chat.findById(req.params.chatID)
     .populate('contactName', 'name')
-    .populate('lastSession', 'status secret')
-    .populate('endUser', 'name phone');
+    .populate('endUser', 'name phone nationalID')
+    .populate('lastSession', 'status secret');
 
   if (!chat) {
     return next(new AppError('No chat found with that ID!', 404));

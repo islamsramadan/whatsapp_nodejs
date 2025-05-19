@@ -120,6 +120,7 @@ exports.getAllEndUserMessages = catchAsync(async (req, res, next) => {
     status: 'success',
     results: messages.length,
     data: {
+      chatID: chat._id,
       page,
       totalPages,
       totalResults,

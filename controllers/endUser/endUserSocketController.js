@@ -206,7 +206,13 @@ exports.getAllEndUserMessages = async (socket, data) => {
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
-  return { page, totalPages, totalResults, messages: messages.reverse() };
+  return {
+    chatID: chat._id,
+    page,
+    totalPages,
+    totalResults,
+    messages: messages.reverse(),
+  };
 };
 
 exports.getAllEndUserNewNotifications = async (socket, data) => {

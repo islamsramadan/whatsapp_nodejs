@@ -21,6 +21,7 @@ exports.getAllChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .lean();
 
   chats = chats.map((chat) => {
@@ -61,6 +62,7 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .lean();
 
   // console.log('statuses', statuses);
@@ -112,6 +114,7 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .lean();
 
   // console.log('statuses', statuses);
@@ -150,6 +153,7 @@ exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .lean();
 
   chats = chats.map((chat) => {
@@ -211,6 +215,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
+      .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
 
@@ -255,6 +260,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
+      .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
 

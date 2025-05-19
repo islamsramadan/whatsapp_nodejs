@@ -175,6 +175,7 @@ exports.getAllUserChats = async (user, status) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .populate('lastSession', 'status secret')
     .lean();
 
@@ -214,6 +215,7 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .populate('lastSession', 'status secret')
     .lean();
 
@@ -246,6 +248,7 @@ exports.getAllTeamUserChats = async (teamUserID) => {
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .lean();
 
   chats = chats.map((chat) => {
@@ -299,6 +302,7 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
+      .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
 
@@ -342,6 +346,7 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
+      .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
 
@@ -374,6 +379,7 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
 exports.getAllChatMessages = async (user, chatID, chatPage) => {
   const chat = await Chat.findById(chatID)
     .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
     .populate('lastSession', 'status secret');
 
   const page = chatPage || 1;
@@ -467,6 +473,7 @@ exports.getAllChatMessages = async (user, chatID, chatPage) => {
   const chatSession = chat ? chat.session : null;
   const chatStatus = chat ? chat.status : null;
   const contactName = chat ? chat.contactName : null;
+  const endUser = chat && chat.endUser ? chat.endUser : null;
   // const currentUser = chat.currentUser;
   const currentUser = chat
     ? { _id: chat.currentUser, teamID: chat.team }
@@ -481,6 +488,7 @@ exports.getAllChatMessages = async (user, chatID, chatPage) => {
     chatSession,
     chatStatus,
     contactName,
+    endUser,
     currentUser,
     notification,
     lastSession,
@@ -493,6 +501,7 @@ exports.getTabsStatuses = async (tabs) => {
       let chat = await Chat.findById(tab)
         .populate('lastMessage')
         .populate('contactName', 'name')
+        .populate('endUser', 'name phone nationalID')
         .populate('lastSession', 'status secret')
         .lean();
 
