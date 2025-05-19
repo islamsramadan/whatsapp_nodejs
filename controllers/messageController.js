@@ -497,7 +497,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
   //updating event in socket io
   req.app.io.emit('updating', { chatID: selectedChat._id });
-  req.app.io.user.emit('updatingEndUser', { chatID: selectedChat._id });
+  req.app.io.endUser.emit('updatingEndUser', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
