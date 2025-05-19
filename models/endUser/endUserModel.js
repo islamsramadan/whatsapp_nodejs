@@ -17,7 +17,7 @@ const endUserSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Phone number is required!'],
       unique: [true, 'Unique phone number is required!'],
-      match: [/\d{10,}/, 'Invalid whatsapp number!'],
+      match: [/^966\d{9}$/, 'Invalid whatsapp number!'],
     },
 
     token: {

@@ -208,7 +208,7 @@ exports.sendEndUserNotifications = async () => {
       }
 
       return {
-        uuid: notification._id,
+        notification_uuid: notification._id,
         mobile_number,
         reference_number: notification.refNo,
         title: notification.event,
@@ -220,9 +220,6 @@ exports.sendEndUserNotifications = async () => {
   );
 
   // await sendDataToThirdParty(sentNoificationsArray);
-
-  // console.log('notificationsIDs', notificationsIDs);
-  // console.log('sentNoificationsArray', sentNoificationsArray);
 
   // await EndUserNotification.updateMany(
   //   { _id: { $in: notificationsIDs } },

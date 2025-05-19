@@ -80,6 +80,11 @@ exports.getOrCreateEndUserToken = catchAsync(async (req, res, next) => {
     return next(new AppError('End user data is required!', 400));
   }
 
+  const phoneRegex = /^966\d{9}$/;
+  if (!phoneRegex.test(req.body.phone)) {
+    return next(new AppError('Invalid phone number!', 400));
+  }
+
   let endUser = await EndUser.findOne({ nationalID: req.body.nationalID });
 
   if (!endUser) {
