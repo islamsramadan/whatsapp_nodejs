@@ -237,7 +237,7 @@ exports.updateSecretSession = catchAsync(async (req, res, next) => {
   }
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: chat.client });
+  req.app.io.emit('updating', { chatID: chat._id });
 
   res.status(200).json({
     status: 'success',

@@ -92,26 +92,6 @@ exports.uploadMultiFiles = upload.array('files');
 // exports.uploadMessageImage = upload.array('file', 2);
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-  // const userTeam = await Team.findById(req.user.team);
-  // if (!userTeam) {
-  //   return next(
-  //     new AppError("This user doesn't belong to any existed team!", 400)
-  //   );
-  // }
-
-  // if (!req.params.chatNumber) {
-  //   return next(new AppError('Kindly provide chat number!', 400));
-  // }
-
-  // const chat = await Chat.findOne({ client: req.params.chatNumber })
-  //   .populate('contactName', 'name')
-  //   .populate('lastSession', 'status secret');
-  // // console.log('chat', chat);
-
-  // if (!chat) {
-  //   return next(new AppError('No chat found with that number!', 400));
-  // }
-
   const chat = await Chat.findById(req.params.chatID)
     .populate('contactName', 'name')
     .populate('lastSession', 'status secret')
@@ -259,27 +239,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     );
   }
 
-  // let newChat;
-  // if (!chat) {
-  //   const userTeam = await Team.findById(req.user.team);
-  //   if (!userTeam) {
-  //     return next(
-  //       new AppError(
-  //         'the user sending the messages must belong to an existing team!',
-  //         400
-  //       )
-  //     );
-  //   }
-  //   newChat = await Chat.create({
-  //     client: req.params.chatNumber,
-  //     currentUser: req.user._id,
-  //     users: [req.user._id],
-  //     team: req.user.team,
-  //   });
-  // }
-
   const selectedChat = chat;
-  // const selectedChat = chat || newChat;
 
   const session = await Session.findById(selectedChat.lastSession);
 
@@ -536,7 +496,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: selectedChat.client });
+  req.app.io.emit('updating', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
@@ -763,7 +723,7 @@ exports.sendFailedMessage = catchAsync(async (req, res, next) => {
   await failedMessage.save();
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: chat.client });
+  req.app.io.emit('updating', { chatID: chat._id });
 
   res.status(200).json({
     status: 'success',
@@ -851,7 +811,7 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   const updatedMessage = await reactedMessage.save();
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: chat.client });
+  req.app.io.emit('updating', { chatID: chat._id });
 
   req.app.io.endUser.emit('updatingEndUser');
 
@@ -895,27 +855,13 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   }
 
   // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
 
-  let newChat;
   if (!chat) {
-    const userTeam = await Team.findById(req.user.team);
-    if (!userTeam) {
-      return next(
-        new AppError(
-          'the user sending the messages must belong to an existing team!',
-          400
-        )
-      );
-    }
-    newChat = await Chat.create({
-      client: req.params.chatNumber,
-      users: [req.user._id],
-    });
+    return next(new AppError('No chat found by that ID!', 404));
   }
-  // console.log('chat', chat);
 
-  const selectedChat = chat || newChat;
+  const selectedChat = chat;
 
   const session = await Session.findById(selectedChat.lastSession);
 
@@ -1181,7 +1127,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: selectedChat.client });
+  req.app.io.emit('updating', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
@@ -1222,12 +1168,12 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   }
 
   // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findOne({ client: req.params.chatID }); // using chatID but it is chatNumber
 
   let newChat;
   if (!chat) {
     newChat = await Chat.create({
-      client: req.params.chatNumber,
+      client: req.params.chatID,
       status: 'archived',
       // currentUser: req.user._id,
       // users: [req.user._id],
@@ -1460,7 +1406,7 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
   //********************************************************************************* */
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
@@ -1468,280 +1414,6 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
       // template,
       // whatsappPayload,
       // wahtsappResponse: sendTemplateResponse?.data,
-      message: newMessage,
-    },
-  });
-});
-
-exports.sendMessageCopy = catchAsync(async (req, res, next) => {
-  // console.log('req.body', req.body);
-  // console.log('req.files', req.files);
-
-  if (!req.body.type) {
-    return next(new AppError('Message type is required!', 400));
-  }
-
-  if (!req.params.chatNumber) {
-    return next(new AppError('Chat number is required!', 400));
-  }
-
-  // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
-
-  let newChat;
-  if (!chat) {
-    const userTeam = await Team.findById(req.user.team);
-    if (!userTeam) {
-      return next(
-        new AppError(
-          'the user sending the messages must belong to an existing team!',
-          400
-        )
-      );
-    }
-    newChat = await Chat.create({
-      client: req.params.chatNumber,
-      currentUser: req.user._id,
-      users: [req.user._id],
-      team: req.user.team,
-    });
-  }
-
-  const selectedChat = chat || newChat;
-
-  const session = await Session.findById(selectedChat.lastSession);
-
-  let newSession;
-  if (!session) {
-    newSession = await Session.create({
-      chat: selectedChat._id,
-      user: req.user._id,
-      team: req.user.team,
-      status: 'onTime',
-    });
-
-    selectedChat.lastSession = newSession._id;
-    selectedChat.currentUser = req.user._id;
-    selectedChat.team = req.user.team;
-    await selectedChat.save();
-
-    // =======> Create chat history session
-    const chatHistoryData = {
-      chat: selectedChat._id,
-      user: req.user._id,
-      actionType: 'start',
-      start: req.user._id,
-    };
-    await ChatHistory.create(chatHistoryData);
-  }
-  const selectedSession = session || newSession;
-
-  // checking if the user is the chat current user
-  if (!selectedChat.currentUser.equals(req.user._id)) {
-    return next(
-      new AppError("You don't have permission to perform this action!", 403)
-    );
-  }
-
-  // updating chat notification to false
-  selectedChat.notification = false;
-  await selectedChat.save();
-
-  // updating user chats
-  if (!req.user.chats.includes(selectedChat._id)) {
-    await User.findByIdAndUpdate(
-      req.user._id,
-      { $push: { chats: selectedChat._id } },
-      { new: true, runValidators: true }
-    );
-  }
-
-  // Handling whatsapp session (24hours from the last message the client send)
-  if (!selectedChat.session) {
-    return next(
-      new AppError(
-        'You can only send template message until the end user reply!',
-        400
-      )
-    );
-  }
-
-  const availableSession = Math.ceil(
-    (new Date() - selectedChat.session) / (1000 * 60)
-  );
-
-  if (availableSession >= 24 * 60) {
-    return next(
-      new AppError(
-        'Your session is expired, You can only send template message until the end user reply!',
-        400
-      )
-    );
-  }
-  // console.log('availableSession', availableSession);
-
-  const newMessageObj = {
-    user: req.user._id,
-    chat: selectedChat._id,
-    session: selectedSession._id,
-    from: process.env.WHATSAPP_PHONE_NUMBER,
-    type: req.body.type,
-  };
-
-  if (selectedSession.secret === true) {
-    newMessageObj.secret = true;
-  }
-
-  const whatsappPayload = {
-    messaging_product: 'whatsapp',
-    to: selectedChat.client,
-    type: req.body.type,
-  };
-
-  // Message Reply
-  if (req.body.replyMessage) {
-    const replyMessage = await Message.findById(req.body.replyMessage);
-    if (!replyMessage) {
-      return next(new AppError('There is no message to reply!.', 404));
-    }
-
-    whatsappPayload.context = {
-      message_id: replyMessage.whatsappID,
-    };
-
-    newMessageObj.reply = req.body.replyMessage;
-  }
-
-  // Template Message
-  if (req.body.type === 'template') {
-    return next(
-      new AppError('this end point not for sending template message!', 400)
-    );
-  }
-
-  // Text Message
-  if (req.body.type === 'text') {
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.text = {
-      preview_url: false,
-      body: req.body.text,
-    };
-
-    newMessageObj.text = req.body.text;
-  }
-
-  // Contacts Message
-  if (req.body.type === 'contacts') {
-    // To get the list of contacts
-    // https://rd0.cpvarabia.com/api/Care/users.php?Token=OKRJ_R85rkn9nrgg
-    if (!req.body.contacts || req.body.contacts.length === 0) {
-      return next(new AppError('Contacts are required!', 400));
-    }
-    const contacts = req.body.contacts.map((contact) => {
-      if (!contact.name) {
-        return next(new AppError('contact name is required!', 400));
-      }
-      if (!contact.phones || contact.phones.length === 0) {
-        return next(new AppError('contact phone is required!', 400));
-      }
-
-      return {
-        name: { formatted_name: contact.name, first_name: contact.name },
-        phones: contact.phones.map((item) => ({
-          phone: item,
-          wa_id: item,
-          type: 'WORK',
-        })),
-        emails: contact.emails?.map((item) => ({ email: item, type: 'WORK' })),
-        org: contact.org,
-      };
-    });
-
-    // console.log('contacts===========', contacts, contacts[0].phones);
-    whatsappPayload.contacts = contacts;
-    newMessageObj.contacts = contacts.map((contact) => ({
-      ...contact,
-      name: contact.name.formatted_name,
-    }));
-  }
-
-  // Video Message
-  if (req.body.type === 'video') {
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.video = {
-      link: `${productionLink}/${req.files[0].filename}`,
-      caption: req.body.caption,
-    };
-
-    newMessageObj.video = {
-      file: req.files[0].filename,
-      caption: req.body.caption,
-    };
-  }
-
-  // Audio Message
-  if (req.body.type === 'audio') {
-    whatsappPayload.recipient_type = 'individual';
-    whatsappPayload.audio = {
-      link: `${productionLink}/${req.files[0].filename}`,
-    };
-
-    newMessageObj.audio = {
-      file: req.files[0].filename,
-      voice: false,
-    };
-  }
-
-  let newMessage;
-  if (req.body.type === 'image' || req.body.type === 'document') {
-    const newMessages = await sendMultiMediaHandler(
-      req,
-      whatsappPayload,
-      newMessageObj
-    );
-    newMessage = newMessages[newMessages.length - 1];
-  } else {
-    let response;
-    try {
-      response = await axios.request({
-        method: 'post',
-        maxBodyLength: Infinity,
-        url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        },
-        data: JSON.stringify(whatsappPayload),
-      });
-    } catch (err) {
-      console.log('err', err);
-    }
-
-    // console.log('response.data----------------', JSON.stringify(response.data));
-    newMessage = await Message.create({
-      ...newMessageObj,
-      whatsappID: response.data.messages[0].id,
-    });
-  }
-
-  // Adding the sent message as last message in the chat and update chat status
-  selectedChat.lastMessage = newMessage._id;
-  selectedChat.status = 'open';
-  await selectedChat.save();
-
-  // Updating session to new status ((open))
-  selectedSession.status = 'open';
-  selectedSession.timer = undefined;
-  selectedSession.lastUserMessage = newMessage._id;
-  await selectedSession.save();
-
-  //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: selectedChat.client });
-
-  res.status(201).json({
-    status: 'success',
-    // wahtsappResponse: response.data,
-    data: {
       message: newMessage,
     },
   });

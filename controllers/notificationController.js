@@ -103,7 +103,7 @@ exports.readAllUserTicketNotifications = catchAsync(async (req, res, next) => {
 });
 
 exports.readAllUserChatNotifications = catchAsync(async (req, res, next) => {
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
 
   if (!chat) {
     return next(new AppError('No chat found with that number!', 404));

@@ -996,7 +996,7 @@ exports.updateChat = catchAsync(async (req, res, next) => {
   }
 
   //updating event in socket io
-  req.app.io.emit('updating', { chatNumber: chat.client });
+  req.app.io.emit('updating', { chatID: chat._id });
 
   //--------------------> updating notifications event in socket io
   Array.from(notificationUsersIDs).map((userID) => {
@@ -1155,6 +1155,6 @@ const sendMessageHandler = async (
     await selectedSession.save();
 
     //updating event in socket io
-    req.app.io.emit('updating', { chatNumber: selectedChat.client });
+    req.app.io.emit('updating', { chatID: selectedChat._id });
   }
 };

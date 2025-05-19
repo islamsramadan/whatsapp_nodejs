@@ -48,7 +48,7 @@ const updateTask = (
 
       //updating event in socket io
       const chat = await Chat.findById(session.chat);
-      req.app.io.emit('updating', { chatNumber: chat.client });
+      req.app.io.emit('updating', { chatID: chat._id });
     }
   });
 };
