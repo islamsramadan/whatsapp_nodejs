@@ -853,6 +853,8 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   //updating event in socket io
   req.app.io.emit('updating', { chatNumber: chat.client });
 
+  req.app.io.endUser.emit('updatingEndUser');
+
   res.status(200).json({
     status: 'success',
     data: {
