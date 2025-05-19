@@ -17,7 +17,7 @@ const User = require('./models/userModel');
 const fs = require('fs');
 const path = require('path');
 
-if (process.env.NODE000_ENV === 'production') {
+if (process.env.NODE_ENV === 'production') {
   // Create a write stream for the log file
   const logFile = fs.createWriteStream(path.join(__dirname, 'customLogs.log'), {
     flags: 'a',
@@ -523,7 +523,7 @@ endUserNamespace.on('connection', (socket) => {
       console.log('response', response);
 
       // Emit a response event back to the client
-      socket.emit('server_to _client', response);
+      socket.emit('server_to_client', response);
     }
   });
 
@@ -556,13 +556,13 @@ const server = appSocket.listen(port, () => {
 });
 
 // Send end user notifications
-cron.schedule('*/1 * * * *', async () => {
-  try {
-    await endUserNotificationController.sendEndUserNotifications();
-  } catch (err) {
-    console.error('Error in scheduled task:', err);
-  }
-});
+// cron.schedule('*/1 * * * *', async () => {
+//   try {
+//     await endUserNotificationController.sendEndUserNotifications();
+//   } catch (err) {
+//     console.error('Error in scheduled task:', err);
+//   }
+// });
 
 process.on('unhandledRejection', (err) => {
   console.log('UNHANDLED REJECTION! 💥 Shutting down...');
