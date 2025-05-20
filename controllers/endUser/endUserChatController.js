@@ -116,10 +116,42 @@ exports.getAllEndUserMessages = catchAsync(async (req, res, next) => {
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
+  let userStatus;
+
+  if (chat.currentUser && chat.team && chat.status === 'open') {
+    const currentUser = await User.findById(chat.currentUser);
+    userStatus = currentUser.status;
+
+    if (userStatus === 'Service hours') {
+      const team = await Team.findById(chat.team);
+      const serviceHours = await Service.findById(team.serviceHours);
+
+      if (serviceHoursUtils.checkInsideServiceHours(serviceHours.durations)) {
+        userStatus = 'Online';
+      } else {
+        userStatus = 'Offline';
+      }
+    }
+  } else {
+    const defaultTeam = await Team.findOne({ default: true });
+    const defaultServiceHours = await Service.findById(
+      defaultTeam.serviceHours
+    );
+
+    if (
+      serviceHoursUtils.checkInsideServiceHours(defaultServiceHours.durations)
+    ) {
+      userStatus = 'Online';
+    } else {
+      userStatus = 'Offline';
+    }
+  }
+
   res.status(200).json({
     status: 'success',
     results: messages.length,
     data: {
+      userStatus: userStatus,
       chatID: chat._id,
       page,
       totalPages,

@@ -8,6 +8,7 @@ const AppError = require('../../utils/appError');
 const catchAsync = require('../../utils/catchAsync');
 const ticketUtilsHandler = require('../../utils/ticketsUtils');
 const { mailerSendEmail } = require('../../utils/emailHandler');
+const serviceHoursUtils = require('../../utils/serviceHoursUtils');
 
 const User = require('../../models/userModel');
 const TicketCategory = require('../../models/ticketSystem/ticketCategoryModel');
@@ -20,6 +21,7 @@ const TicketLog = require('../../models/ticketSystem/ticketLogModel');
 const Comment = require('../../models/ticketSystem/commentModel');
 const Chat = require('../../models/chatModel');
 const Message = require('../../models/messageModel');
+const Service = require('../../models/serviceModel');
 const EndUserNotification = require('../../models/endUser/endUserNotificationModel');
 
 exports.getAllEndUserTickets = async (socket, data) => {
@@ -206,7 +208,39 @@ exports.getAllEndUserMessages = async (socket, data) => {
   const totalResults = await Message.count({ chat: chat._id });
   const totalPages = Math.ceil(totalResults / 20);
 
+  let userStatus;
+
+  if (chat.currentUser && chat.team && chat.status === 'open') {
+    const currentUser = await User.findById(chat.currentUser);
+    userStatus = currentUser.status;
+
+    if (userStatus === 'Service hours') {
+      const team = await Team.findById(chat.team);
+      const serviceHours = await Service.findById(team.serviceHours);
+
+      if (serviceHoursUtils.checkInsideServiceHours(serviceHours.durations)) {
+        userStatus = 'Online';
+      } else {
+        userStatus = 'Offline';
+      }
+    }
+  } else {
+    const defaultTeam = await Team.findOne({ default: true });
+    const defaultServiceHours = await Service.findById(
+      defaultTeam.serviceHours
+    );
+
+    if (
+      serviceHoursUtils.checkInsideServiceHours(defaultServiceHours.durations)
+    ) {
+      userStatus = 'Online';
+    } else {
+      userStatus = 'Offline';
+    }
+  }
+
   return {
+    userStatus,
     chatID: chat._id,
     page,
     totalPages,
