@@ -740,6 +740,7 @@ exports.sendRDBroadcast = catchAsync(async (req, res, next) => {
   //********************************************************************************* */
   // Preparing template for Message database
   const newMessageObj = {
+    rdApp: true,
     user: req.user.id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: 'template',
@@ -1500,4 +1501,32 @@ exports.getAllBroadcastsByMonth = catchAsync(async (req, res, next) => {
       },
     });
   }
+});
+
+exports.getAllRDBroadcastMessages = catchAsync(async (req, res, next) => {
+  const messages = await Message.find({ rdApp: true }).select('status');
+
+  res.status(200).json({
+    status: 'success',
+    results: messages.length,
+    data: {
+      messages,
+    },
+  });
+});
+
+exports.getRDBroadcastMessageDetails = catchAsync(async (req, res, next) => {
+  const message = await Message.findById(req.params.messageID).select(
+    'status sent delivered read'
+  );
+
+  if (!message) {
+    return next(new AppError('No message found with that ID!', 404));
+  }
+  res.status(200).json({
+    status: 'success',
+    data: {
+      message,
+    },
+  });
 });

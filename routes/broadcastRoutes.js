@@ -21,10 +21,18 @@ router
 
 router
   .route('/rd')
+  .get(authController.protect, broadcastController.getAllRDBroadcastMessages)
   .post(
     authController.protect,
     uploadController.uploadFields,
     broadcastController.sendRDBroadcast
+  );
+
+router
+  .route('/rd/:messageID')
+  .get(
+    authController.protect,
+    broadcastController.getRDBroadcastMessageDetails
   );
 
 router.route('/grouped').get(

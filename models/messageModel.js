@@ -8,6 +8,11 @@ const messageSchema = new mongoose.Schema(
       default: 'whatsapp',
     },
 
+    rdApp: {
+      type: Boolean,
+      default: false,
+    },
+
     whatsappID: {
       type: String,
       required: function () {
