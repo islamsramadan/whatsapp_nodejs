@@ -556,13 +556,13 @@ const server = appSocket.listen(port, () => {
 });
 
 // Send end user notifications
-// cron.schedule('*/1 * * * *', async () => {
-//   try {
-//     await endUserNotificationController.sendEndUserNotifications();
-//   } catch (err) {
-//     console.error('Error in scheduled task:', err);
-//   }
-// });
+cron.schedule('*/5 * * * *', async () => {
+  try {
+    await endUserNotificationController.sendEndUserNotifications();
+  } catch (err) {
+    console.error('Error in scheduled notifications:', err);
+  }
+});
 
 process.on('unhandledRejection', (err) => {
   console.log('UNHANDLED REJECTION! 💥 Shutting down...');

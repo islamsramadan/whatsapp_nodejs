@@ -169,7 +169,7 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
 });
 
 const sendDataToThirdParty = async (data) => {
-  console.log('data =======================', data);
+  // console.log('data =======================', data);
   let res;
   try {
     const response = await axios.post(
@@ -191,7 +191,7 @@ exports.sendEndUserNotifications = async () => {
     sent: false,
   }).populate('endUser', 'phone');
 
-  console.log('notifications.length', notifications.length);
+  // console.log('notifications.length', notifications.length);
 
   const notificationsIDs = notifications.map(
     (notification) => notification._id
@@ -219,12 +219,12 @@ exports.sendEndUserNotifications = async () => {
     })
   );
 
-  // await sendDataToThirdParty(sentNoificationsArray);
+  await sendDataToThirdParty(sentNoificationsArray);
 
-  // await EndUserNotification.updateMany(
-  //   { _id: { $in: notificationsIDs } },
-  //   {
-  //     sent: true,
-  //   }
-  // );
+  await EndUserNotification.updateMany(
+    { _id: { $in: notificationsIDs } },
+    {
+      sent: true,
+    }
+  );
 };
