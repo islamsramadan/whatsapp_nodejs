@@ -807,8 +807,10 @@ exports.createTicket = catchAsync(async (req, res, next) => {
   );
 
   // ----------> Add ticket order
-  const ticketsTotalNumber = await Ticket.count();
-  newTicketData.order = ticketsTotalNumber + 1;
+  const lastTicket = await Ticket.findOne()
+    .sort({ createdAt: -1 }) // Sort by creation date
+    .limit(1);
+  newTicketData.order = lastTicket.order + 1;
 
   // ----------> Add ticket users array
   newTicketData.users.push(req.user._id);
@@ -2394,8 +2396,10 @@ exports.createInspectionTicket = catchAsync(async (req, res, next) => {
   );
 
   // ----------> Add ticket order
-  const ticketsTotalNumber = await Ticket.count();
-  newTicketData.order = ticketsTotalNumber + 1;
+  const lastTicket = await Ticket.findOne()
+    .sort({ createdAt: -1 }) // Sort by creation date
+    .limit(1);
+  newTicketData.order = lastTicket.order + 1;
 
   // ----------> Add ticket users array
   newTicketData.users.push(assignee);
