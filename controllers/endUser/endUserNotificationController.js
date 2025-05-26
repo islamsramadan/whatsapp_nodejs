@@ -170,20 +170,32 @@ exports.readAllEndUserNotifications = catchAsync(async (req, res, next) => {
 
 const sendDataToThirdParty = async (data) => {
   // console.log('data =======================', data);
-  let res;
+
   try {
     const response = await axios.post(
       'https://api.althameen.net/api/v1/notification-web/store',
       data
     );
 
-    console.log('Success:', response.data);
-    res = response;
+    // console.log('Success:', response.data);
+
+    if (response.data && Object.keys(response.data.data).length > 0) {
+      const notificationsIDs = Object.keys(response.data.data);
+      const updatedNotificationsIDs = notificationsIDs.filter((item) => {
+        return response.data.data[`${item}`] === 'success';
+      });
+
+      // console.log('updatedNotificationsIDs', updatedNotificationsIDs);
+      await EndUserNotification.updateMany(
+        { _id: { $in: updatedNotificationsIDs } },
+        {
+          sent: true,
+        }
+      );
+    }
   } catch (error) {
     console.error('Error sending data:', error.response?.data || error.message);
   }
-
-  return res;
 };
 
 exports.sendEndUserNotifications = async () => {
@@ -193,17 +205,13 @@ exports.sendEndUserNotifications = async () => {
 
   // console.log('notifications.length', notifications.length);
 
-  const notificationsIDs = notifications.map(
-    (notification) => notification._id
-  );
-
   const sentNoificationsArray = await Promise.all(
     notifications.map(async (notification) => {
       let mobile_number = notification.endUser.phone;
 
       if (mobile_number.startsWith('966')) {
-        mobile_number = `05${mobile_number.slice(3)}`;
-      } else if (mobile_number.startsWith('2010')) {
+        mobile_number = `0${mobile_number.slice(3)}`;
+      } else if (mobile_number.startsWith('20')) {
         mobile_number = mobile_number.slice(1);
       }
 
@@ -220,11 +228,4 @@ exports.sendEndUserNotifications = async () => {
   );
 
   await sendDataToThirdParty(sentNoificationsArray);
-
-  await EndUserNotification.updateMany(
-    { _id: { $in: notificationsIDs } },
-    {
-      sent: true,
-    }
-  );
 };

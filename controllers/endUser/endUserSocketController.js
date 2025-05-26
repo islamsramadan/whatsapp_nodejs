@@ -212,9 +212,12 @@ exports.getAllEndUserMessages = async (socket, data) => {
 
   if (chat.currentUser && chat.team && chat.status === 'open') {
     const currentUser = await User.findById(chat.currentUser);
+
     userStatus = currentUser.status;
 
-    if (userStatus === 'Service hours') {
+    if (userStatus === 'Away') {
+      userStatus = 'Offline';
+    } else if (userStatus === 'Service hours') {
       const team = await Team.findById(chat.team);
       const serviceHours = await Service.findById(team.serviceHours);
 
