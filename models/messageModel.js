@@ -2,10 +2,28 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema(
   {
+    chatType: {
+      type: String,
+      enum: ['whatsapp', 'endUser'],
+      default: 'whatsapp',
+    },
+
+    rdApp: {
+      type: Boolean,
+      default: false,
+    },
+
     whatsappID: {
       type: String,
-      required: [true, 'Message must have a whatsapp message id!'],
+      required: function () {
+        if (!this.chatType || this.chatType === 'whatsapp') {
+          return [true, 'Message must have a whatsapp message ID!'];
+        } else {
+          return false;
+        }
+      },
       unique: true,
+      sparse: true, // Allows the field to be unique only when it is not null
     },
 
     user: {
@@ -32,8 +50,27 @@ const messageSchema = new mongoose.Schema(
 
     from: {
       type: String,
-      required: [true, 'Message must have a sender!'],
+      // required: [true, 'Message must have a sender!'],
+      required: function () {
+        if (!this.chatType || this.chatType === 'whatsapp') {
+          return [true, 'Message must have a sender!'];
+        } else {
+          return false;
+        }
+      },
       match: [/\d{10,}/, 'Invalid sender whatsapp number!'],
+    },
+
+    fromEndUser: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'EndUser',
+      required: function () {
+        if (this.chatType === 'endUser' && !this.from) {
+          return [true, 'Message must have a sender!'];
+        } else {
+          return false;
+        }
+      },
     },
 
     // to: {
@@ -57,6 +94,7 @@ const messageSchema = new mongoose.Schema(
         'sticker',
         'contacts',
         'interactive',
+        'button',
         'unsupported',
       ],
       required: [true, 'Message must have a type!'],
@@ -75,7 +113,7 @@ const messageSchema = new mongoose.Schema(
       },
       language: {
         type: String,
-        enum: ['ar', 'en', 'en_US'],
+        // enum: ['ar', 'en', 'en_US', 'en_GB'],
         required: function () {
           if (this.type === 'template') {
             return [true, 'Template message must have a template language!'];
@@ -136,9 +174,15 @@ const messageSchema = new mongoose.Schema(
             {
               type: {
                 type: String,
-                enum: ['QUICK_REPLY'],
+                enum: ['QUICK_REPLY', 'URL', 'PHONE_NUMBER'],
               },
               text: {
+                type: String,
+              },
+              url: {
+                type: String,
+              },
+              phone_number: {
                 type: String,
               },
             },
@@ -257,13 +301,13 @@ const messageSchema = new mongoose.Schema(
     location: {
       address: {
         type: String,
-        required: function () {
-          if (this.type === 'location') {
-            return [true, 'Location message must have an address!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (this.type === 'location') {
+        //     return [true, 'Location message must have an address!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
       },
       latitude: {
         type: Number,
@@ -287,13 +331,13 @@ const messageSchema = new mongoose.Schema(
       },
       name: {
         type: String,
-        required: function () {
-          if (this.type === 'location') {
-            return [true, 'Location message must have a name!'];
-          } else {
-            return false;
-          }
-        },
+        // required: function () {
+        //   if (this.type === 'location') {
+        //     return [true, 'Location message must have a name!'];
+        //   } else {
+        //     return false;
+        //   }
+        // },
       },
     },
 
@@ -415,6 +459,15 @@ const messageSchema = new mongoose.Schema(
       },
     },
 
+    button: {
+      payload: {
+        type: String,
+      },
+      text: {
+        type: String,
+      },
+    },
+
     reply: {
       type: mongoose.Schema.ObjectId,
       ref: 'Message',
@@ -472,8 +525,17 @@ const messageSchema = new mongoose.Schema(
       type: String,
     },
 
+    read: {
+      type: String,
+    },
+
     seen: {
       type: String,
+    },
+
+    secret: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

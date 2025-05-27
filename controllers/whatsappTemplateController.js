@@ -27,11 +27,17 @@ exports.getAllWhatsappTemplates = catchAsync(async (req, res, next) => {
     },
   });
 
+  let templates = response.data.data || [];
+  templates = templates.filter(
+    (template) =>
+      template.status === 'APPROVED' && template.category !== 'AUTHENTICATION'
+  );
+
   res.status(200).json({
     status: 'success',
-    results: response.data.data?.length,
+    results: templates.length,
     data: {
-      templates: response.data.data,
+      templates,
     },
   });
 });

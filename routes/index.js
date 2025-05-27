@@ -12,7 +12,30 @@ const noteRouter = require('./noteRoutes');
 const sessionRouter = require('./sessionRoutes');
 const performanceRouter = require('./performanceRoutes');
 const messageRouter = require('./messageRoutes');
+const broadcastRouter = require('./broadcastRoutes');
+const uploadRouter = require('./uploadRoutes');
 const whatsappTemplateRouter = require('./whatsappTemplateRoutes');
+const logRoutes = require('./logRoutes');
+const historyRoutes = require('./historyRoutes');
+
+// Ticket System
+const fieldTypeRouter = require('./ticketSystem/fieldTypeRoutes');
+const fieldRouter = require('./ticketSystem/fieldRoutes');
+const formRouter = require('./ticketSystem/formRoutes');
+const ticketRouter = require('./ticketSystem/ticketRoutes');
+const ticketCategoryRouter = require('./ticketSystem/ticketCategoryRoutes');
+const ticketStatusRouter = require('./ticketSystem/ticketStatusRoutes');
+const ticketLogRouter = require('./ticketSystem/ticketLogRoutes');
+const commentRouter = require('./ticketSystem/commentRoutes');
+const ticketDashboardRouter = require('./ticketSystem/ticketDashboardRoutes');
+const ticketFiltersRouter = require('./ticketSystem/ticketFiltersRoutes');
+const ticketPerformanceRouter = require('./ticketSystem/ticketPerformanceRoutes');
+const clientTicketRouter = require('./ticketSystem/clientTicketRoutes');
+
+const notificationRouter = require('./notificationRoutes');
+
+//end user routes
+const endUserRouter = require('./endUser/index');
 
 const router = express.Router();
 
@@ -29,6 +52,28 @@ router.use('/notes', noteRouter);
 router.use('/sessions', sessionRouter);
 router.use('/performance', performanceRouter);
 router.use('/messages', messageRouter);
+router.use('/broadcast', broadcastRouter);
+router.use('/upload', uploadRouter);
 router.use('/whatsapp-templates', whatsappTemplateRouter);
+router.use('/logs', logRoutes);
+router.use('histories', historyRoutes);
+
+// Ticket System
+router.use('/fieldtypes', fieldTypeRouter);
+router.use('/fields', fieldRouter);
+router.use('/forms', formRouter);
+router.use('/tickets', ticketRouter);
+router.use('/ticketCategories', ticketCategoryRouter);
+router.use('/ticketStatuses', ticketStatusRouter);
+router.use('/comments', commentRouter);
+router.use('/ticket-logs', ticketLogRouter);
+router.use('/ticket-dashboard', ticketDashboardRouter);
+router.use('/ticket-filters', ticketFiltersRouter);
+router.use('/ticket-performance', ticketPerformanceRouter);
+router.use('/client', clientTicketRouter);
+
+router.use('/notifications', notificationRouter);
+
+router.use('/endUser', endUserRouter);
 
 module.exports = router;

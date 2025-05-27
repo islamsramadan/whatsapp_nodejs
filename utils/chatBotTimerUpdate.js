@@ -1,4 +1,7 @@
 const cron = require('node-cron');
+const { Mutex } = require('async-mutex'); // This will prevent multiple concurrent requests from creating multiple bot reply.
+const botRemiderMutex = new Mutex();
+
 const Session = require('../models/sessionModel');
 const Chat = require('../models/chatModel');
 const { default: axios } = require('axios');
@@ -100,9 +103,30 @@ const sendMessageHandler = async (
   session.timer = undefined;
   if (session.type === 'bot') session.lastBotMessage = newMessage._id;
   await session.save();
+};
 
-  //updating event in socket io
-  req.app.io.emit('updating');
+const sendFeedbackHandler = async (data) => {
+  // console.log('data ===========', data);
+
+  // console.log({ Token: process.env.RD_APP_TOKEN, ...data });
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://rd0.cpvarabia.com/api/Care/AddSurvey.php',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data', response.data);
+
+  return response.data;
 };
 
 const updateTask = (
@@ -115,91 +139,123 @@ const updateTask = (
   whatsappVersion,
   whatsappPhoneID,
   whatsappToken,
-  whatsappNumber
+  whatsappNumber,
+  checkingTimer
 ) => {
   const cronExpression = getCronExpression(timer);
   // console.log('cronExpression', cronExpression);
 
   cron.schedule(cronExpression, async () => {
-    // console.log('status', status);
-    const session = await Session.findById(sessionID);
-    const chat = await Chat.findById(session.chat);
+    await botRemiderMutex.runExclusive(async () => {
+      // console.log('status', status);
+      const session = await Session.findById(sessionID);
+      const chat = await Chat.findById(session.chat);
 
-    // console.log('session', session);
+      // console.log(
+      //   'session ================================================================',
+      //   session
+      // );
 
-    if (
-      session.botTimer &&
-      session.status === 'open' &&
-      ((session.botTimer.getTime() === timer.getTime() &&
-        status === 'tooLate') ||
-        (new Date(
-          session.botTimer - delay * (1 - responseDangerTime)
-        ).getTime() === timer.getTime() &&
-          status === 'danger'))
-    ) {
-      // console.log('status again', status);
-      //   session.status = status;
-      //   await session.save();
+      if (
+        session.botTimer &&
+        // session.botTimer === checkingTimer &&
+        session.status === 'open' &&
+        ((session.botTimer.getTime() === timer.getTime() &&
+          status === 'tooLate') ||
+          (new Date(
+            session.botTimer - delay * (1 - responseDangerTime)
+          ).getTime() === timer.getTime() &&
+            status === 'danger'))
+      ) {
+        // console.log('status again', status);
+        // console.log(
+        //   'session ---------------------------------------------------------------------- ',
+        //   status,
+        //   session
+        // );
 
-      if (status === 'danger' && session.reminder === true) {
-        // console.log('danger ====================');
+        if (status === 'danger' && session.reminder === true) {
+          // console.log('danger ====================');
 
-        //========> Remove session reminder
-        session.reminder = false;
-        await session.save();
+          //========> Remove session reminder
+          session.reminder = false;
+          await session.save();
 
-        //========> Send reminder message
-        const msgToBeSent = {
-          type: 'text',
-          text: 'ستنتهي المحادثة قريبًا. يرجى الاستمرار.',
-        };
-        await sendMessageHandler(
-          req,
-          msgToBeSent,
-          chat,
-          session,
-          whatsappVersion,
-          whatsappPhoneID,
-          whatsappToken,
-          whatsappNumber
-        );
+          //========> Send reminder message
+          const msgToBeSent = {
+            type: 'text',
+            text: 'ستنتهي المحادثة قريبًا. يرجى الاستمرار.',
+          };
+          await sendMessageHandler(
+            req,
+            msgToBeSent,
+            chat,
+            session,
+            whatsappVersion,
+            whatsappPhoneID,
+            whatsappToken,
+            whatsappNumber
+          );
+        }
+
+        if (status === 'tooLate' && session.status !== 'finished') {
+          // console.log('tooLate ====================');
+
+          // Add end date to the session and remove it from chat
+          session.end = Date.now();
+          session.status = 'finished';
+          session.botTimer = undefined;
+          await session.save();
+
+          // =======> Create chat history session
+          const chatHistoryData = {
+            chat: chat._id,
+            user: session.user,
+            actionType: 'archive',
+            archive: 'auto',
+          };
+          await ChatHistory.create(chatHistoryData);
+
+          // Updating chat
+          chat.currentUser = undefined;
+          chat.team = undefined;
+          chat.status = 'archived';
+          chat.lastSession = undefined;
+          await chat.save();
+
+          // Removing chat from bot user chats
+          await User.findByIdAndUpdate(
+            session.user,
+            { $pull: { chats: chat._id } },
+            { new: true, runValidators: true }
+          );
+
+          if (session.type === 'feedback') {
+            // =======> Send feed back to RD App
+            // const updatedfeedbackSession = await Session.findById(
+            //   session._id
+            // );
+            const feedbackQuestions = session.feedback.map((item, i) => ({
+              qid: i,
+              text: item.text,
+              Value: item.value,
+            }));
+
+            const feedbackData = {
+              phoneno: chat.client,
+              session: session._id,
+              questions: feedbackQuestions,
+            };
+            // console.log('feedbackData ===================', feedbackData);
+
+            await sendFeedbackHandler(feedbackData);
+          }
+        }
+
+        //updating event in socket io
+        req.app.io.emit('updating', { chatID: chat._id });
       }
-
-      if (status === 'tooLate') {
-        // console.log('tooLate ====================');
-
-        // Add end date to the session and remove it from chat
-        session.end = Date.now();
-        session.status = 'finished';
-        await session.save();
-
-        // =======> Create chat history session
-        const chatHistoryData = {
-          chat: chat._id,
-          user: session.user,
-          actionType: 'archive',
-          archive: 'auto',
-        };
-        await ChatHistory.create(chatHistoryData);
-
-        // Updating chat
-        chat.currentUser = undefined;
-        chat.team = undefined;
-        chat.status = 'archived';
-        chat.lastSession = undefined;
-        await chat.save();
-
-        // Removing chat from bot user chats
-        await User.findByIdAndUpdate(
-          session.user,
-          { $pull: { chats: chat._id } },
-          { new: true, runValidators: true }
-        );
-      }
-
-      //updating event in socket io
-      req.app.io.emit('updating');
-    }
+    });
   });
 };
 
@@ -236,6 +292,8 @@ exports.scheduleDocumentUpdateTask = async (
 
         // console.log('session', session);
 
+        const checkingTimer = session.botTimer;
+
         updateTask(
           req,
           dangerTimer,
@@ -246,7 +304,8 @@ exports.scheduleDocumentUpdateTask = async (
           whatsappVersion,
           whatsappPhoneID,
           whatsappToken,
-          whatsappNumber
+          whatsappNumber,
+          checkingTimer
         );
         updateTask(
           req,
@@ -258,7 +317,8 @@ exports.scheduleDocumentUpdateTask = async (
           whatsappVersion,
           whatsappPhoneID,
           whatsappToken,
-          whatsappNumber
+          whatsappNumber,
+          checkingTimer
         );
       }
     }

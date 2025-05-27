@@ -4,6 +4,15 @@ const { promisify } = require('util');
 const User = require('./../models/userModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
+const axios = require('axios');
+const { scheduleDocumentUpdateTask } = require('../utils/chatBotTimerUpdate');
+
+const whatsappVersion = process.env.WHATSAPP_VERSION;
+const whatsappToken = process.env.WHATSAPP_TOKEN;
+const whatsappPhoneID = process.env.WHATSAPP_PHONE_ID;
+const whatsappPhoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
+const whatsappAccountID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+const productionLink = process.env.PRODUCTION_LINK;
 
 const sendToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -20,8 +29,10 @@ const createSendToken = async (user, statusCode, req, res) => {
     { new: true, runValidators: true }
   );
 
-  // Remove password ,role and deleted from output
+  // Remove password,otp, otp timer ,role and deleted from output
   user.password = undefined;
+  user.otp = undefined;
+  user.otpTimer = undefined;
   // user.role = undefined;
   user.deleted = undefined;
   user.passwordChangedAt = undefined;
@@ -40,16 +51,107 @@ const createSendToken = async (user, statusCode, req, res) => {
   });
 };
 
+const createSendOTP = async (user, res) => {
+  if (!user.phone) {
+    return next(new AppError('No whatsapp number found!', 400));
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000);
+
+  const templateName = 'login_otp';
+  const response = await axios.request({
+    method: 'get',
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappAccountID}/message_templates?name=${templateName}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${whatsappToken}`,
+    },
+  });
+  const template = response.data.data[0];
+  // console.log('template', template);
+
+  const templateComponents = [
+    { type: 'body', parameters: [{ type: 'text', text: otp }] },
+    {
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [
+        {
+          type: 'text',
+          text: otp,
+        },
+      ],
+    },
+  ];
+
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: user.phone,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: template.language,
+      },
+      components: templateComponents,
+    },
+  };
+
+  let sendTemplateResponse;
+  try {
+    sendTemplateResponse = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      },
+      data: JSON.stringify(whatsappPayload),
+    });
+  } catch (err) {
+    console.log(
+      'err ----------------------------------------------------------> ',
+      err
+    );
+  }
+
+  if (sendTemplateResponse) {
+    let otpTimer = new Date();
+    otpTimer.setMinutes(otpTimer.getMinutes() + 2);
+
+    await User.findByIdAndUpdate(
+      user._id,
+      { otp, otpTimer },
+      { new: true, runValidators: true }
+    );
+    res
+      .status(200)
+      .json({ status: 'success', message: 'OTP sent successfully!' });
+  } else {
+    res.status(400).json({ status: 'fial', message: 'OTP error!' });
+  }
+};
+
 exports.signup = catchAsync(async (req, res, next) => {
-  const validateUser = await User.findOne({ email: req.body.email });
-  if (validateUser) {
+  // Checking the same email for existed user
+  if (await User.findOne({ email: req.body.email, deleted: false })) {
     return next(new AppError('This email belongs to another user!', 400));
+  }
+
+  // Checking the same email for deleted user
+  if (await User.findOne({ email: req.body.email, deleted: true })) {
+    return next(
+      new AppError('This email belongs to a suspended account!', 400)
+    );
   }
 
   const newUser = await User.create({
     firstName: req.body.firstName,
     lastName: req.body.lastName,
     email: req.body.email,
+    phone: req.body.phone,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     role: req.body.role,
@@ -67,18 +169,46 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // 2) check if user exists && password is correct
-  const user = await User.findOne({ email }).select('+password +deleted');
+  const user = await User.findOne({ email })
+    .select('+password +deleted')
+    .populate('team', 'name default');
 
-  // 3) check if everything Ok ,send token to client
-  if (
-    !user ||
-    user.deleted ||
-    !(await user.correctPassword(password, user.password))
-  ) {
+  // 3) check if everything Ok ,send otp to client
+  if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect Email or Password!', 400));
   }
 
-  await createSendToken(user, 200, req, res);
+  if (user.deleted === true) {
+    return next(new AppError('Account has been deleted!', 400));
+  }
+
+  await createSendOTP(user, res);
+});
+
+exports.verifyOTP = catchAsync(async (req, res, next) => {
+  const { email, password, otp } = req.body;
+
+  if (!email || !password || !otp) {
+    return next(new AppError('OTP is required!', 400));
+  }
+
+  const user = await User.findOne({ email })
+    .select('+password +deleted +otp +otpTimer')
+    .populate('team', 'name default');
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError('No Account found with that email', 401));
+  }
+
+  if (user.deleted === true) {
+    return next(new AppError('Account has been deleted!', 401));
+  }
+
+  if (user.otp && user.otp === otp && user.otpTimer > Date.now()) {
+    await createSendToken(user, 200, req, res);
+  } else {
+    return next(new AppError('Invalid OTP!', 400));
+  }
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -94,7 +224,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(
       new AppError(
-        'You are not authenticated! Please log in to get access!',
+        'You are not authenticated! Kindly log in to get access.',
         401
       )
     );
@@ -115,18 +245,23 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
+  // 3) check if the account has been deleted
+  if (currentUser.deleted === true) {
+    return next(new AppError('Account has been deleted!', 401));
+  }
+
   // 4) Check if user changed password after token had been issued
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
       new AppError(
-        'User recently changed password! Kindly login again to get access.',
+        'User recently changed password! Kindly log in again to get access.',
         401
       )
     );
   }
 
   // 5) check if it is the same token in db as it is the last login
-  if (currentUser.token && currentUser.token !== token) {
+  if (token !== currentUser.token) {
     return next(new AppError('Invalid token!', 401));
   }
 
@@ -151,14 +286,24 @@ exports.restrictTo = (...roles) => {
   };
 };
 
-exports.updatePassword = catchAsync(async (req, res, next) => {
-  // For me
-  if (req.user.id === '64b01ddcb71752fc73c85619') {
-    return next(new AppError('خليك ف حالك ي معلم!', 400));
-  }
+exports.restrictToTasks = (task) => {
+  return (req, res, next) => {
+    // tasks = ['messages', 'tickets', ...]
+    if (req.user.tasks && !req.user.tasks.includes(task)) {
+      return next(
+        new AppError("You don't have permission to perform this action!", 403)
+      );
+    }
 
+    next();
+  };
+};
+
+exports.updatePassword = catchAsync(async (req, res, next) => {
   // 1) Getting user from collection
-  const currentUser = await User.findById(req.user._id).select('+password');
+  const currentUser = await User.findById(req.user._id)
+    .select('+password')
+    .populate('team', 'name default');
 
   const { currentPassword, newPassword, passwordConfirm } = req.body;
   if (!currentPassword || !newPassword || !passwordConfirm) {
@@ -176,7 +321,12 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
     );
   }
 
-  // 2) Check if current password is correct
+  // 2) check if the account has been deleted
+  if (currentUser.deleted === true) {
+    return next(new AppError('Account has been deleted!', 400));
+  }
+
+  // 3) Check if current password is correct
   const correctPassword = await currentUser.correctPassword(
     req.body.currentPassword,
     currentUser.password
@@ -190,11 +340,11 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
     );
   }
 
-  // 3) If it is ok, update password
+  // 4) If it is ok, update password
   currentUser.password = newPassword;
   currentUser.passwordConfirm = passwordConfirm;
   await currentUser.save();
 
-  // 4) Log user in and send jwt token
+  // 5) Log user in and send jwt token
   await createSendToken(currentUser, 200, req, res);
 });

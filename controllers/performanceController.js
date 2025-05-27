@@ -1,4 +1,4 @@
-const json2xls = require('json2xls');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 
 const Session = require('../models/sessionModel');
@@ -24,91 +24,22 @@ const getMonthName = (date) => {
   return months[date.getMonth()];
 };
 
-exports.getAllSessions = catchAsync(async (req, res, next) => {
-  const userSessions = await Session.find({
-    user: req.user._id,
-    // status: { $ne: 'finished' },
-    end: { $exists: false },
-  });
-  const userSessionsfilters = {
-    all: userSessions.length,
-    onTime: userSessions.filter((session) => session.status === 'onTime')
-      .length,
-    danger: userSessions.filter((session) => session.status === 'danger')
-      .length,
-    tooLate: userSessions.filter((session) => session.status === 'tooLate')
-      .length,
-    open: userSessions.filter((session) => session.status === 'open').length,
-  };
-
-  const teamsIDs = req.params.teamsIDs?.split(',');
-  if (teamsIDs.length === 0) {
-    return next(new AppError('Teams IDs are required!', 400));
-  }
-
-  if (
-    (teamsIDs.length > 1 ||
-      (teamsIDs.length === 1 && !req.user.team.equals(teamsIDs[0]))) &&
-    req.user.role !== 'admin'
-  ) {
-    return next(
-      new AppError("You don't have permission to perform this action!", 403)
-    );
-  }
-  // console.log('teamsIDs', teamsIDs);
-
-  const teamSessions = await Session.find({
-    team: { $in: teamsIDs },
-    // team: req.user.team,
-    // status: { $ne: 'finished' },
-    end: { $exists: false },
-  });
-  const teamSessionsfilters = {
-    all: teamSessions.length,
-    onTime: teamSessions.filter((session) => session.status === 'onTime')
-      .length,
-    danger: teamSessions.filter((session) => session.status === 'danger')
-      .length,
-    tooLate: teamSessions.filter((session) => session.status === 'tooLate')
-      .length,
-    open: teamSessions.filter((session) => session.status === 'open').length,
-  };
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      usersSessions: userSessionsfilters,
-      teamSessions: teamSessionsfilters,
-      // userSessions,
-    },
-  });
-});
-
 exports.getAllPerformance = catchAsync(async (req, res, next) => {
-  let usersIDs = req.query.usersIDs?.split(',');
+  let usersIDs = req.query.selectedUsers?.split(',');
+  let teamsIDs = req.query.selectedTeams?.split(',');
 
-  if (!req.query.usersIDs) {
-    usersIDs = await User.find();
+  if (!req.query.selectedUsers) {
+    if (req.query.selectedTeams) {
+      usersIDs = await User.find({
+        team: { $in: teamsIDs },
+        deleted: false,
+      });
+    } else {
+      usersIDs = await User.find({ bot: false, deleted: false });
+    }
   }
-  // const sessions = await Session.find({
-  //   user: { $in: usersIDs },
-  //   type: 'normal',
-  //   'performance.all': { $gt: 0 },
-  //   status: 'finished',
-  // }).populate('user', 'firstName lastName');
 
-  // const performanceSessions = sessions.map((session) => ({
-  //   _id: session._id,
-  //   user: session.user,
-  //   all: session.performance.all,
-  //   onTime: session.performance.onTime,
-  //   danger: session.performance.danger,
-  //   tooLate: session.performance.tooLate,
-  //   updatedAt: session.updatedAt,
-  //   date: session.updatedAt.getMonth(),
-  //   status: session.status,
-  // }));
-
+  // console.log('usersIDs', usersIDs);
   const startDate = req.query.startDate;
   const endDate = req.query.endDate;
 
@@ -117,6 +48,7 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
     type: 'normal',
     'performance.all': { $gt: 0 },
     status: 'finished',
+    end: { $exists: true },
   };
   if (startDate)
     populateObject.updatedAt = {
@@ -124,22 +56,20 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
       $gt: new Date(startDate),
     };
 
-  if (endDate)
+  if (endDate) {
+    const endDateObj = new Date(endDate);
+    endDateObj.setDate(endDateObj.getDate() + 1);
+
     populateObject.updatedAt = {
       ...populateObject.updatedAt,
-      $lt: new Date(endDate),
+      $lt: endDateObj,
     };
+  }
 
   const performances = await Promise.all(
     usersIDs.map(async (userID) => {
       populateObject.user = userID;
-
-      // const sessions = await Session.find({
-      //   user: userID,
-      //   type: 'normal',
-      //   'performance.all': { $gt: 0 },
-      //   status: 'finished',
-      // }).populate('user', 'firstName lastName');
+      // console.log('populateObject', populateObject);
 
       const sessions = await Session.find(populateObject).populate(
         'user',
@@ -193,14 +123,58 @@ exports.getAllPerformance = catchAsync(async (req, res, next) => {
   );
 
   if (req.query.type === 'download') {
-    // Convert JSON to Excel
-    const xls = json2xls(performances);
+    // Create a new workbook
+    const workbook = new ExcelJS.Workbook();
 
-    // Generate a unique filename
-    const fileName = `data_${Date.now()}.xlsx`;
+    // Add a new sheet to the workbook
+    const worksheet = workbook.addWorksheet('performance');
 
-    // Write the Excel file to disk
-    fs.writeFileSync(fileName, xls, 'binary');
+    // Add header row (keys of JSON objects)
+    const headers = Object.keys(performances[0]);
+    worksheet.addRow(headers);
+
+    // Add data rows
+    performances.forEach((data) => {
+      worksheet.addRow(Object.values(data));
+    });
+
+    // Add columns to the sheet
+    worksheet.columns = [
+      { header: 'User', key: 'user', width: 30 },
+      { header: 'Total Chats', key: 'totalChats', width: 30 },
+      { header: 'On Time', key: 'onTime', width: 30 },
+      { header: 'Danger', key: 'danger', width: 30 },
+      { header: 'Too Late', key: 'tooLate', width: 30 },
+    ];
+
+    // Add auto-filter to all columns
+    worksheet.autoFilter = {
+      from: 'A1',
+      to: `E${performances.length + 1}`, // Adjust based on the number of data rows
+    };
+
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 40;
+    headerRow.font = {
+      name: 'Arial', // Font family
+      size: 12, // Font size
+      bold: true, // Bold text
+    };
+    headerRow.commit();
+
+    // Save the workbook to a file
+    const fileName = `Performance_${Date.now()}.xlsx`;
+    await workbook.xlsx.writeFile(fileName);
 
     // Send the Excel file as a response
     res.download(fileName, () => {

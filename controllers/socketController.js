@@ -7,6 +7,7 @@ const Message = require('../models/messageModel');
 const Session = require('../models/sessionModel');
 const Team = require('../models/teamModel');
 const ChatHistory = require('../models/historyModel');
+const Notification = require('../models/notificationModel');
 
 exports.protectSocket = async (socket, next) => {
   // 1) Getting token and check if it is there
@@ -174,9 +175,29 @@ exports.getAllUserChats = async (user, status) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
-    .populate('lastSession', 'status');
+    .populate('endUser', 'name phone nationalID')
+    .populate('lastSession', 'status secret')
+    .lean();
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   return chats;
 };
@@ -194,20 +215,59 @@ exports.getAllteamChats = async (user, status, teamsIDs) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('contactName', 'name')
-    .populate('lastSession', 'status');
-  // console.log('chats', chats.length);
+    .populate('endUser', 'name phone nationalID')
+    .populate('lastSession', 'status secret')
+    .lean();
 
   chats = chats.filter((chat) => statuses.includes(chat.lastSession?.status));
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   return chats;
 };
 
 exports.getAllTeamUserChats = async (teamUserID) => {
-  const chats = await Chat.find({ currentUser: teamUserID })
+  let chats = await Chat.find({ currentUser: teamUserID })
     .sort('-updatedAt')
     .populate('lastMessage')
-    .populate('lastSession', 'status')
-    .populate('contactName', 'name');
+    .populate('lastSession', 'status secret')
+    .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
+    .lean();
+
+  chats = chats.map((chat) => {
+    if (chat.lastMessage?.secret === true) {
+      return {
+        ...chat,
+        lastMessage: {
+          _id: chat.lastMessage._id,
+          status: chat.lastMessage.status,
+          received: chat.lastMessage.received,
+          sent: chat.lastMessage.sent,
+          delivered: chat.lastMessage.delivered,
+          read: chat.lastMessage.read,
+        },
+      };
+    } else {
+      return chat;
+    }
+  });
 
   return chats;
 };
@@ -224,20 +284,45 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     };
 
     if (startDate) sessionFilterObj.end = { $gt: new Date(startDate) };
-    if (endDate)
+
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      endDateObj.setDate(endDateObj.getDate() + 1);
+
       sessionFilterObj.end = {
         ...sessionFilterObj.end,
-        $lt: new Date(endDate),
+        $lt: endDateObj,
       };
+    }
 
     const sessions = await Session.find(sessionFilterObj);
     const chatsIDs = sessions.map((session) => session.chat);
     chats = await Chat.find({ _id: { $in: chatsIDs } })
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
-      .limit(page * 10);
+      .populate('endUser', 'name phone nationalID')
+      .limit(page * 10)
+      .lean();
+
+    chats = chats.map((chat) => {
+      if (chat.lastMessage?.secret === true) {
+        return {
+          ...chat,
+          lastMessage: {
+            _id: chat.lastMessage._id,
+            status: chat.lastMessage.status,
+            received: chat.lastMessage.received,
+            sent: chat.lastMessage.sent,
+            delivered: chat.lastMessage.delivered,
+            read: chat.lastMessage.read,
+          },
+        };
+      } else {
+        return chat;
+      }
+    });
 
     totalResults = await Chat.count({ _id: { $in: chatsIDs } });
     totalPages = Math.ceil(totalResults / 10);
@@ -245,18 +330,43 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
     const chatFilterObj = { status: 'archived' };
 
     if (startDate) chatFilterObj.updatedAt = { $gt: new Date(startDate) };
-    if (endDate)
+
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      endDateObj.setDate(endDateObj.getDate() + 1);
+
       chatFilterObj.updatedAt = {
         ...chatFilterObj.updatedAt,
-        $lt: new Date(endDate),
+        $lt: endDateObj,
       };
+    }
 
     chats = await Chat.find(chatFilterObj)
       .sort('-updatedAt')
       .populate('lastMessage')
-      .populate('lastSession', 'status')
+      .populate('lastSession', 'status secret')
       .populate('contactName', 'name')
-      .limit(page * 10);
+      .populate('endUser', 'name phone nationalID')
+      .limit(page * 10)
+      .lean();
+
+    chats = chats.map((chat) => {
+      if (chat.lastMessage?.secret === true) {
+        return {
+          ...chat,
+          lastMessage: {
+            _id: chat.lastMessage._id,
+            status: chat.lastMessage.status,
+            received: chat.lastMessage.received,
+            sent: chat.lastMessage.sent,
+            delivered: chat.lastMessage.delivered,
+            read: chat.lastMessage.read,
+          },
+        };
+      } else {
+        return chat;
+      }
+    });
 
     totalResults = await Chat.count(chatFilterObj);
     totalPages = Math.ceil(totalResults / 10);
@@ -266,38 +376,80 @@ exports.getAllArchivedChats = async (userID, startDate, endDate, chatPage) => {
   return { totalResults, totalPages, chats };
 };
 
-exports.getAllChatMessages = async (chatNumber, chatPage) => {
-  const chat = await Chat.findOne({ client: chatNumber }).populate(
-    'contactName',
-    'name'
-  );
+exports.getAllChatMessages = async (user, chatID, chatPage) => {
+  const chat = await Chat.findById(chatID)
+    .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
+    .populate('lastSession', 'status secret');
 
   const page = chatPage || 1;
 
-  const messages = await Message.find({ chat: chat._id })
-    .sort('-createdAt')
-    .populate('user', 'firstName lastName photo')
-    .populate('reply')
-    .populate({
-      path: 'userReaction.user',
-      select: 'firstName lastName photo',
-    })
-    .limit(page * 20);
+  let messages = [];
+  let histories = [];
+  let historyMessages = [];
+  let lastSession;
 
-  const histories = await ChatHistory.find({ chat: chat._id })
-    .populate('user', 'firstName lastName')
-    .populate('transfer.from', 'firstName lastName')
-    .populate('transfer.to', 'firstName lastName')
-    .populate('transfer.fromTeam', 'name')
-    .populate('transfer.toTeam', 'name')
-    .populate('takeOwnership.from', 'firstName lastName')
-    .populate('takeOwnership.to', 'firstName lastName')
-    .populate('start', 'firstName lastName')
-    .populate('archive', 'firstName lastName');
+  const messageFilteredBody = { chat: chat ? chat._id : '' };
+  if (chat) {
+    if (!user.secret) {
+      messageFilteredBody.$or = [
+        { secret: false },
+        { secret: { $exists: false } },
+      ];
+    }
 
-  let historyMessages = [...messages, ...histories].sort(
-    (a, b) => a.createdAt - b.createdAt
-  );
+    messages = await Message.find(messageFilteredBody)
+      .sort('-createdAt')
+      .populate('user', 'firstName lastName photo')
+      .populate({
+        path: 'reply',
+        populate: {
+          path: 'user',
+          select: { firstName: 1, lastName: 1, photo: 1 },
+        },
+      })
+      .populate({
+        path: 'userReaction.user',
+        select: 'firstName lastName photo',
+      })
+      .populate({
+        path: 'session',
+        select: 'team',
+        populate: { path: 'team', select: 'name' },
+      })
+      .limit(page * 20)
+      .lean();
+
+    // Revome secret reply
+    messages = messages.map((message) => {
+      if (
+        !message.reply ||
+        (message.reply && message.reply.secret !== true) ||
+        (message.reply && message.reply.secret === true && user.secret === true)
+      ) {
+        return message;
+      } else {
+        return { ...message, reply: undefined };
+      }
+    });
+
+    histories = await ChatHistory.find({ chat: chat._id })
+      .populate('user', 'firstName lastName')
+      .populate('transfer.from', 'firstName lastName')
+      .populate('transfer.to', 'firstName lastName')
+      .populate('transfer.fromTeam', 'name')
+      .populate('transfer.toTeam', 'name')
+      .populate('takeOwnership.from', 'firstName lastName')
+      .populate('takeOwnership.to', 'firstName lastName')
+      .populate('start', 'firstName lastName')
+      .populate('archive', 'firstName lastName');
+
+    historyMessages = [...messages, ...histories].sort(
+      (a, b) => a.createdAt - b.createdAt
+    );
+
+    lastSession = chat.lastSession;
+  }
 
   let historyMessagesCopy = [...historyMessages];
 
@@ -315,25 +467,91 @@ exports.getAllChatMessages = async (chatNumber, chatPage) => {
     }
   }
 
-  const totalResults = await Message.count({ chat: chat._id });
+  const totalResults = chat ? await Message.count(messageFilteredBody) : 0;
   const totalPages = Math.ceil(totalResults / 20);
 
-  const chatSession = chat.session;
-  const chatStatus = chat.status;
-  const contactName = chat.contactName;
+  const chatSession = chat ? chat.session : null;
+  const chatStatus = chat ? chat.status : null;
+  const contactName = chat ? chat.contactName : null;
+  const endUser = chat && chat.endUser ? chat.endUser : null;
   // const currentUser = chat.currentUser;
-  const currentUser = { _id: chat.currentUser, teamID: chat.team };
-  const notification = chat.notification;
+  const currentUser = chat
+    ? { _id: chat.currentUser, teamID: chat.team }
+    : null;
+  const notification = chat ? chat.notification : false;
 
   return {
     totalPages,
     totalResults,
     // messages: messages.reverse(),
-    messages: historyMessages,
+    messages: historyMessages.reverse(),
     chatSession,
     chatStatus,
     contactName,
+    endUser,
     currentUser,
     notification,
+    lastSession,
   };
+};
+
+exports.getTabsStatuses = async (tabs) => {
+  const tabsStatus = await Promise.all(
+    tabs.map(async (tab) => {
+      let chat = await Chat.findById(tab)
+        .populate('lastMessage')
+        .populate('contactName', 'name')
+        .populate('endUser', 'name phone nationalID')
+        .populate('lastSession', 'status secret')
+        .lean();
+
+      if (chat && chat.lastMessage?.secret === true) {
+        chat = {
+          ...chat,
+          lastMessage: {
+            _id: chat.lastMessage._id,
+            status: chat.lastMessage.status,
+            received: chat.lastMessage.received,
+            sent: chat.lastMessage.sent,
+            delivered: chat.lastMessage.delivered,
+            read: chat.lastMessage.read,
+          },
+        };
+      }
+
+      return { tab, chat: chat || { client: tab } };
+    })
+  );
+
+  return tabsStatus;
+};
+
+exports.getAllUserNotifications = async (user, notificationPage) => {
+  const page = notificationPage * 1 || 1;
+
+  const notifications = await Notification.find({ user: user._id })
+    .sort('-sortingDate')
+    .populate('ticket', 'order')
+    .populate('chat', 'client')
+    .limit(page * 10);
+
+  const newNotifications = await Notification.count({
+    user: user._id,
+    read: false,
+  });
+
+  const totalResults = await Notification.count({ user: user._id });
+
+  const totalPages = Math.ceil(totalResults / 10);
+
+  return { totalResults, totalPages, page, newNotifications, notifications };
+};
+
+exports.getAllUserNotificationsNumbers = async (user) => {
+  const newNotifications = await Notification.count({
+    user: user._id,
+    read: false,
+  });
+
+  return newNotifications;
 };

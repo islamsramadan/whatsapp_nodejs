@@ -16,7 +16,7 @@ const catchAsync = require('../utils/catchAsync');
 // });
 
 exports.getAllChatNotes = catchAsync(async (req, res, next) => {
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
   if (!chat) {
     return next(new AppError('No chat found with that number!', 404));
   }
@@ -52,7 +52,7 @@ exports.getNote = catchAsync(async (req, res, next) => {
 });
 
 exports.createNote = catchAsync(async (req, res, next) => {
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
   if (!chat) {
     return next(new AppError('No chat found with that number!', 404));
   }
@@ -61,6 +61,8 @@ exports.createNote = catchAsync(async (req, res, next) => {
     chat: chat._id,
     creator: req.user._id,
     body: req.body.body,
+    tag: req.body.tag,
+    title: req.body.title,
   });
 
   res.status(201).json({

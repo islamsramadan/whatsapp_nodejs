@@ -56,7 +56,31 @@ const teamSchema = new mongoose.Schema(
       required: [true, 'Team conversation is required!'],
     },
 
+    ticketRequests: [
+      {
+        type: String,
+        enum: [
+          'RD0',
+          'Edit RD0',
+          'Missing Data',
+          'Design Review',
+          'RD6',
+          'RD7',
+          'Finance',
+          'Inspection',
+          'MALATH Issue',
+          'MALATH Complaint',
+          'Other',
+        ],
+      },
+    ],
+
     default: {
+      type: Boolean,
+      default: false,
+    },
+
+    qc: {
       type: Boolean,
       default: false,
     },

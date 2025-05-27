@@ -1,5 +1,9 @@
 const fs = require('fs');
 const axios = require('axios');
+const mongoose = require('mongoose');
+const { Mutex } = require('async-mutex'); // This will prevent multiple concurrent requests from creating multiple chats & concats.
+const chatCreationMutex = new Mutex();
+const contactCreationMutex = new Mutex();
 
 const Message = require('./../models/messageModel');
 const Chat = require('./../models/chatModel');
@@ -10,14 +14,15 @@ const AppError = require('../utils/appError');
 const Team = require('../models/teamModel');
 const Session = require('../models/sessionModel');
 const Service = require('../models/serviceModel');
-const messageController = require('./messageController');
 const interactiveMessages = require('../utils/interactiveMessages');
 
 const sessionTimerUpdate = require('../utils/sessionTimerUpdate');
 const chatBotTimerUpdate = require('../utils/chatBotTimerUpdate');
-const checkInsideServiceHours = require('../utils/checkInsideServiceHours');
+// const serviceHoursUtils.checkInsideServiceHours = require('../utils/serviceHoursUtils');
+const serviceHoursUtils = require('../utils/serviceHoursUtils');
 const Contact = require('../models/contactModel');
 const ChatHistory = require('../models/historyModel');
+const Notification = require('../models/notificationModel');
 
 const responseDangerTime = process.env.RESPONSE_DANGER_TIME;
 
@@ -226,72 +231,6 @@ const receiveMessageHandler = async (req, res, next) => {
   const contactName =
     req.body.entry[0].changes[0].value.contacts[0].profile.name;
 
-  const chat = await Chat.findOne({ client: from });
-  // console.log('chat', chat);
-
-  let newChat;
-  if (!chat) {
-    const botTeam = await Team.findOne({ bot: true });
-
-    newChat = await Chat.create({
-      client: from,
-      team: botTeam._id,
-      currentUser: botTeam.supervisor,
-    });
-  }
-
-  const selectedChat = chat || newChat;
-  const session = await Session.findById(selectedChat.lastSession);
-
-  const newMessageChecker = async (selectedMessage) => {
-    const messagesWithSameID = await Message.find({
-      whatsappID: selectedMessage.id,
-    });
-    if (messagesWithSameID.length === 0) {
-      return true;
-    } else {
-      return false;
-    }
-  };
-
-  const newMessageNotRepeated = await newMessageChecker(selectedMessage);
-  // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
-
-  if (!newMessageNotRepeated) {
-    return res.status(200).json({ message: 'Message not found!' });
-  } // to avoid create new session and make error
-
-  let newSession;
-  if (!session) {
-    const botTeam = await Team.findOne({ bot: true });
-
-    newSession = await Session.create({
-      chat: selectedChat._id,
-      user: botTeam.supervisor,
-      team: botTeam._id,
-      status: 'onTime',
-      type: 'bot',
-    });
-
-    // console.log('newSession 256 =============', newSession);
-
-    selectedChat.lastSession = newSession._id;
-    selectedChat.team = botTeam._id;
-    selectedChat.currentUser = botTeam.supervisor;
-    await selectedChat.save();
-
-    // =======> Adding the selected chat to the bot user chats
-    const botUser = await User.findById(botTeam.supervisor);
-    if (!botUser.chats.includes(selectedChat._id)) {
-      await User.findByIdAndUpdate(
-        botUser._id,
-        { $push: { chats: selectedChat._id } },
-        { new: true, runValidators: true }
-      );
-    }
-  }
-  const selectedSession = session || newSession;
-
   if (msgType === 'reaction') {
     const reactionEmoji =
       req.body.entry[0].changes[0].value.messages[0].reaction?.emoji;
@@ -313,12 +252,124 @@ const receiveMessageHandler = async (req, res, next) => {
     await reactedMessage.save();
 
     //updating event in socket io
-    req.app.io.emit('updating');
+    req.app.io.emit('updating', { chatID: reactedMessage.chat });
 
     res.status(200).json({ reactedMessage });
 
     // other messages types
   } else {
+    async function createOrGetChat(from) {
+      try {
+        return chatCreationMutex.runExclusive(async () => {
+          let selectedChat = await Chat.findOne({ client: from });
+
+          if (!selectedChat) {
+            const botTeam = await Team.findOne({ bot: true });
+
+            selectedChat = await Chat.create({
+              client: from,
+              team: botTeam._id,
+              currentUser: botTeam.supervisor,
+              status: 'open',
+            });
+          }
+
+          return selectedChat;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
+      }
+    }
+
+    const selectedChat = await createOrGetChat(from);
+
+    const newMessageChecker = async (selectedMessage) => {
+      const messagesWithSameID = await Message.find({
+        whatsappID: selectedMessage.id,
+      });
+      if (messagesWithSameID.length === 0) {
+        return true;
+      } else {
+        return false;
+      }
+    };
+
+    const newMessageNotRepeated = await newMessageChecker(selectedMessage);
+    // console.log('newMessageNotRepeated =======', newMessageNotRepeated);
+
+    if (!newMessageNotRepeated) {
+      return res.status(200).json({ message: 'Message not found!' });
+    } // to avoid create new session and make error
+
+    // ------------------------> Selecting Session
+    const session = await Session.findById(selectedChat.lastSession);
+    let selectedSession = session;
+
+    if (!session) {
+      async function ensureSessionForChat(selectedChat) {
+        const maxRetries = 3; // Set a maximum number of retries
+        let attempts = 0;
+
+        while (attempts < maxRetries) {
+          const transactionSession = await mongoose.startSession(); // Start a transaction transactionSession
+          try {
+            transactionSession.startTransaction();
+
+            const chat = await Chat.findById(selectedChat._id).session(
+              transactionSession
+            );
+
+            if (!chat.lastSession) {
+              const botTeam = await Team.findOne({ bot: true }).session(
+                transactionSession
+              );
+
+              const newSession = await Session.create(
+                [
+                  {
+                    chat: chat._id,
+                    user: botTeam.supervisor,
+                    team: botTeam._id,
+                    status: 'onTime',
+                    type: 'bot',
+                  },
+                ],
+                { session: transactionSession }
+              );
+
+              chat.lastSession = newSession[0]._id;
+              chat.currentUser = botTeam.supervisor;
+              chat.team = botTeam._id;
+              chat.status = 'open';
+              await chat.save({ session: transactionSession });
+
+              await transactionSession.commitTransaction(); // Commit the transaction
+              transactionSession.endSession();
+              console.log('New session created:', newSession[0]._id);
+              return newSession[0];
+            } else {
+              await transactionSession.abortTransaction();
+              transactionSession.endSession();
+              console.log('Using existing session:', chat.lastSession);
+              return await Session.findById(chat.lastSession);
+            }
+          } catch (error) {
+            // console.log('error *************************** ', error);
+            attempts++;
+            await transactionSession.abortTransaction();
+            transactionSession.endSession();
+
+            if (attempts >= maxRetries) {
+              throw error; // If max retries exceeded, throw the error
+            }
+          }
+        }
+      }
+
+      selectedSession = await ensureSessionForChat(selectedChat);
+    }
+
     const newMessageData = {
       chat: selectedChat._id,
       session: selectedSession._id,
@@ -329,13 +380,19 @@ const receiveMessageHandler = async (req, res, next) => {
       received: convertDate(selectedMessage.timestamp),
     };
 
+    if (selectedSession.secret === true) {
+      newMessageData.secret = true;
+    }
+
     // Message Reply
     if (selectedMessage.context && selectedMessage.context.id) {
       const replyMessage = await Message.findOne({
         whatsappID: selectedMessage.context.id,
       });
 
-      newMessageData.reply = replyMessage.id;
+      if (replyMessage) {
+        newMessageData.reply = replyMessage.id;
+      }
     }
 
     // Message Forward
@@ -371,6 +428,14 @@ const receiveMessageHandler = async (req, res, next) => {
       newMessageData.contacts = contacts;
     }
 
+    if (msgType === 'button') {
+      const msgBody = req.body.entry[0].changes[0].value.messages[0].button;
+      newMessageData.button = {
+        payload: msgBody.payload,
+        text: msgBody.text,
+      };
+    }
+
     if (
       msgType === 'image' ||
       msgType === 'video' ||
@@ -389,27 +454,96 @@ const receiveMessageHandler = async (req, res, next) => {
 
     const newMessage = await Message.create(newMessageData);
 
-    // **************** Fetching name from RD app ***************************
-    let contact;
-    if (!selectedChat.contactName) {
-      const contactResponse = await RDAppHandler({
-        Action: '6', // action:6 to fetch client name
-        Phone: selectedChat.client,
+    // ========================> New Messages Notifications
+    if (selectedSession.type === 'normal') {
+      const previousNotification = await Notification.findOne({
+        user: selectedSession.user,
+        chat: selectedChat._id,
+        event: 'newMessages',
+        session: selectedSession._id,
       });
-      // // console.log('contactResponse', contactResponse.data.name);
+      if (previousNotification) {
+        const updatedNotification = await Notification.findByIdAndUpdate(
+          previousNotification._id,
+          { $inc: { numbers: 1 }, read: false, sortingDate: Date.now() },
+          { new: true, runValidators: true }
+        );
 
-      let contactData = {
-        number: selectedChat.client,
-        whatsappName: contactName,
-        name: contactName,
-      };
+        console.log('updatedNotification -------------', updatedNotification);
+      } else {
+        const newMessagesNotificationData = {
+          type: 'messages',
+          user: selectedSession.user,
+          chat: selectedChat._id,
+          session: selectedSession._id,
+          event: 'newMessages',
+        };
 
-      if (contactResponse && contactResponse.name) {
-        contactData.externalName = contactResponse.name;
-        contactData.name = contactResponse.name;
+        const newMessagesNotification = await Notification.create(
+          newMessagesNotificationData
+        );
+
+        console.log(
+          'newMessagesNotification ============================= >',
+          newMessagesNotification
+        );
       }
-      contact = await Contact.create(contactData);
+
+      // updating notifications event in socket io
+      if (req.app.connectedUsers[selectedSession.user]) {
+        req.app.connectedUsers[selectedSession.user].emit(
+          'updatingNotifications'
+        );
+      }
     }
+
+    // **************** Fetching name from RD app ***************************
+
+    async function createOrGetContact() {
+      try {
+        return contactCreationMutex.runExclusive(async () => {
+          let contact = await Contact.findOne({ number: selectedChat.client });
+
+          if (!contact) {
+            const contactResponse = await RDAppHandler({
+              Action: '6', // action:6 to fetch client name
+              Phone: selectedChat.client,
+            });
+            // console.log(
+            //   'contactResponse ==================================================================',
+            //   contactResponse
+            // );
+
+            let contactData = {
+              number: selectedChat.client,
+              whatsappName: contactName,
+              name: contactName,
+            };
+
+            if (contactResponse && contactResponse.name) {
+              contactData.externalName = contactResponse.name;
+              contactData.name = contactResponse.name;
+            }
+            contact = await Contact.create(contactData);
+          }
+
+          selectedChat.contactName = contact;
+          await selectedChat.save();
+
+          return contact;
+        });
+      } catch (error) {
+        console.error('Error in createOrGetChat:', error);
+        throw error; // Re-throw the error after logging it
+      }
+    }
+
+    const contact = await createOrGetContact();
+
+    // // ================> updating session bot reply
+    // if (selectedSession.botReply && selectedSession.botReply !== 'proceeding') {
+    //   selectedSession.botReply = 'normal';
+    // }
 
     // ================> updating session performance
     selectedSession.performance.all += 1;
@@ -428,20 +562,31 @@ const receiveMessageHandler = async (req, res, next) => {
     }
     await selectedChat.save();
 
+    // ***************** Adjusting session & message timer ******************
+    const team = await Team.findById(selectedSession.team);
+    const teamServiceHours = await Service.findById(team.serviceHours);
+    let timer = new Date();
+
+    if (
+      !serviceHoursUtils.checkInsideServiceHours(teamServiceHours.durations)
+    ) {
+      timer = serviceHoursUtils.getTheNextServiceHours(
+        teamServiceHours.durations
+      );
+    }
+
+    let delay = {
+      hours: teamServiceHours.responseTime.hours,
+      minutes: teamServiceHours.responseTime.minutes,
+    };
+
+    timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
+    timer.setHours(timer.getHours() + delay.hours * 1);
+
+    // console.log('timer  checking 453 ==========', timer);
+
     // ***************** Updating session status ******************
     if (!['onTime', 'danger', 'tooLate'].includes(selectedSession.status)) {
-      const team = await Team.findById(selectedSession.team);
-      const serviceHours = await Service.findById(team.serviceHours);
-
-      let delay = {
-        hours: serviceHours.responseTime.hours,
-        minutes: serviceHours.responseTime.minutes,
-      };
-
-      let timer = new Date();
-      timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
-      timer.setHours(timer.getHours() + delay.hours * 1);
-
       selectedSession.timer = timer;
       selectedSession.status = 'onTime';
       await selectedSession.save();
@@ -455,32 +600,20 @@ const receiveMessageHandler = async (req, res, next) => {
       await sessionTimerUpdate.scheduleDocumentUpdateTask(
         sessions,
         req,
-        //from config.env
-        responseDangerTime
+        responseDangerTime, //from config.env
+        teamServiceHours.responseTime
       );
     }
 
     // ***************** Updating session Performance ******************
-    const team = await Team.findById(selectedSession.team);
-    const serviceHours = await Service.findById(team.serviceHours);
-
-    let delay = {
-      hours: serviceHours.responseTime.hours,
-      minutes: serviceHours.responseTime.minutes,
-    };
-
-    let timer = new Date();
-    timer.setMinutes(timer.getMinutes() + delay.minutes * 1);
-    timer.setHours(timer.getHours() + delay.hours * 1);
-
     newMessage.timer = timer;
     await newMessage.save();
 
     await sessionTimerUpdate.schedulePerformance(
       req,
       newMessage,
-      //from config.env
-      responseDangerTime
+      responseDangerTime, //from config.env
+      teamServiceHours.responseTime
     );
 
     // *************************************************************************
@@ -502,8 +635,22 @@ const receiveMessageHandler = async (req, res, next) => {
       );
     }
 
+    // *************************************************************************
+    // ************************* Feedback Handlers *****************************
+    if (selectedSession.type === 'feedback') {
+      await feedbackHandler(
+        req,
+        from,
+        selectedMessage,
+        selectedChat,
+        selectedSession,
+        session,
+        msgType
+      );
+    }
+
     //updating event in socket io
-    req.app.io.emit('updating');
+    req.app.io.emit('updating', { chatID: selectedChat._id });
 
     res.status(200).json({ newMessage });
   }
@@ -512,6 +659,7 @@ const receiveMessageHandler = async (req, res, next) => {
 const updateMessageStatusHandler = async (req, res, next) => {
   const msgStatus = req.body.entry[0].changes[0].value.statuses[0];
   const msgWhatsappID = req.body.entry[0].changes[0].value.statuses[0].id;
+
   const msgToUpdate = await Message.findOne({
     whatsappID: msgWhatsappID,
   });
@@ -526,7 +674,7 @@ const updateMessageStatusHandler = async (req, res, next) => {
   await msgToUpdate.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: msgToUpdate.chat });
 
   res.status(200).json({ msgToUpdate });
 };
@@ -538,12 +686,16 @@ const sendMessageHandler = async (
   selectedSession
 ) => {
   const newMessageObj = {
-    user: selectedChat.currentUser,
+    user: selectedSession.user,
     chat: selectedChat._id,
     session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: msgToBeSent.type,
   };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
 
   const whatsappPayload = {
     messaging_product: 'whatsapp',
@@ -591,28 +743,30 @@ const sendMessageHandler = async (
     console.log('err', err);
   }
 
-  // console.log('response.data----------------', response.data);
-  const newMessage = await Message.create({
-    ...newMessageObj,
-    whatsappID: response.data.messages[0].id,
-  });
+  if (response) {
+    // console.log('response.data----------------', response.data);
+    const newMessage = await Message.create({
+      ...newMessageObj,
+      whatsappID: response.data.messages[0].id,
+    });
 
-  // Adding the sent message as last message in the chat and update chat status
-  selectedChat.lastMessage = newMessage._id;
-  selectedChat.status = 'open';
-  // updating chat notification to false
-  selectedChat.notification = false;
-  await selectedChat.save();
+    // Adding the sent message as last message in the chat and update chat status
+    selectedChat.lastMessage = newMessage._id;
+    selectedChat.status = 'open';
+    // updating chat notification to false
+    selectedChat.notification = false;
+    await selectedChat.save();
 
-  // Updating session to new status ((open))
-  selectedSession.status = 'open';
-  selectedSession.timer = undefined;
-  if (selectedSession.type === 'bot')
-    selectedSession.lastBotMessage = newMessage._id;
-  await selectedSession.save();
+    // Updating session to new status ((open))
+    selectedSession.status = 'open';
+    selectedSession.timer = undefined;
+    if (selectedSession.type === 'bot' || selectedSession.type === 'feedback')
+      selectedSession.lastBotMessage = newMessage._id;
+    await selectedSession.save();
 
-  //updating event in socket io
-  req.app.io.emit('updating');
+    //updating event in socket io
+    req.app.io.emit('updating', { chatID: selectedChat._id });
+  }
 };
 
 const checkInteractiveHandler = async (
@@ -860,6 +1014,60 @@ const checkInteractiveHandler = async (
       type: 'text',
       text: 'شكرا لتواصلكم مع شركة CPV العربية \n نأمل أن تحوز خدماتنا على رضاكم',
     };
+  } else if (['1', '2', '3', '4', '5'].includes(option.id)) {
+    const interactiveFeedback = interactiveMessages.filter((item) => {
+      return item.id === 'feedback_2';
+    });
+
+    const interactive = { ...interactiveFeedback[0] };
+
+    delete interactive.id;
+
+    replyMessage = {
+      type: 'interactive',
+      interactive,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      selectedSession.feedback = [{ text: option.title, value: option.id }];
+      await selectedSession.save();
+    }
+  } else if (['6', '7', '8', '9', '10'].includes(option.id)) {
+    const interactiveFeedback = interactiveMessages.filter((item) => {
+      return item.id === 'feedback_3';
+    });
+
+    const interactive = { ...interactiveFeedback[0] };
+
+    delete interactive.id;
+
+    replyMessage = {
+      type: 'interactive',
+      interactive,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      await Session.findByIdAndUpdate(
+        selectedSession._id,
+        { $push: { feedback: { text: option.title, value: option.id } } },
+        { new: true, runValidators: true }
+      );
+    }
+  } else if (['11', '12', '13', '14', '15'].includes(option.id)) {
+    replyMessage = {
+      type: 'text',
+      text: `شكرا لتعاونكم! 
+
+      ملاحظاتكم تساهم في تحسين خدماتنا ..`,
+    };
+
+    if (selectedSession.type === 'feedback') {
+      await Session.findByIdAndUpdate(
+        selectedSession._id,
+        { $push: { feedback: { text: option.title, value: option.id } } },
+        { new: true, runValidators: true }
+      );
+    }
   }
   // else {
   //   replyMessage.type = 'text';
@@ -880,79 +1088,171 @@ const chatBotHandler = async (
 ) => {
   // ******************* All cases if it is a bot session **************
 
+  // ---------> checkingSession for checking for refRequired
+  const checkingChat = await Chat.findById(selectedChat._id);
+  const checkingSession = await Session.findById(checkingChat.lastSession);
+
+  // ================> updating session bot reply
+  if (checkingSession.botReply && checkingSession.botReply !== 'proceeding') {
+    checkingSession.botReply = 'normal';
+
+    await checkingSession.save();
+  }
+
   // ******************* Startng chat bot **************
   if (!session) {
-    // =======> Create chat history session
-    const chatHistoryData = {
-      chat: selectedChat._id,
-      user: selectedSession.user,
-      actionType: 'botReceive',
-    };
-    await ChatHistory.create(chatHistoryData);
+    if (!checkingSession.botReply) {
+      checkingSession.botReply = 'welcome';
+      await checkingSession.save();
 
-    // =======> Send bot welcome message
-    const interactiveObj = interactiveMessages.filter(
-      (message) => message.id === 'CPV'
-    )[0]; // from test data
-    const interactive = { ...interactiveObj };
-    delete interactive.id;
+      // =======> Send bot welcome message
+      const interactiveObj = interactiveMessages.filter(
+        (message) => message.id === 'CPV'
+      )[0]; // from test data
+      const interactive = { ...interactiveObj };
+      delete interactive.id;
 
-    const msgToBeSent = { type: 'interactive', interactive };
+      const msgToBeSent = { type: 'interactive', interactive };
 
-    await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
-  } else if (selectedSession.refRequired) {
-    // ************* Checking interactive reply message type **************
-    if (msgType === 'text') {
-      const textWaitingMsg = {
-        type: 'text',
-        text: 'برجاء الانتظار',
+      await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+      // =======> Create chat history session
+      const chatHistoryData = {
+        chat: selectedChat._id,
+        user: selectedSession.user,
+        actionType: 'botReceive',
       };
-      await sendMessageHandler(
-        req,
-        textWaitingMsg,
-        selectedChat,
-        selectedSession
+      await ChatHistory.create(chatHistoryData);
+    } else {
+      console.log(
+        '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
       );
+    }
+  } else if (checkingSession.refRequired) {
+    const checkingChat = await Chat.findById(selectedChat._id);
+    const checkingSession = await Session.findById(selectedChat.lastSession);
 
-      const msgBody = req.body.entry[0].changes[0].value.messages[0].text.body;
+    if (checkingSession.botReply === 'normal') {
+      checkingSession.botReply = 'proceeding';
+      await checkingSession.save();
 
-      // *** API from RD app ***
-      const refResult = await RDAppHandler({
-        Action: '1',
-        Phone: from,
-        ReferenceNo: msgBody,
-      });
+      // ************* Checking interactive reply message type **************
+      if (msgType === 'text') {
+        const msgBody =
+          req.body.entry[0].changes[0].value.messages[0].text.body;
+        const refRegex = /^\d{1,6}$/;
 
-      //===========> valid reference no
-      if (refResult.Result) {
-        selectedSession.referenceNo = msgBody;
+        if (refRegex.test(msgBody)) {
+          const textWaitingMsg = {
+            type: 'text',
+            text: 'برجاء الانتظار',
+          };
+          await sendMessageHandler(
+            req,
+            textWaitingMsg,
+            selectedChat,
+            selectedSession
+          );
+
+          const validatedMsgBody = msgBody
+            .split('')
+            .filter((letter) => !isNaN(letter))
+            .join('');
+
+          // *** API from RD app ***
+          const refResult = await RDAppHandler({
+            Action: '1',
+            Phone: from,
+            ReferenceNo: validatedMsgBody,
+          });
+
+          //===========> valid reference no
+          if (refResult.Result) {
+            selectedSession.referenceNo = msgBody;
+            selectedSession.refRequired = false;
+            await selectedSession.save();
+
+            const interactiveMsgObj = interactiveMessages.filter(
+              (item) => item.id === 'inspection'
+            )[0];
+            const interactiveMsg = { ...interactiveMsgObj };
+            delete interactiveMsg.id;
+            const interactiveReplyMsg = {
+              type: 'interactive',
+              interactive: interactiveMsg,
+            };
+
+            await sendMessageHandler(
+              req,
+              interactiveReplyMsg,
+              selectedChat,
+              selectedSession
+            );
+
+            //===========> invalid reference no
+          } else {
+            selectedSession.refRequired = false;
+            await selectedSession.save();
+
+            const interactiveMsgObj = interactiveMessages.filter(
+              (item) => item.id === 'ref_error'
+            )[0];
+            const interactiveMsg = { ...interactiveMsgObj };
+            delete interactiveMsg.id;
+            const interactiveReplyMsg = {
+              type: 'interactive',
+              interactive: interactiveMsg,
+            };
+
+            await sendMessageHandler(
+              req,
+              interactiveReplyMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
+        } else {
+          selectedSession.refRequired = false;
+          await selectedSession.save();
+
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'ref_error'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
+          );
+        }
+      } else {
+        // ******** Checking for reference no. reply
         selectedSession.refRequired = false;
+        selectedSession.referenceNo = undefined;
         await selectedSession.save();
 
-        const interactiveMsgObj = interactiveMessages.filter(
-          (item) => item.id === 'inspection'
-        )[0];
-        const interactiveMsg = { ...interactiveMsgObj };
-        delete interactiveMsg.id;
-        const interactiveReplyMsg = {
-          type: 'interactive',
-          interactive: interactiveMsg,
+        //===========> Sending error text message
+        const textErrorMsg = {
+          type: 'text',
+          text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
         };
-
         await sendMessageHandler(
           req,
-          interactiveReplyMsg,
+          textErrorMsg,
           selectedChat,
           selectedSession
         );
 
-        //===========> invalid reference no
-      } else {
-        selectedSession.refRequired = false;
-        await selectedSession.save();
-
+        //===========> Sending error interactive message
         const interactiveMsgObj = interactiveMessages.filter(
-          (item) => item.id === 'ref_error'
+          (item) => item.id === 'error'
         )[0];
         const interactiveMsg = { ...interactiveMsgObj };
         delete interactiveMsg.id;
@@ -968,312 +1268,364 @@ const chatBotHandler = async (
           selectedSession
         );
       }
-    } else {
-      // ******** Checking for reference no. reply
-      selectedSession.refRequired = false;
-      selectedSession.referenceNo = undefined;
-      await selectedSession.save();
 
-      //===========> Sending error text message
-      const textErrorMsg = {
-        type: 'text',
-        text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
-      };
-      await sendMessageHandler(
-        req,
-        textErrorMsg,
-        selectedChat,
-        selectedSession
-      );
-
-      //===========> Sending error interactive message
-      const interactiveMsgObj = interactiveMessages.filter(
-        (item) => item.id === 'error'
-      )[0];
-      const interactiveMsg = { ...interactiveMsgObj };
-      delete interactiveMsg.id;
-      const interactiveReplyMsg = {
-        type: 'interactive',
-        interactive: interactiveMsg,
-      };
-
-      await sendMessageHandler(
-        req,
-        interactiveReplyMsg,
-        selectedChat,
-        selectedSession
-      );
+      checkingSession.botReply = 'normal';
+      await checkingSession.save();
     }
-  } else if (!selectedSession.refRequired) {
+  } else if (!checkingSession.refRequired) {
     // ************* Receiving interactive reply **************
     if (msgType === 'interactive') {
-      const interactive =
-        req.body.entry[0].changes[0].value.messages[0].interactive;
+      if (checkingSession.botReply !== 'proceeding') {
+        checkingSession.botReply = 'proceeding';
+        await checkingSession.save();
 
-      const replyMessage = await Message.findOne({
-        whatsappID: selectedMessage.context.id,
-      });
+        const interactive =
+          req.body.entry[0].changes[0].value.messages[0].interactive;
 
-      // ************** the client reply to the last bot message
-      if (replyMessage._id.equals(selectedSession.lastBotMessage)) {
-        let msgOption;
+        const replyMessage = await Message.findOne({
+          whatsappID: selectedMessage.context.id,
+        });
 
-        if (interactive.type === 'button_reply') {
-          const replyButtons = replyMessage.interactive.action.buttons;
-          // console.log('replyButtons', replyButtons);
-          const button = replyButtons.filter(
-            (btn) => btn.reply.id === interactive.button_reply.id
-          )[0];
-          // console.log('button', button);
+        // ************** the client reply to the last bot message
+        if (
+          replyMessage &&
+          replyMessage._id.equals(selectedSession.lastBotMessage)
+        ) {
+          // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+          let msgOption;
 
-          //===========> Selecting reply message
-          msgOption = button.reply;
-        } else if (interactive.type === 'list_reply') {
-          // to join all options in one array
-          const listOptions = [];
-          replyMessage.interactive.action.sections.map((section) => {
-            section.rows.map((row) => {
-              listOptions.push({
-                id: row.id,
-                title: row.title,
-                description: row.description,
+          if (interactive.type === 'button_reply') {
+            const replyButtons = replyMessage.interactive.action.buttons;
+            // console.log('replyButtons', replyButtons);
+            const button = replyButtons.filter(
+              (btn) => btn.reply.id === interactive.button_reply.id
+            )[0];
+            // console.log('button', button);
+
+            //===========> Selecting reply message
+            msgOption = button.reply;
+          } else if (interactive.type === 'list_reply') {
+            // to join all options in one array
+            const listOptions = [];
+            replyMessage.interactive.action.sections.map((section) => {
+              section.rows.map((row) => {
+                listOptions.push({
+                  id: row.id,
+                  title: row.title,
+                  description: row.description,
+                });
               });
             });
-          });
-          // console.log('listOptions', listOptions);
+            // console.log('listOptions', listOptions);
 
-          const selectedOption = listOptions.filter(
-            (option) => option.id === interactive.list_reply.id
-          )[0];
-          // console.log('selectedOption', selectedOption);
+            const selectedOption = listOptions.filter(
+              (option) => option.id === interactive.list_reply.id
+            )[0];
+            // console.log('selectedOption', selectedOption);
 
-          //===========> Selecting reply message
-          msgOption = selectedOption;
-        }
+            //===========> Selecting reply message
+            msgOption = selectedOption;
+          }
 
-        const msgToBeSent = await checkInteractiveHandler(
-          msgOption,
-          selectedSession,
-          selectedChat
-        );
+          const msgToBeSent = await checkInteractiveHandler(
+            msgOption,
+            selectedSession,
+            selectedChat
+          );
 
-        //===========> Sending an intro message
-        if (
-          msgOption.id === 'inspector_phone' &&
-          msgToBeSent.type === 'contacts'
-        ) {
-          const introMsg = {
-            type: 'text',
-            text: 'رقم الفاحص الفني الخاص بمشروعكم',
-          };
+          //===========> Sending an intro message
+          if (
+            msgOption.id === 'inspector_phone' &&
+            msgToBeSent.type === 'contacts'
+          ) {
+            const introMsg = {
+              type: 'text',
+              text: 'رقم الفاحص الفني الخاص بمشروعكم',
+            };
+            await sendMessageHandler(
+              req,
+              introMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
+
+          //===========> Sending first reply message
           await sendMessageHandler(
             req,
-            introMsg,
+            msgToBeSent,
             selectedChat,
             selectedSession
           );
-        }
 
-        //===========> Sending first reply message
-        await sendMessageHandler(
-          req,
-          msgToBeSent,
-          selectedChat,
-          selectedSession
-        );
+          //===========> Sending a footer message
+          if (
+            msgOption.id === 'inspector_phone' &&
+            msgToBeSent.type === 'contacts'
+          ) {
+            const footerMsg = {
+              type: 'text',
+              text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
+            };
+            await sendMessageHandler(
+              req,
+              footerMsg,
+              selectedChat,
+              selectedSession
+            );
+          }
 
-        //===========> Sending a footer message
-        if (
-          msgOption.id === 'inspector_phone' &&
-          msgToBeSent.type === 'contacts'
-        ) {
-          const footerMsg = {
-            type: 'text',
-            text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
-          };
-          await sendMessageHandler(
-            req,
-            footerMsg,
-            selectedChat,
-            selectedSession
-          );
-        }
+          //===========> Sending second reply message
+          if (
+            [
+              'inspector_phone',
+              'visits_reports',
+              'project_tickets',
+              'missing_data',
+              'payment_status',
+              'contractor_instructions',
+              'inspection_stages',
+              'common_questions',
+              'complete_building',
+              'work_hours',
+            ].includes(msgOption.id)
+          ) {
+            const interactiveObj = interactiveMessages.filter(
+              (message) => message.id === 'check'
+            )[0]; // from test data
+            const interactive = { ...interactiveObj };
+            delete interactive.id;
 
-        //===========> Sending second reply message
-        if (
-          [
-            'inspector_phone',
-            'visits_reports',
-            'project_tickets',
-            'missing_data',
-            'payment_status',
-            'contractor_instructions',
-            'inspection_stages',
-            'common_questions',
-            'complete_building',
-            'work_hours',
-          ].includes(msgOption.id)
-        ) {
-          const interactiveObj = interactiveMessages.filter(
-            (message) => message.id === 'check'
-          )[0]; // from test data
-          const interactive = { ...interactiveObj };
-          delete interactive.id;
+            const secondMsgToBeSent = { type: 'interactive', interactive };
+            await sendMessageHandler(
+              req,
+              secondMsgToBeSent,
+              selectedChat,
+              selectedSession
+            );
+          }
 
-          const secondMsgToBeSent = { type: 'interactive', interactive };
-          await sendMessageHandler(
-            req,
-            secondMsgToBeSent,
-            selectedChat,
-            selectedSession
-          );
-        }
+          //===========> Following action (archive, transfer, ...)
+          // ***** Archive
+          if (['end'].includes(msgOption.id)) {
+            // Add end date to the session and remove it from chat
+            selectedSession.end = Date.now();
+            selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
+            await selectedSession.save();
 
-        //===========> Following action (archive, transfer, ...)
-        // ***** Archive
-        if (['end'].includes(msgOption.id)) {
-          // Add end date to the session and remove it from chat
-          selectedSession.end = Date.now();
-          selectedSession.status = 'finished';
-          await selectedSession.save();
+            // =======> Create chat history session
+            const chatHistoryData = {
+              chat: selectedChat._id,
+              user: selectedSession.user,
+              actionType: 'archive',
+              archive: 'bot',
+            };
+            await ChatHistory.create(chatHistoryData);
 
-          // =======> Create chat history session
-          const chatHistoryData = {
-            chat: selectedChat._id,
-            user: selectedSession.user,
-            actionType: 'archive',
-            archive: 'bot',
-          };
-          await ChatHistory.create(chatHistoryData);
+            // Updating chat
+            selectedChat.currentUser = undefined;
+            selectedChat.team = undefined;
+            selectedChat.status = 'archived';
+            selectedChat.lastSession = undefined;
+            await selectedChat.save();
 
-          // Updating chat
-          selectedChat.currentUser = undefined;
-          selectedChat.team = undefined;
-          selectedChat.status = 'archived';
-          selectedChat.lastSession = undefined;
-          await selectedChat.save();
-
-          // Removing chat from bot user chats
-          await User.findByIdAndUpdate(
-            selectedSession.user,
-            { $pull: { chats: selectedChat._id } },
-            { new: true, runValidators: true }
-          );
-        }
-
-        // ***** Transfer
-        if (['inquiries', 'customer_service'].includes(msgOption.id)) {
-          // =========> Selecting team and user
-          const selectedTeam = await Team.findOne({ default: true });
-
-          let teamUsers = await Promise.all(
-            selectedTeam.users.map(async function (user) {
-              let teamUser = await User.findById(user);
-              return teamUser;
-            })
-          );
-          // console.log('teamUsers', teamUsers);
-
-          // status sorting order
-          const statusSortingOrder = [
-            'Online',
-            'Service hours',
-            'Offline',
-            'Away',
-          ];
-
-          // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
-          teamUsers = teamUsers.sort((a, b) => {
-            const orderA = statusSortingOrder.indexOf(a.status);
-            const orderB = statusSortingOrder.indexOf(b.status);
-
-            // If 'status' is the same, then sort by chats length
-            if (orderA === orderB) {
-              return a.chats.length - b.chats.length;
-            }
-
-            // Otherwise, sort by 'status'
-            return orderA - orderB;
-          });
-          // console.log('teamUsers', teamUsers);
-
-          // ========> Finishing bot session
-          selectedSession.end = Date.now();
-          selectedSession.status = 'finished';
-          await selectedSession.save();
-
-          // ==========> Creating new session
-          const newSession = await Session.create({
-            chat: selectedChat._id,
-            user: teamUsers[0]._id,
-            team: selectedTeam._id,
-            status: 'onTime',
-          });
-
-          // =======> Create chat history session
-          const chatHistoryData = {
-            chat: selectedChat._id,
-            user: selectedChat.currentUser,
-            actionType: 'transfer',
-            transfer: {
-              type: 'bot',
-              to: teamUsers[0]._id,
-              toTeam: selectedTeam._id,
-            },
-          };
-          await ChatHistory.create(chatHistoryData);
-
-          // ==========> Updating chat
-          selectedChat.lastSession = newSession._id;
-          selectedChat.team = selectedTeam._id;
-          selectedChat.currentUser = teamUsers[0]._id;
-          await selectedChat.save();
-
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          //  ******************************************* ////////////////////////////////////////////////////////////////
-          // ************ where to send another message depending on service hours
-
-          const selectedTeamServiceHours = await Service.findById(
-            selectedTeam.serviceHours
-          );
-          // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
-          const selectedTeamConversation = await Conversation.findById(
-            selectedTeam.conversation
-          );
-          // console.log('selectedTeamConversation', selectedTeamConversation);
-
-          const msgText = checkInsideServiceHours(
-            selectedTeamServiceHours.durations
-          )
-            ? selectedTeamConversation.bodyOn
-            : selectedTeamConversation.bodyOff;
-          const msgToBeSent = {
-            type: 'text',
-            text: msgText,
-          };
-          await sendMessageHandler(req, msgToBeSent, selectedChat, newSession);
-          //  *******************************************
-
-          // Adding the selected chat to the user chats
-          if (!teamUsers[0].chats.includes(selectedChat._id)) {
+            // Removing chat from bot user chats
             await User.findByIdAndUpdate(
-              teamUsers[0]._id,
-              { $push: { chats: selectedChat._id } },
+              selectedSession.user,
+              { $pull: { chats: selectedChat._id } },
               { new: true, runValidators: true }
             );
           }
 
-          // Removing chat from bot user chats
-          await User.findByIdAndUpdate(
-            selectedSession.user,
-            { $pull: { chats: selectedChat._id } },
-            { new: true, runValidators: true }
+          // ***** Transfer
+          if (['inquiries', 'customer_service'].includes(msgOption.id)) {
+            // =========> Selecting team and user
+            const selectedTeam = await Team.findOne({ default: true });
+
+            let teamUsers = await Promise.all(
+              selectedTeam.users.map(async function (user) {
+                let teamUser = await User.findById(user);
+                return teamUser;
+              })
+            );
+            // console.log('teamUsers', teamUsers);
+
+            // status sorting order
+            const statusSortingOrder = [
+              'Online',
+              'Service hours',
+              'Offline',
+              'Away',
+            ];
+
+            // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+            teamUsers = teamUsers.sort((a, b) => {
+              const orderA = statusSortingOrder.indexOf(a.status);
+              const orderB = statusSortingOrder.indexOf(b.status);
+
+              // If 'status' is the same, then sort by chats length
+              if (orderA === orderB) {
+                return a.chats.length - b.chats.length;
+              }
+
+              // Otherwise, sort by 'status'
+              return orderA - orderB;
+            });
+            // console.log('teamUsers', teamUsers);
+
+            // ========> Finishing bot session
+            selectedSession.end = Date.now();
+            selectedSession.status = 'finished';
+            selectedSession.timer = undefined;
+            selectedSession.botTimer = undefined;
+            await selectedSession.save();
+
+            // ==========> Creating new session
+            const newSession = await Session.create({
+              chat: selectedChat._id,
+              user: teamUsers[0]._id,
+              team: selectedTeam._id,
+              status: 'onTime',
+            });
+
+            // =======> Create chat history session
+            const chatHistoryData = {
+              chat: selectedChat._id,
+              user: selectedChat.currentUser,
+              actionType: 'transfer',
+              transfer: {
+                type: 'bot',
+                to: teamUsers[0]._id,
+                toTeam: selectedTeam._id,
+              },
+            };
+            await ChatHistory.create(chatHistoryData);
+
+            // =======> New Chat Notification
+            const newChatNotificationData = {
+              type: 'messages',
+              user: teamUsers[0]._id,
+              chat: selectedChat._id,
+              event: 'newChat',
+            };
+
+            const newChatNotification = await Notification.create(
+              newChatNotificationData
+            );
+            console.log(
+              'newChatNotification -------------',
+              newChatNotification
+            );
+
+            // updating notifications event in socket io
+            if (req.app.connectedUsers[teamUsers[0]._id]) {
+              req.app.connectedUsers[teamUsers[0]._id].emit(
+                'updatingNotifications'
+              );
+            }
+
+            // ==========> Updating chat
+            selectedChat.lastSession = newSession._id;
+            selectedChat.team = selectedTeam._id;
+            selectedChat.currentUser = teamUsers[0]._id;
+            await selectedChat.save();
+
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            //  ******************************************* ////////////////////////////////////////////////////////////////
+            // ************ where to send another message depending on service hours
+
+            const selectedTeamServiceHours = await Service.findById(
+              selectedTeam.serviceHours
+            );
+            // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
+            const selectedTeamConversation = await Conversation.findById(
+              selectedTeam.conversation
+            );
+            // console.log('selectedTeamConversation', selectedTeamConversation);
+
+            const msgText = serviceHoursUtils.checkInsideServiceHours(
+              selectedTeamServiceHours.durations
+            )
+              ? selectedTeamConversation.bodyOn
+              : selectedTeamConversation.bodyOff;
+            const msgToBeSent = {
+              type: 'text',
+              text: msgText,
+            };
+            await sendMessageHandler(
+              req,
+              msgToBeSent,
+              selectedChat,
+              newSession
+            );
+            //  *******************************************
+
+            // Adding the selected chat to the user chats
+            if (!teamUsers[0].chats.includes(selectedChat._id)) {
+              await User.findByIdAndUpdate(
+                teamUsers[0]._id,
+                { $push: { chats: selectedChat._id } },
+                { new: true, runValidators: true }
+              );
+            }
+
+            // Removing chat from bot user chats
+            await User.findByIdAndUpdate(
+              selectedSession.user,
+              { $pull: { chats: selectedChat._id } },
+              { new: true, runValidators: true }
+            );
+          }
+
+          // ************** the client doesn't reply to the last bot message
+        } else {
+          //===========> Sending error text message
+          const textErrorMsg = {
+            type: 'text',
+            text: 'عفوا لم استطع التعرف على اختيارك.',
+          };
+          await sendMessageHandler(
+            req,
+            textErrorMsg,
+            selectedChat,
+            selectedSession
+          );
+
+          //===========> Sending error interactive message
+          const interactiveMsgObj = interactiveMessages.filter(
+            (item) => item.id === 'error'
+          )[0];
+          const interactiveMsg = { ...interactiveMsgObj };
+          delete interactiveMsg.id;
+          const interactiveReplyMsg = {
+            type: 'interactive',
+            interactive: interactiveMsg,
+          };
+
+          await sendMessageHandler(
+            req,
+            interactiveReplyMsg,
+            selectedChat,
+            selectedSession
           );
         }
 
-        // ************** the client doesn't reply to the last bot message
-      } else {
+        checkingSession.botReply = 'normal';
+        await checkingSession.save();
+      }
+    } else {
+      // // ******** Checking for interactive reply
+      // selectedSession.refRequired = false;
+      // selectedSession.referenceNo = undefined;
+      // await selectedSession.save();
+
+      if (checkingSession.botReply === 'normal') {
+        checkingSession.botReply = 'proceeding';
+        await checkingSession.save();
+
         //===========> Sending error text message
         const textErrorMsg = {
           type: 'text',
@@ -1303,42 +1655,10 @@ const chatBotHandler = async (
           selectedChat,
           selectedSession
         );
+
+        checkingSession.botReply = 'error';
+        await checkingSession.save();
       }
-    } else {
-      // ******** Checking for interactive reply
-      selectedSession.refRequired = false;
-      selectedSession.referenceNo = undefined;
-      await selectedSession.save();
-
-      //===========> Sending error text message
-      const textErrorMsg = {
-        type: 'text',
-        text: 'عفوا لم استطع التعرف على اختيارك.',
-      };
-      await sendMessageHandler(
-        req,
-        textErrorMsg,
-        selectedChat,
-        selectedSession
-      );
-
-      //===========> Sending error interactive message
-      const interactiveMsgObj = interactiveMessages.filter(
-        (item) => item.id === 'error'
-      )[0];
-      const interactiveMsg = { ...interactiveMsgObj };
-      delete interactiveMsg.id;
-      const interactiveReplyMsg = {
-        type: 'interactive',
-        interactive: interactiveMsg,
-      };
-
-      await sendMessageHandler(
-        req,
-        interactiveReplyMsg,
-        selectedChat,
-        selectedSession
-      );
     }
   }
 
@@ -1394,4 +1714,841 @@ const RDAppHandler = async (data) => {
   // console.log('response.data', response.data);
 
   return response.data;
+};
+
+const sendFeedbackHandler = async (data) => {
+  // console.log('data ===========', data);
+
+  // console.log({ Token: process.env.RD_APP_TOKEN, ...data });
+  let response;
+  try {
+    response = await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://rd0.cpvarabia.com/api/Care/AddSurvey.php',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({ Token: process.env.RD_APP_TOKEN, ...data }),
+    });
+  } catch (err) {
+    console.log('err', err);
+  }
+
+  // console.log('response.data', response.data);
+
+  // return response.data;
+};
+
+const feedbackHandler = async (
+  req,
+  from,
+  selectedMessage,
+  selectedChat,
+  selectedSession,
+  session,
+  msgType
+) => {
+  // ******************* All cases if it is a bot session **************
+
+  // ---------> checkingSession for checking for refRequired
+  const checkingChat = await Chat.findById(selectedChat._id);
+  const checkingSession = await Session.findById(checkingChat.lastSession);
+
+  // ================> updating session bot reply
+  // if (checkingSession.botReply && checkingSession.botReply !== 'proceeding') {
+  //   checkingSession.botReply = 'normal';
+
+  //   await checkingSession.save();
+  // }
+
+  // ******************* Startng chat bot **************
+  // if (!session) {
+  //   if (!checkingSession.botReply) {
+  //     checkingSession.botReply = 'welcome';
+  //     await checkingSession.save();
+
+  //     // =======> Send bot welcome message
+  //     const interactiveObj = interactiveMessages.filter(
+  //       (message) => message.id === 'CPV'
+  //     )[0]; // from test data
+  //     const interactive = { ...interactiveObj };
+  //     delete interactive.id;
+
+  //     const msgToBeSent = { type: 'interactive', interactive };
+
+  //     await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+  //     // =======> Create chat history session
+  //     const chatHistoryData = {
+  //       chat: selectedChat._id,
+  //       user: selectedSession.user,
+  //       actionType: 'botReceive',
+  //     };
+  //     await ChatHistory.create(chatHistoryData);
+  //   } else {
+  //     console.log(
+  //       '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// false'
+  //     );
+  //   }
+  // } else if (checkingSession.refRequired) {
+  //   const checkingChat = await Chat.findById(selectedChat._id);
+  //   const checkingSession = await Session.findById(selectedChat.lastSession);
+
+  //   if (checkingSession.botReply === 'normal') {
+  //     checkingSession.botReply = 'proceeding';
+  //     await checkingSession.save();
+
+  //     // ************* Checking interactive reply message type **************
+  //     if (msgType === 'text') {
+  //       const textWaitingMsg = {
+  //         type: 'text',
+  //         text: 'برجاء الانتظار',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textWaitingMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       const msgBody =
+  //         req.body.entry[0].changes[0].value.messages[0].text.body;
+
+  //       const validatedMsgBody = msgBody
+  //         .split('')
+  //         .filter((letter) => !isNaN(letter))
+  //         .join('');
+
+  //       // *** API from RD app ***
+  //       const refResult = await RDAppHandler({
+  //         Action: '1',
+  //         Phone: from,
+  //         ReferenceNo: validatedMsgBody,
+  //       });
+
+  //       //===========> valid reference no
+  //       if (refResult.Result) {
+  //         selectedSession.referenceNo = msgBody;
+  //         selectedSession.refRequired = false;
+  //         await selectedSession.save();
+
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'inspection'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> invalid reference no
+  //       } else {
+  //         selectedSession.refRequired = false;
+  //         await selectedSession.save();
+
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'ref_error'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+  //       }
+  //     } else {
+  //       // ******** Checking for reference no. reply
+  //       selectedSession.refRequired = false;
+  //       selectedSession.referenceNo = undefined;
+  //       await selectedSession.save();
+
+  //       //===========> Sending error text message
+  //       const textErrorMsg = {
+  //         type: 'text',
+  //         text: 'عفوا لم استطع التعرف على الرقم المرجعي الخاص بكم.',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textErrorMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       //===========> Sending error interactive message
+  //       const interactiveMsgObj = interactiveMessages.filter(
+  //         (item) => item.id === 'error'
+  //       )[0];
+  //       const interactiveMsg = { ...interactiveMsgObj };
+  //       delete interactiveMsg.id;
+  //       const interactiveReplyMsg = {
+  //         type: 'interactive',
+  //         interactive: interactiveMsg,
+  //       };
+
+  //       await sendMessageHandler(
+  //         req,
+  //         interactiveReplyMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+  //     }
+
+  //     checkingSession.botReply = 'normal';
+  //     await checkingSession.save();
+  //   }
+  // } else if (!checkingSession.refRequired) {
+  //   // ************* Receiving interactive reply **************
+  //   if (msgType === 'interactive') {
+  //     if (checkingSession.botReply !== 'proceeding') {
+  //       checkingSession.botReply = 'proceeding';
+  //       await checkingSession.save();
+
+  //       const interactive =
+  //         req.body.entry[0].changes[0].value.messages[0].interactive;
+
+  //       const replyMessage = await Message.findOne({
+  //         whatsappID: selectedMessage.context.id,
+  //       });
+
+  //       // ************** the client reply to the last bot message
+  //       if (
+  //         replyMessage &&
+  //         replyMessage._id.equals(selectedSession.lastBotMessage)
+  //       ) {
+  //         // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+  //         let msgOption;
+
+  //         if (interactive.type === 'button_reply') {
+  //           const replyButtons = replyMessage.interactive.action.buttons;
+  //           // console.log('replyButtons', replyButtons);
+  //           const button = replyButtons.filter(
+  //             (btn) => btn.reply.id === interactive.button_reply.id
+  //           )[0];
+  //           // console.log('button', button);
+
+  //           //===========> Selecting reply message
+  //           msgOption = button.reply;
+  //         } else if (interactive.type === 'list_reply') {
+  //           // to join all options in one array
+  //           const listOptions = [];
+  //           replyMessage.interactive.action.sections.map((section) => {
+  //             section.rows.map((row) => {
+  //               listOptions.push({
+  //                 id: row.id,
+  //                 title: row.title,
+  //                 description: row.description,
+  //               });
+  //             });
+  //           });
+  //           // console.log('listOptions', listOptions);
+
+  //           const selectedOption = listOptions.filter(
+  //             (option) => option.id === interactive.list_reply.id
+  //           )[0];
+  //           // console.log('selectedOption', selectedOption);
+
+  //           //===========> Selecting reply message
+  //           msgOption = selectedOption;
+  //         }
+
+  //         const msgToBeSent = await checkInteractiveHandler(
+  //           msgOption,
+  //           selectedSession,
+  //           selectedChat
+  //         );
+
+  //         //===========> Sending an intro message
+  //         if (
+  //           msgOption.id === 'inspector_phone' &&
+  //           msgToBeSent.type === 'contacts'
+  //         ) {
+  //           const introMsg = {
+  //             type: 'text',
+  //             text: 'رقم الفاحص الفني الخاص بمشروعكم',
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             introMsg,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Sending first reply message
+  //         await sendMessageHandler(
+  //           req,
+  //           msgToBeSent,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> Sending a footer message
+  //         if (
+  //           msgOption.id === 'inspector_phone' &&
+  //           msgToBeSent.type === 'contacts'
+  //         ) {
+  //           const footerMsg = {
+  //             type: 'text',
+  //             text: 'يرجى التواصل مع المهندس عن طريق الواتس اب وسيتم الرد عليك خلال يوم عمل',
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             footerMsg,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Sending second reply message
+  //         if (
+  //           [
+  //             'inspector_phone',
+  //             'visits_reports',
+  //             'project_tickets',
+  //             'missing_data',
+  //             'payment_status',
+  //             'contractor_instructions',
+  //             'inspection_stages',
+  //             'common_questions',
+  //             'complete_building',
+  //             'work_hours',
+  //           ].includes(msgOption.id)
+  //         ) {
+  //           const interactiveObj = interactiveMessages.filter(
+  //             (message) => message.id === 'check'
+  //           )[0]; // from test data
+  //           const interactive = { ...interactiveObj };
+  //           delete interactive.id;
+
+  //           const secondMsgToBeSent = { type: 'interactive', interactive };
+  //           await sendMessageHandler(
+  //             req,
+  //             secondMsgToBeSent,
+  //             selectedChat,
+  //             selectedSession
+  //           );
+  //         }
+
+  //         //===========> Following action (archive, transfer, ...)
+  //         // ***** Archive
+  //         if (['end'].includes(msgOption.id)) {
+  //           // Add end date to the session and remove it from chat
+  //           selectedSession.end = Date.now();
+  //           selectedSession.status = 'finished';
+  //           selectedSession.timer = undefined;
+  //           selectedSession.botTimer = undefined;
+  //           await selectedSession.save();
+
+  //           // =======> Create chat history session
+  //           const chatHistoryData = {
+  //             chat: selectedChat._id,
+  //             user: selectedSession.user,
+  //             actionType: 'archive',
+  //             archive: 'bot',
+  //           };
+  //           await ChatHistory.create(chatHistoryData);
+
+  //           // Updating chat
+  //           selectedChat.currentUser = undefined;
+  //           selectedChat.team = undefined;
+  //           selectedChat.status = 'archived';
+  //           selectedChat.lastSession = undefined;
+  //           await selectedChat.save();
+
+  //           // Removing chat from bot user chats
+  //           await User.findByIdAndUpdate(
+  //             selectedSession.user,
+  //             { $pull: { chats: selectedChat._id } },
+  //             { new: true, runValidators: true }
+  //           );
+  //         }
+
+  //         // ***** Transfer
+  //         if (['inquiries', 'customer_service'].includes(msgOption.id)) {
+  //           // =========> Selecting team and user
+  //           const selectedTeam = await Team.findOne({ default: true });
+
+  //           let teamUsers = await Promise.all(
+  //             selectedTeam.users.map(async function (user) {
+  //               let teamUser = await User.findById(user);
+  //               return teamUser;
+  //             })
+  //           );
+  //           // console.log('teamUsers', teamUsers);
+
+  //           // status sorting order
+  //           const statusSortingOrder = [
+  //             'Online',
+  //             'Service hours',
+  //             'Offline',
+  //             'Away',
+  //           ];
+
+  //           // teamUsers = teamUsers.sort((a, b) => a.chats.length - b.chats.length);
+  //           teamUsers = teamUsers.sort((a, b) => {
+  //             const orderA = statusSortingOrder.indexOf(a.status);
+  //             const orderB = statusSortingOrder.indexOf(b.status);
+
+  //             // If 'status' is the same, then sort by chats length
+  //             if (orderA === orderB) {
+  //               return a.chats.length - b.chats.length;
+  //             }
+
+  //             // Otherwise, sort by 'status'
+  //             return orderA - orderB;
+  //           });
+  //           // console.log('teamUsers', teamUsers);
+
+  //           // ========> Finishing bot session
+  //           selectedSession.end = Date.now();
+  //           selectedSession.status = 'finished';
+  //           selectedSession.timer = undefined;
+  //           selectedSession.botTimer = undefined;
+  //           await selectedSession.save();
+
+  //           // ==========> Creating new session
+  //           const newSession = await Session.create({
+  //             chat: selectedChat._id,
+  //             user: teamUsers[0]._id,
+  //             team: selectedTeam._id,
+  //             status: 'onTime',
+  //           });
+
+  //           // =======> Create chat history session
+  //           const chatHistoryData = {
+  //             chat: selectedChat._id,
+  //             user: selectedChat.currentUser,
+  //             actionType: 'transfer',
+  //             transfer: {
+  //               type: 'bot',
+  //               to: teamUsers[0]._id,
+  //               toTeam: selectedTeam._id,
+  //             },
+  //           };
+  //           await ChatHistory.create(chatHistoryData);
+
+  //           // =======> New Chat Notification
+  //           const newChatNotificationData = {
+  //             type: 'messages',
+  //             user: teamUsers[0]._id,
+  //             chat: selectedChat._id,
+  //             event: 'newChat',
+  //           };
+
+  //           const newChatNotification = await Notification.create(
+  //             newChatNotificationData
+  //           );
+  //           console.log(
+  //             'newChatNotification -------------',
+  //             newChatNotification
+  //           );
+
+  //           // updating notifications event in socket io
+  //           if (req.app.connectedUsers[teamUsers[0]._id]) {
+  //             req.app.connectedUsers[teamUsers[0]._id].emit(
+  //               'updatingNotifications'
+  //             );
+  //           }
+
+  //           // ==========> Updating chat
+  //           selectedChat.lastSession = newSession._id;
+  //           selectedChat.team = selectedTeam._id;
+  //           selectedChat.currentUser = teamUsers[0]._id;
+  //           await selectedChat.save();
+
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           //  ******************************************* ////////////////////////////////////////////////////////////////
+  //           // ************ where to send another message depending on service hours
+
+  //           const selectedTeamServiceHours = await Service.findById(
+  //             selectedTeam.serviceHours
+  //           );
+  //           // console.log('selectedTeamServiceHours', selectedTeamServiceHours);
+  //           const selectedTeamConversation = await Conversation.findById(
+  //             selectedTeam.conversation
+  //           );
+  //           // console.log('selectedTeamConversation', selectedTeamConversation);
+
+  //           const msgText = serviceHoursUtils.checkInsideServiceHours(
+  //             selectedTeamServiceHours.durations
+  //           )
+  //             ? selectedTeamConversation.bodyOn
+  //             : selectedTeamConversation.bodyOff;
+  //           const msgToBeSent = {
+  //             type: 'text',
+  //             text: msgText,
+  //           };
+  //           await sendMessageHandler(
+  //             req,
+  //             msgToBeSent,
+  //             selectedChat,
+  //             newSession
+  //           );
+  //           //  *******************************************
+
+  //           // Adding the selected chat to the user chats
+  //           if (!teamUsers[0].chats.includes(selectedChat._id)) {
+  //             await User.findByIdAndUpdate(
+  //               teamUsers[0]._id,
+  //               { $push: { chats: selectedChat._id } },
+  //               { new: true, runValidators: true }
+  //             );
+  //           }
+
+  //           // Removing chat from bot user chats
+  //           await User.findByIdAndUpdate(
+  //             selectedSession.user,
+  //             { $pull: { chats: selectedChat._id } },
+  //             { new: true, runValidators: true }
+  //           );
+  //         }
+
+  //         // ************** the client doesn't reply to the last bot message
+  //       } else {
+  //         //===========> Sending error text message
+  //         const textErrorMsg = {
+  //           type: 'text',
+  //           text: 'عفوا لم استطع التعرف على اختيارك.',
+  //         };
+  //         await sendMessageHandler(
+  //           req,
+  //           textErrorMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+
+  //         //===========> Sending error interactive message
+  //         const interactiveMsgObj = interactiveMessages.filter(
+  //           (item) => item.id === 'error'
+  //         )[0];
+  //         const interactiveMsg = { ...interactiveMsgObj };
+  //         delete interactiveMsg.id;
+  //         const interactiveReplyMsg = {
+  //           type: 'interactive',
+  //           interactive: interactiveMsg,
+  //         };
+
+  //         await sendMessageHandler(
+  //           req,
+  //           interactiveReplyMsg,
+  //           selectedChat,
+  //           selectedSession
+  //         );
+  //       }
+
+  //       checkingSession.botReply = 'normal';
+  //       await checkingSession.save();
+  //     }
+  //   } else {
+  //     // // ******** Checking for interactive reply
+  //     // selectedSession.refRequired = false;
+  //     // selectedSession.referenceNo = undefined;
+  //     // await selectedSession.save();
+
+  //     if (checkingSession.botReply === 'normal') {
+  //       checkingSession.botReply = 'proceeding';
+  //       await checkingSession.save();
+
+  //       //===========> Sending error text message
+  //       const textErrorMsg = {
+  //         type: 'text',
+  //         text: 'عفوا لم استطع التعرف على اختيارك.',
+  //       };
+  //       await sendMessageHandler(
+  //         req,
+  //         textErrorMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       //===========> Sending error interactive message
+  //       const interactiveMsgObj = interactiveMessages.filter(
+  //         (item) => item.id === 'error'
+  //       )[0];
+  //       const interactiveMsg = { ...interactiveMsgObj };
+  //       delete interactiveMsg.id;
+  //       const interactiveReplyMsg = {
+  //         type: 'interactive',
+  //         interactive: interactiveMsg,
+  //       };
+
+  //       await sendMessageHandler(
+  //         req,
+  //         interactiveReplyMsg,
+  //         selectedChat,
+  //         selectedSession
+  //       );
+
+  //       checkingSession.botReply = 'error';
+  //       await checkingSession.save();
+  //     }
+  //   }
+  // }
+
+  // ************* Receiving interactive reply **************
+  if (msgType === 'interactive') {
+    // if (checkingSession.botReply !== 'proceeding') {
+    checkingSession.botReply = 'proceeding';
+    await checkingSession.save();
+
+    const interactive =
+      req.body.entry[0].changes[0].value.messages[0].interactive;
+
+    const replyMessage = await Message.findOne({
+      whatsappID: selectedMessage.context.id,
+    });
+
+    // ************** the client reply to the last bot message
+    if (
+      replyMessage &&
+      replyMessage._id.equals(selectedSession.lastBotMessage)
+    ) {
+      // if (replyMessage?._id.equals(selectedSession.lastBotMessage)) {
+      let msgOption;
+
+      if (interactive.type === 'button_reply') {
+        const replyButtons = replyMessage.interactive.action.buttons;
+        // console.log('replyButtons', replyButtons);
+        const button = replyButtons.filter(
+          (btn) => btn.reply.id === interactive.button_reply.id
+        )[0];
+        // console.log('button', button);
+
+        //===========> Selecting reply message
+        msgOption = button.reply;
+      } else if (interactive.type === 'list_reply') {
+        // to join all options in one array
+        const listOptions = [];
+        replyMessage.interactive.action.sections.map((section) => {
+          section.rows.map((row) => {
+            listOptions.push({
+              id: row.id,
+              title: row.title,
+              description: row.description,
+            });
+          });
+        });
+        // console.log('listOptions', listOptions);
+
+        const selectedOption = listOptions.filter(
+          (option) => option.id === interactive.list_reply.id
+        )[0];
+        // console.log('selectedOption', selectedOption);
+
+        //===========> Selecting reply message
+        msgOption = selectedOption;
+      }
+
+      const msgToBeSent = await checkInteractiveHandler(
+        msgOption,
+        selectedSession,
+        selectedChat
+      );
+
+      //===========> Sending first reply message
+      await sendMessageHandler(req, msgToBeSent, selectedChat, selectedSession);
+
+      //===========> Following action (archive, transfer, ...)
+      // ***** Archive
+      if (['11', '12', '13', '14', '15'].includes(msgOption.id)) {
+        // Add end date to the session and remove it from chat
+        selectedSession.end = Date.now();
+        selectedSession.status = 'finished';
+        selectedSession.timer = undefined;
+        selectedSession.botTimer = undefined;
+        await selectedSession.save();
+
+        // =======> Create chat history session
+        const chatHistoryData = {
+          chat: selectedChat._id,
+          user: selectedSession.user,
+          actionType: 'archive',
+          archive: 'bot',
+        };
+        await ChatHistory.create(chatHistoryData);
+
+        // Updating chat
+        selectedChat.currentUser = undefined;
+        selectedChat.team = undefined;
+        selectedChat.status = 'archived';
+        selectedChat.lastSession = undefined;
+        await selectedChat.save();
+
+        // Removing chat from bot user chats
+        await User.findByIdAndUpdate(
+          selectedSession.user,
+          { $pull: { chats: selectedChat._id } },
+          { new: true, runValidators: true }
+        );
+
+        // =======> Send feed back to RD App
+        const updatedfeedbackSession = await Session.findById(
+          selectedSession._id
+        );
+        const feedbackQuestions = updatedfeedbackSession.feedback.map(
+          (item, i) => ({
+            qid: i,
+            text: item.text,
+            Value: item.value,
+          })
+        );
+
+        const feedbackData = {
+          phoneno: selectedChat.client,
+          session: selectedSession._id,
+          questions: feedbackQuestions,
+        };
+        console.log('feedbackData ===================', feedbackData);
+
+        await sendFeedbackHandler(feedbackData);
+      }
+
+      // ************** the client doesn't reply to the last bot message
+    } else {
+      //===========> Sending error text message
+      const textErrorMsg = {
+        type: 'text',
+        text: 'عفوا لم استطع التعرف على اختيارك.',
+      };
+      await sendMessageHandler(
+        req,
+        textErrorMsg,
+        selectedChat,
+        selectedSession
+      );
+
+      //===========> Sending error interactive message
+      const interactiveMsgObj = interactiveMessages.filter(
+        (item) => item.id === 'error'
+      )[0];
+      const interactiveMsg = { ...interactiveMsgObj };
+      delete interactiveMsg.id;
+      const interactiveReplyMsg = {
+        type: 'interactive',
+        interactive: interactiveMsg,
+      };
+
+      await sendMessageHandler(
+        req,
+        interactiveReplyMsg,
+        selectedChat,
+        selectedSession
+      );
+    }
+
+    checkingSession.botReply = 'normal';
+    await checkingSession.save();
+    // }
+  } else {
+    // ******** Checking for interactive reply
+
+    // if (checkingSession.botReply === 'normal') {
+    //   checkingSession.botReply = 'proceeding';
+    //   await checkingSession.save();
+
+    //   //===========> Sending error text message
+    //   const textErrorMsg = {
+    //     type: 'text',
+    //     text: 'عفوا لم استطع التعرف على اختيارك.',
+    //   };
+    //   await sendMessageHandler(
+    //     req,
+    //     textErrorMsg,
+    //     selectedChat,
+    //     selectedSession
+    //   );
+
+    //   //===========> Sending error interactive message
+    //   const interactiveMsgObj = interactiveMessages.filter(
+    //     (item) => item.id === 'error'
+    //   )[0];
+    //   const interactiveMsg = { ...interactiveMsgObj };
+    //   delete interactiveMsg.id;
+    //   const interactiveReplyMsg = {
+    //     type: 'interactive',
+    //     interactive: interactiveMsg,
+    //   };
+
+    //   await sendMessageHandler(
+    //     req,
+    //     interactiveReplyMsg,
+    //     selectedChat,
+    //     selectedSession
+    //   );
+
+    //   checkingSession.botReply = 'error';
+    //   await checkingSession.save();
+    // }
+
+    //===========> Sending error text message
+    const textErrorMsg = {
+      type: 'text',
+      text: 'عفوا لم استطع التعرف على اختيارك.',
+    };
+    await sendMessageHandler(req, textErrorMsg, selectedChat, selectedSession);
+
+    //===========> Sending error interactive message
+    const interactiveMsgObj = interactiveMessages.filter(
+      (item) => item.id === 'checkFeedback'
+    )[0];
+    const interactiveMsg = { ...interactiveMsgObj };
+    delete interactiveMsg.id;
+    const interactiveReplyMsg = {
+      type: 'interactive',
+      interactive: interactiveMsg,
+    };
+
+    await sendMessageHandler(
+      req,
+      interactiveReplyMsg,
+      selectedChat,
+      selectedSession
+    );
+  }
+
+  // ************* Updating session botTimer **************
+  const delayMins = process.env.FEEDBACK_EXPIRE_TIME;
+  let botTimer = new Date();
+  botTimer = botTimer.setTime(botTimer.getTime() + delayMins * 60 * 1000);
+
+  selectedSession.botTimer = botTimer;
+  selectedSession.reminder = true;
+  await selectedSession.save();
+
+  const sessions = await Session.find({
+    status: 'open',
+    botTimer: {
+      $exists: true,
+      $ne: '',
+    },
+  });
+
+  await chatBotTimerUpdate.scheduleDocumentUpdateTask(
+    sessions,
+    req,
+    //from config.env
+    delayMins,
+    responseDangerTime,
+    process.env.WHATSAPP_VERSION,
+    process.env.WHATSAPP_PHONE_ID,
+    process.env.WHATSAPP_TOKEN,
+    process.env.WHATSAPP_PHONE_NUMBER
+  );
 };

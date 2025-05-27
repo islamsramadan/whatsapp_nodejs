@@ -43,9 +43,13 @@ const upload = multer({
 exports.uploadTeamPhoto = upload.single('photo');
 
 exports.getAllTeams = catchAsync(async (req, res, next) => {
-  const filteredBody = { bot: { $ne: true } };
+  const filteredBody = { bot: false };
   if (req.query.type === 'chatTransfer') {
     filteredBody._id = { $ne: req.user.team };
+  }
+
+  if (req.query.name) {
+    filteredBody.name = { $regex: req.query.name, $options: 'i' };
   }
 
   let teams = await Team.find(filteredBody)
@@ -57,18 +61,31 @@ exports.getAllTeams = catchAsync(async (req, res, next) => {
     .populate('conversation', 'name')
     .populate('answersSets', 'name');
 
+  const totalTeams = await Team.count({ bot: false });
+  const defaultTeam = await Team.findOne({ default: true }).select('name');
+  const userTeam = await Team.findById(req.user.team).select('name');
+
   res.status(200).json({
     status: 'success',
     results: teams.length,
     data: {
+      totalTeams,
+      defaultTeam,
+      userTeam,
       teams,
     },
   });
 });
 
 exports.createTeam = catchAsync(async (req, res, next) => {
-  const { name, supervisor, serviceHours, conversation, answersSets } =
-    req.body;
+  const {
+    name,
+    supervisor,
+    serviceHours,
+    conversation,
+    answersSets,
+    ticketRequests,
+  } = req.body;
 
   if (!name || !supervisor || !serviceHours || !conversation) {
     return next(
@@ -106,6 +123,7 @@ exports.createTeam = catchAsync(async (req, res, next) => {
     serviceHours,
     conversation,
     answersSets,
+    ticketRequests,
     creator: req.user._id,
   };
 
@@ -175,7 +193,7 @@ exports.getTeam = catchAsync(async (req, res, next) => {
     return next(new AppError('No team found with that ID!', 404));
   }
 
-  if (team.bot === true) {
+  if (team.bot === true && req.user.bot === false) {
     return next(new AppError('Bot team!', 400));
   }
 
@@ -259,6 +277,7 @@ exports.updateTeam = catchAsync(async (req, res, next) => {
       'serviceHours',
       'answersSets',
       'conversation',
+      'ticketRequests',
       'default'
     );
 

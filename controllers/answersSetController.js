@@ -12,7 +12,7 @@ exports.getAllAnswersSet = catchAsync(async (req, res, next) => {
     const team = await Team.findById(req.user.team);
     let answersSetsIDs = [req.user.answersSet];
     if (team.answersSets) {
-      answersSetsIDs = [answersSetsIDs, ...team.answersSets];
+      answersSetsIDs = [...answersSetsIDs, ...team.answersSets];
     }
 
     answersSets = await AnswersSet.find({

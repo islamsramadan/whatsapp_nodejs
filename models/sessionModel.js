@@ -8,6 +8,12 @@ const sessionSchema = new mongoose.Schema(
       required: [true, 'Session chat is required!'],
     },
 
+    chatType: {
+      type: String,
+      enum: ['whatsapp', 'endUser'],
+      default: 'whatsapp',
+    },
+
     user: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
@@ -35,7 +41,7 @@ const sessionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ['bot', 'normal'],
+      enum: ['bot', 'normal', 'feedback'],
       default: 'normal',
     },
 
@@ -67,10 +73,27 @@ const sessionSchema = new mongoose.Schema(
     referenceNo: {
       type: String,
     },
+
     refRequired: {
       type: Boolean,
       default: false,
     },
+
+    botReply: {
+      type: String,
+    },
+
+    secret: {
+      type: Boolean,
+      default: false,
+    },
+
+    feedback: [
+      {
+        text: String,
+        value: String,
+      },
+    ],
   },
   { timestamps: true }
 );

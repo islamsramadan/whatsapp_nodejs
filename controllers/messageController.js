@@ -91,94 +91,14 @@ exports.uploadMessageImage = upload.single('file');
 exports.uploadMultiFiles = upload.array('files');
 // exports.uploadMessageImage = upload.array('file', 2);
 
-// exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-//   const userTeam = await Team.findById(req.user.team);
-//   if (!userTeam) {
-//     return next(
-//       new AppError("This user doesn't belong to any existed team!", 400)
-//     );
-//   }
-
-//   if (!req.params.chatNumber) {
-//     return next(new AppError('Kindly provide chat number!', 400));
-//   }
-
-//   const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
-//     'contactName',
-//     'name'
-//   );
-//   // console.log('chat', chat);
-
-//   if (!chat) {
-//     return next(new AppError('No chat found with that number!', 400));
-//   }
-
-//   // Checking if the user in the same team of the chat
-//   if (
-//     chat.team &&
-//     !chat.team.equals(req.user.team) &&
-//     req.user.role === 'user'
-//   ) {
-//     return next(
-//       new AppError("You don't have permission to view this chat!", 403)
-//     );
-//   }
-
-//   const page = req.query.page * 1 || 1;
-
-//   const messages = await Message.find({ chat: chat._id })
-//     .sort('-createdAt')
-//     .populate({
-//       path: 'user',
-//       select: { firstName: 1, lastName: 1, photo: 1 },
-//     })
-//     .populate('reply')
-//     .populate({
-//       path: 'userReaction.user',
-//       select: 'firstName lastName photo',
-//     })
-//     .limit(page * 20);
-
-//   const totalResults = await Message.count({ chat: chat._id });
-//   const totalPages = Math.ceil(totalResults / 20);
-
-//   res.status(200).json({
-//     status: 'success',
-//     results: messages.length,
-//     data: {
-//       totalPages,
-//       totalResults,
-//       session: chat.session,
-//       contactName: chat.contactName,
-//       // currentUser: chat.currentUser,
-//       currentUser: { _id: chat.currentUser, teamID: chat.team },
-//       chatStatus: chat.status,
-//       messages: messages.reverse(),
-//       notification: chat.notification,
-//     },
-//   });
-// });
-
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
-  const userTeam = await Team.findById(req.user.team);
-  if (!userTeam) {
-    return next(
-      new AppError("This user doesn't belong to any existed team!", 400)
-    );
-  }
-
-  if (!req.params.chatNumber) {
-    return next(new AppError('Kindly provide chat number!', 400));
-  }
-
-  const chat = await Chat.findOne({ client: req.params.chatNumber }).populate(
-    'contactName',
-    'name'
-  );
-  // console.log('chat', chat);
+  const chat = await Chat.findById(req.params.chatID)
+    .populate('contactName', 'name')
+    .populate('endUser', 'name phone nationalID')
+    .populate('lastSession', 'status secret');
 
   if (!chat) {
-    return next(new AppError('No chat found with that number!', 400));
+    return next(new AppError('No chat found with that ID!', 404));
   }
 
   // Checking if the user in the same team of the chat
@@ -194,20 +114,57 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
 
   const page = req.query.page * 1 || 1;
 
-  const messages = await Message.find({ chat: chat._id })
+  const messageFilteredBody = { chat: chat._id };
+
+  if (!req.user.secret) {
+    messageFilteredBody.$or = [
+      { secret: false },
+      { secret: { $exists: false } },
+    ];
+  }
+
+  let messages = await Message.find(messageFilteredBody)
     .sort('-createdAt')
     .populate({
       path: 'user',
       select: { firstName: 1, lastName: 1, photo: 1 },
     })
-    .populate('reply')
+    .populate('fromEndUser', 'name phone')
+    .populate({
+      path: 'reply',
+      populate: {
+        path: 'user',
+        select: { firstName: 1, lastName: 1, photo: 1 },
+      },
+    })
     .populate({
       path: 'userReaction.user',
       select: 'firstName lastName photo',
     })
-    .limit(page * 20);
+    .populate({
+      path: 'session',
+      select: 'team',
+      populate: { path: 'team', select: 'name' },
+    })
+    .limit(page * 20)
+    .lean();
 
-  const totalResults = await Message.count({ chat: chat._id });
+  // Revome secret reply
+  messages = messages.map((message) => {
+    if (
+      !message.reply ||
+      (message.reply && message.reply.secret !== true) ||
+      (message.reply &&
+        message.reply.secret === true &&
+        req.user.secret === true)
+    ) {
+      return message;
+    } else {
+      return { ...message, reply: undefined };
+    }
+  });
+
+  const totalResults = await Message.count(messageFilteredBody);
   const totalPages = Math.ceil(totalResults / 20);
 
   const histories = await ChatHistory.find({ chat: chat._id })
@@ -249,11 +206,13 @@ exports.getAllChatMessages = catchAsync(async (req, res, next) => {
       totalResults,
       session: chat.session,
       contactName: chat.contactName,
+      endUser: chat.endUser,
       currentUser: { _id: chat.currentUser, teamID: chat.team },
       chatStatus: chat.status,
       // messages: messages.reverse(),
-      messages: historyMessages,
+      messages: historyMessages.reverse(),
       notification: chat.notification,
+      lastSession: chat.lastSession,
     },
   });
 });
@@ -262,47 +221,39 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   // console.log('req.body', req.body);
   // console.log('req.files', req.files);
 
+  const chatType = req.body.chatType || 'whatsapp';
+
   if (!req.body.type) {
     return next(new AppError('Message type is required!', 400));
   }
 
-  if (!req.params.chatNumber) {
-    return next(new AppError('Chat number is required!', 400));
-  }
+  const chat = await Chat.findById(req.params.chatID);
 
-  // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
-
-  let newChat;
   if (!chat) {
-    const userTeam = await Team.findById(req.user.team);
-    if (!userTeam) {
-      return next(
-        new AppError(
-          'the user sending the messages must belong to an existing team!',
-          400
-        )
-      );
-    }
-    newChat = await Chat.create({
-      client: req.params.chatNumber,
-      currentUser: req.user._id,
-      users: [req.user._id],
-      team: req.user.team,
-    });
+    return next(new AppError('No chat found by that ID!', 404));
   }
 
-  const selectedChat = chat || newChat;
+  if (chatType !== chat.type) {
+    return next(
+      new AppError('This chat has a different type of chatType!', 400)
+    );
+  }
+
+  const selectedChat = chat;
 
   const session = await Session.findById(selectedChat.lastSession);
 
   let newSession;
   if (!session) {
+    if (chatType === 'endUser') {
+      return next(new AppError(`You couldn't start end user chat`, 400));
+    }
+
     newSession = await Session.create({
       chat: selectedChat._id,
       user: req.user._id,
       team: req.user.team,
-      status: 'onTime',
+      status: 'open',
     });
 
     selectedChat.lastSession = newSession._id;
@@ -342,7 +293,8 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   }
 
   // Handling whatsapp session (24hours from the last message the client send)
-  if (!selectedChat.session) {
+  if (!selectedChat.session && selectedChat.type !== 'endUser') {
+    // if (!selectedChat.session) {
     return next(
       new AppError(
         'You can only send template message until the end user reply!',
@@ -355,7 +307,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     (new Date() - selectedChat.session) / (1000 * 60)
   );
 
-  if (availableSession >= 24 * 60) {
+  if (availableSession >= 24 * 60 && selectedChat.type !== 'endUser') {
     return next(
       new AppError(
         'Your session is expired, You can only send template message until the end user reply!',
@@ -365,13 +317,25 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   }
   // console.log('availableSession', availableSession);
 
+  if (
+    !['text', 'image', 'video', 'document'].includes(req.body.type) &&
+    chatType === 'endUser'
+  ) {
+    return next(new AppError('Message type not supported!', 400));
+  }
+
   const newMessageObj = {
+    chatType,
     user: req.user._id,
     chat: selectedChat._id,
     session: selectedSession._id,
     from: process.env.WHATSAPP_PHONE_NUMBER,
     type: req.body.type,
   };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
 
   const whatsappPayload = {
     messaging_product: 'whatsapp',
@@ -446,23 +410,6 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     }));
   }
 
-  // // Image Message ===========> changed for multi files
-  // if (req.body.type === 'image') {
-  //   if (!req.file) {
-  //     return next(new AppError('No image found!', 404));
-  //   }
-  //   whatsappPayload.recipient_type = 'individual';
-  //   whatsappPayload.image = {
-  //     link: `${productionLink}/${req.file.filename}`,
-  //     caption: req.body.caption,
-  //   };
-
-  //   newMessageObj.image = {
-  //     file: req.file.filename,
-  //     caption: req.body.caption,
-  //   };
-  // }
-
   // Video Message
   if (req.body.type === 'video') {
     whatsappPayload.recipient_type = 'individual';
@@ -490,22 +437,11 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     };
   }
 
-  // Document Message =============> changed for multi files
-  // if (req.body.type === 'document') {
-  //   whatsappPayload.recipient_type = 'individual';
-  //   whatsappPayload.document = {
-  //     link: `${productionLink}/${req.files[0].filename}`,
-  //     filename: req.files[0].originalname,
-  //     caption: req.body.caption,
-  //   };
-
-  //   newMessageObj.document = {
-  //     file: req.files[0].filename,
-  //     filename: req.files[0].originalname,
-  //     caption: req.body.caption,
-  //   };
-  // }
-  // console.log('whatsappPayload', whatsappPayload);
+  if (chatType === 'endUser') {
+    newMessageObj.status = 'delivered';
+    newMessageObj.sent = convertDate(Date.now());
+    newMessageObj.delivered = convertDate(Date.now());
+  }
 
   let newMessage;
   if (req.body.type === 'image' || req.body.type === 'document') {
@@ -517,26 +453,35 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
     newMessage = newMessages[newMessages.length - 1];
   } else {
     let response;
-    try {
-      response = await axios.request({
-        method: 'post',
-        maxBodyLength: Infinity,
-        url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        },
-        data: JSON.stringify(whatsappPayload),
-      });
-    } catch (err) {
-      console.log('err', err);
+    if (chatType === 'whatsapp') {
+      try {
+        response = await axios.request({
+          method: 'post',
+          maxBodyLength: Infinity,
+          url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          },
+          data: JSON.stringify(whatsappPayload),
+        });
+      } catch (err) {
+        console.log('err', err);
+      }
     }
 
     // console.log('response.data----------------', JSON.stringify(response.data));
-    newMessage = await Message.create({
-      ...newMessageObj,
-      whatsappID: response.data.messages[0].id,
-    });
+
+    const newMessageData = { ...newMessageObj };
+    if (chatType === 'whatsapp') {
+      newMessageData.whatsappID = response.data.messages[0].id;
+    }
+    // newMessage = await Message.create({
+    //   ...newMessageObj,
+    //   whatsappID: response.data.messages[0].id,
+    // });
+
+    newMessage = await Message.create(newMessageData);
   }
 
   // Adding the sent message as last message in the chat and update chat status
@@ -551,7 +496,8 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: selectedChat._id });
+  req.app.io.endUser.emit('updatingEndUser', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
@@ -563,6 +509,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 });
 
 const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
+  // console.log('req.files', req.files);
   if (!req.files || req.files.length === 0) {
     return next(new AppError('No file found!', 404));
   }
@@ -575,24 +522,6 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
 
   // Image Message
   if (req.body.type === 'image') {
-    // for (let i = 0; i < preparedMessages.length; i++) {
-    //   preparedMessages[i].whatsappPayload.recipient_type = 'individual';
-    //   preparedMessages[i].whatsappPayload.image = {
-    //     link: `${productionLink}/${preparedMessages[i].file.filename}------${i}`,
-    //     caption: req.body.caption,
-    //   };
-
-    //   console.log(
-    //     'file.filename =========== ' + i,
-    //     preparedMessages[i].whatsappPayload.image
-    //   );
-
-    //   preparedMessages[i].newMessageObj.image = {
-    //     file: preparedMessages[i].file.filename,
-    //     caption: req.body.caption,
-    //   };
-    // }
-
     preparedMessages = preparedMessages.map((item, i) => ({
       ...item,
       whatsappPayload: {
@@ -636,35 +565,37 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
     }));
   }
 
-  // preparedMessages.map((el) => {
-  //   console.log('el.whatsappPayload', el.whatsappPayload);
-  //   console.log('el.newMessageObj', el.newMessageObj);
-  //   console.log('el.file', el.file);
-  // });
-
   const newMessages = await Promise.all(
     preparedMessages.map(async (item) => {
       let response;
-      try {
-        response = await axios.request({
-          method: 'post',
-          maxBodyLength: Infinity,
-          url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          },
-          data: JSON.stringify(item.whatsappPayload),
-        });
-      } catch (err) {
-        console.log('err', err);
+      if (newMessageObj.chatType === 'whatsapp') {
+        try {
+          response = await axios.request({
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            },
+            data: JSON.stringify(item.whatsappPayload),
+          });
+        } catch (err) {
+          console.log('err', err);
+        }
       }
 
       // console.log('response.data----------------', JSON.stringify(response.data));
-      const newMessage = await Message.create({
-        ...item.newMessageObj,
-        whatsappID: response.data.messages[0].id,
-      });
+
+      const newMessageData = { ...item.newMessageObj };
+      if (newMessageObj.chatType === 'whatsapp') {
+        newMessageData.whatsappID = response.data.messages[0].id;
+      }
+      // const newMessage = await Message.create({
+      //   ...item.newMessageObj,
+      //   whatsappID: response.data.messages[0].id,
+      // });
+      const newMessage = await Message.create(newMessageData);
 
       return newMessage;
     })
@@ -675,134 +606,135 @@ const sendMultiMediaHandler = async (req, whatsappPayload, newMessageObj) => {
   return newMessages;
 };
 
-// exports.sendFailedMessage = catchAsync(async (req, res, next) => {
-//   const failedMessage = await Message.findById(req.params.messageID);
-//   if (!failedMessage) {
-//     return next(new AppError('No message found with that ID!', 400));
-//   }
+exports.sendFailedMessage = catchAsync(async (req, res, next) => {
+  const failedMessage = await Message.findById(req.params.messageID);
+  if (!failedMessage) {
+    return next(new AppError('No message found with that ID!', 400));
+  }
 
-//   const chat = await Chat.findById(failedMessage.chat);
+  const chat = await Chat.findById(failedMessage.chat);
 
-//   // updating chat notification to false
-//   chat.notification = false;
-//   await chat.save();
+  // updating chat notification to false
+  chat.notification = false;
+  await chat.save();
 
-//   // Handling whatsapp session (24hours from the last message the client send)
-//   if (!chat.session) {
-//     return next(
-//       new AppError(
-//         'You can only send template message until the end user reply!',
-//         400
-//       )
-//     );
-//   }
+  // Handling whatsapp session (24hours from the last message the client send)
+  if (!chat.session) {
+    return next(
+      new AppError(
+        'You can only send template message until the end user reply!',
+        400
+      )
+    );
+  }
 
-//   const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
+  const availableSession = Math.ceil((new Date() - chat.session) / (1000 * 60));
 
-//   if (availableSession >= 24 * 60) {
-//     return next(
-//       new AppError(
-//         'Your session is expired, You can only send template message!',
-//         400
-//       )
-//     );
-//   }
-//   // console.log('availableSession', availableSession);
+  if (availableSession >= 24 * 60) {
+    return next(
+      new AppError(
+        'Your session is expired, You can only send template message!',
+        400
+      )
+    );
+  }
+  // console.log('availableSession', availableSession);
 
-//   const whatsappPayload = {
-//     messaging_product: 'whatsapp',
-//     to: failedMessage.to,
-//     type: failedMessage.type,
-//     recipient_type: 'individual',
-//   };
+  const whatsappPayload = {
+    messaging_product: 'whatsapp',
+    to: failedMessage.to,
+    type: failedMessage.type,
+    recipient_type: 'individual',
+  };
 
-//   if (failedMessage.reply) {
-//     const replyMessage = await Message.findById(failedMessage.reply);
+  if (failedMessage.reply) {
+    const replyMessage = await Message.findById(failedMessage.reply);
 
-//     whatsappPayload.context = {
-//       message_id: replyMessage.whatsappID,
-//     };
-//   }
+    whatsappPayload.context = {
+      message_id: replyMessage.whatsappID,
+    };
+  }
 
-//   // Template Message
-//   // if (failedMessage.type === 'template') {
-//   //   whatsappPayload.template = {
-//   //     name: 'hello_world',
-//   //     language: {
-//   //       code: 'en_US',
-//   //     },
-//   //   };
-//   // }
+  // Template Message
+  // if (failedMessage.type === 'template') {
+  //   whatsappPayload.template = {
+  //     name: 'hello_world',
+  //     language: {
+  //       code: 'en_US',
+  //     },
+  //   };
+  // }
 
-//   // Text Message
-//   if (failedMessage.type === 'text') {
-//     whatsappPayload.text = {
-//       preview_url: false,
-//       body: failedMessage.text,
-//     };
-//   }
+  // Text Message
+  if (failedMessage.type === 'text') {
+    whatsappPayload.text = {
+      preview_url: false,
+      body: failedMessage.text,
+    };
+  }
 
-//   // Image Message
-//   if (failedMessage.type === 'image') {
-//     whatsappPayload.image = {
-//       link: `${productionLink}/${failedMessage.image.file}`,
-//       caption: failedMessage.image.caption,
-//     };
-//   }
+  // Image Message
+  if (failedMessage.type === 'image') {
+    whatsappPayload.image = {
+      link: `${productionLink}/${failedMessage.image.file}`,
+      caption: failedMessage.image.caption,
+    };
+  }
 
-//   // Video Message
-//   if (failedMessage.type === 'video') {
-//     whatsappPayload.video = {
-//       link: `${productionLink}/${failedMessage.video.file}`,
-//       caption: failedMessage.video.caption,
-//     };
-//   }
+  // Video Message
+  if (failedMessage.type === 'video') {
+    whatsappPayload.video = {
+      link: `${productionLink}/${failedMessage.video.file}`,
+      caption: failedMessage.video.caption,
+    };
+  }
 
-//   // Audio Message
-//   if (failedMessage.type === 'audio') {
-//     whatsappPayload.audio = {
-//       link: `${productionLink}/${failedMessage.audio.file}`,
-//     };
-//   }
+  // Audio Message
+  if (failedMessage.type === 'audio') {
+    whatsappPayload.audio = {
+      link: `${productionLink}/${failedMessage.audio.file}`,
+    };
+  }
 
-//   // Document Message
-//   if (failedMessage.type === 'document') {
-//     whatsappPayload.document = {
-//       link: `${productionLink}/${failedMessage.document.file}`,
-//       filename: failedMessage.document.filename,
-//       caption: failedMessage.document.caption,
-//     };
-//   }
+  // Document Message
+  if (failedMessage.type === 'document') {
+    whatsappPayload.document = {
+      link: `${productionLink}/${failedMessage.document.file}`,
+      filename: failedMessage.document.filename,
+      caption: failedMessage.document.caption,
+    };
+  }
 
-//   // console.log('whatsappPayload', whatsappPayload);
+  // console.log('whatsappPayload', whatsappPayload);
 
-//   const response = await axios.request({
-//     method: 'post',
-//     maxBodyLength: Infinity,
-//     url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-//     },
-//     data: JSON.stringify(whatsappPayload),
-//   });
+  const response = await axios.request({
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `https://graph.facebook.com/${whatsappVersion}/${whatsappPhoneID}/messages`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    },
+    data: JSON.stringify(whatsappPayload),
+  });
 
-//   // updating failed message status in database
-//   failedMessage.status = 'pending';
-//   failedMessage.whatsappID = response.data.messages[0].id;
-//   await failedMessage.save();
+  // updating failed message status in database
+  failedMessage.status = 'pending';
+  failedMessage.whatsappID = response.data.messages[0].id;
+  await failedMessage.save();
 
-//   //updating event in socket io
-//   req.app.io.emit('updating');
+  //updating event in socket io
+  req.app.io.emit('updating', { chatID: chat._id });
+  req.app.io.user.emit('updatingEndUser', { chatID: chat._id });
 
-//   res.status(200).json({
-//     status: 'success',
-//     // wahtsappResponse: response.data,
-//     data: {
-//       message: failedMessage,
-//     },
-//   });
-// });
+  res.status(200).json({
+    status: 'success',
+    // wahtsappResponse: response.data,
+    data: {
+      message: failedMessage,
+    },
+  });
+});
 
 exports.reactMessage = catchAsync(async (req, res, next) => {
   const reactedMessage = await Message.findById(req.params.messageID);
@@ -881,7 +813,9 @@ exports.reactMessage = catchAsync(async (req, res, next) => {
   const updatedMessage = await reactedMessage.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: chat._id });
+
+  req.app.io.endUser.emit('updatingEndUser');
 
   res.status(200).json({
     status: 'success',
@@ -923,29 +857,13 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   }
 
   // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findById(req.params.chatID);
 
-  let newChat;
   if (!chat) {
-    const userTeam = await Team.findById(req.user.team);
-    if (!userTeam) {
-      return next(
-        new AppError(
-          'the user sending the messages must belong to an existing team!',
-          400
-        )
-      );
-    }
-    newChat = await Chat.create({
-      client: req.params.chatNumber,
-      currentUser: req.user._id,
-      users: [req.user._id],
-      team: req.user.team,
-    });
+    return next(new AppError('No chat found by that ID!', 404));
   }
-  // console.log('chat', chat);
 
-  const selectedChat = chat || newChat;
+  const selectedChat = chat;
 
   const session = await Session.findById(selectedChat.lastSession);
 
@@ -957,11 +875,6 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       team: req.user.team,
       status: 'onTime',
     });
-
-    selectedChat.lastSession = newSession._id;
-    selectedChat.currentUser = req.user._id;
-    selectedChat.team = req.user.team;
-    await selectedChat.save();
 
     // =======> Create chat history session
     const chatHistoryData = {
@@ -1061,6 +974,20 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         type: component.type.toLowerCase(),
         parameters: parameters,
       });
+    } else if (component.type === 'BUTTONS') {
+      component.buttons.map((button, i) => {
+        if (button.example) {
+          const templateComponent = {};
+          templateComponent.type = 'button';
+          templateComponent.sub_type = 'url';
+          templateComponent.index = i;
+          templateComponent.parameters = [
+            { type: 'text', text: req.body.buttonVariable },
+          ];
+
+          whatsappPayload.template.components.push(templateComponent);
+        }
+      });
     }
   });
 
@@ -1079,6 +1006,10 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
       components: [],
     },
   };
+
+  if (selectedSession.secret === true) {
+    newMessageObj.secret = true;
+  }
 
   template.components.map((component) => {
     const templateComponent = { type: component.type };
@@ -1131,7 +1062,16 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
         }
       }
     } else if (component.type === 'BUTTONS') {
-      templateComponent.buttons = component.buttons;
+      const buttons = component.buttons.map((button) => {
+        if (button.example) {
+          const url = button.url.replace('{{1}}', req.body.buttonVariable);
+          return { ...button, url };
+        } else {
+          return button;
+        }
+      });
+
+      templateComponent.buttons = buttons;
     } else {
       templateComponent.text = component.text;
     }
@@ -1176,6 +1116,9 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   //********************************************************************************* */
   // Adding the sent message as last message in the chat and update chat status
   selectedChat.lastMessage = newMessage._id;
+  selectedChat.currentUser = req.user._id;
+  selectedChat.team = req.user.team;
+  selectedChat.lastSession = selectedSession._id;
   selectedChat.status = 'open';
   await selectedChat.save();
 
@@ -1186,7 +1129,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res, next) => {
   await selectedSession.save();
 
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',
@@ -1227,12 +1170,12 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   }
 
   // selecting chat that the message belongs to
-  const chat = await Chat.findOne({ client: req.params.chatNumber });
+  const chat = await Chat.findOne({ client: req.params.chatID }); // using chatID but it is chatNumber
 
   let newChat;
   if (!chat) {
     newChat = await Chat.create({
-      client: req.params.chatNumber,
+      client: req.params.chatID,
       status: 'archived',
       // currentUser: req.user._id,
       // users: [req.user._id],
@@ -1260,49 +1203,79 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
 
   template.components.map((component) => {
     if (component.example) {
-      let parameters =
-        component.format === 'DOCUMENT'
-          ? 'link'
-          : component.example[
-              `${component.type.toLowerCase()}_${
-                component.format ? component.format.toLowerCase() : 'text'
-              }`
-            ];
-      parameters = Array.isArray(parameters[0]) ? parameters[0] : parameters;
-      // console.log('parameters', parameters);
+      let parameters;
+      if (component.type === 'HEADER') {
+        // format = DOCUMENT / IMAGE / VIDEO / LOCATION
+        if (component.format !== 'TEXT') {
+          parameters = [{ type: component.format.toLowerCase() }];
+          parameters[0][component.format.toLowerCase()] = {
+            link: req.file
+              ? `${productionLink}/${req.file.filename}`
+              : req.body.link,
+          };
+          if (component.format === 'DOCUMENT') {
+            parameters[0].document = {
+              link: req.file
+                ? `${productionLink}/${req.file.filename}`
+                : req.body.link,
+              filename: req.file ? req.file.originalname : req.body.filename,
+            };
+          }
+        } else {
+          parameters = [];
+          let parametersValues =
+            component.example[`${component.type.toLowerCase()}_text`];
+          parametersValues = Array.isArray(parametersValues[0])
+            ? parametersValues[0]
+            : parametersValues;
+
+          parametersValues.map((el) => {
+            parameters.push({ type: 'text', text: req.body[el][0] });
+          });
+
+          parameters = parametersValues.map((el) => ({
+            type: 'text',
+            text: req.body[el],
+          }));
+        }
+      } else {
+        parameters = [];
+        let parametersValues =
+          component.example[`${component.type.toLowerCase()}_text`];
+        parametersValues = Array.isArray(parametersValues[0])
+          ? parametersValues[0]
+          : parametersValues;
+
+        parametersValues.map((el) => {
+          parameters.push({
+            type: 'text',
+            text: Array.isArray(req.body[el]) ? req.body[el][0] : req.body[el],
+          });
+        });
+
+        parameters = parametersValues.map((el) => ({
+          type: 'text',
+          text: req.body[el],
+        }));
+      }
 
       whatsappPayload.template.components.push({
-        type: component.type,
-        parameters:
-          component.format === 'DOCUMENT'
-            ? [
-                {
-                  type: 'document',
-                  document: {
-                    link: req.body.link,
-                    filename: req.body.filename,
-                  },
-                },
-              ]
-            : parameters.map((el) => {
-                let object = {
-                  type: component.format
-                    ? component.format.toLowerCase()
-                    : 'text',
-                };
-                if (component.format) {
-                  object[component.format.toLowerCase()] = {
-                    link: req.body.link,
-                  };
-                } else {
-                  object.text = req.body[`${el}`];
-                }
-                // return {
-                //   type: component.format ? component.format.toLowerCase() : 'text',
-                //   text: req.body[`${el}`],
-                // };
-                return object;
-              }),
+        type: component.type.toLowerCase(),
+        parameters: parameters,
+      });
+    } else if (component.type === 'BUTTONS') {
+      component.buttons.map((button, i) => {
+        if (button.example) {
+          const templateComponent = {};
+          templateComponent.type = 'button';
+          templateComponent.sub_type = 'url';
+          templateComponent.index = i;
+          templateComponent.parameters = [
+            { type: 'text', text: req.body.buttonVariable },
+          ];
+
+          whatsappPayload.template.components.push(templateComponent);
+        }
       });
     }
   });
@@ -1330,32 +1303,43 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
       templateComponent.format = component.format;
 
       if (component.example) {
-        if (component.format === 'DOCUMENT') {
-          templateComponent.document = { link: req.body.link };
-          if (req.body.filename)
-            templateComponent.document.filename = req.body.filename;
-        } else {
-          templateComponent[`${component.format.toLowerCase()}`] =
-            component[`${component.format.toLowerCase()}`];
+        const headerParameters = whatsappPayload.template.components.filter(
+          (comp) => comp.type === 'header'
+        )[0].parameters;
+        // console.log('headerParameters', headerParameters);
 
-          const headerParameters = whatsappPayload.template.components.filter(
-            (comp) => comp.type === 'HEADER'
-          )[0].parameters;
-          // console.log('headerParameters', headerParameters);
+        if (component.format === 'TEXT') {
+          templateComponent.text = component.text;
+
           for (let i = 0; i < headerParameters.length; i++) {
-            templateComponent[`${component.format.toLowerCase()}`] =
-              templateComponent[`${component.format.toLowerCase()}`].replace(
-                `{{${i + 1}}}`,
-                headerParameters[i][`${component.format.toLowerCase()}`]
-              );
+            templateComponent.text = templateComponent.text.replace(
+              `{{${i + 1}}}`,
+              headerParameters[i].text
+            );
+          }
+        } else {
+          templateComponent[`${component.format.toLowerCase()}`] = {
+            link: req.file
+              ? `${productionLink}/${req.file.filename}`
+              : req.body.filename,
+            // link: req.file.filename,
+          };
+          if (component.format === 'DOCUMENT') {
+            templateComponent.document = {
+              link: req.file ? req.file.filename : req.body.filename,
+              filename: req.file?.originalname,
+            };
           }
         }
+      } else {
+        templateComponent[`${component.format.toLowerCase()}`] =
+          component[`${component.format.toLowerCase()}`];
       }
     } else if (component.type === 'BODY') {
       templateComponent.text = component.text;
       if (component.example) {
         const bodyParameters = whatsappPayload.template.components.filter(
-          (comp) => comp.type === 'BODY'
+          (comp) => comp.type === 'body'
         )[0].parameters;
         // console.log('bodyParameters', bodyParameters);
         for (let i = 0; i < bodyParameters.length; i++) {
@@ -1366,12 +1350,20 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
         }
       }
     } else if (component.type === 'BUTTONS') {
-      templateComponent.buttons = component.buttons;
+      const buttons = component.buttons.map((button) => {
+        if (button.example) {
+          const url = button.url.replace('{{1}}', req.body.buttonVariable);
+          return { ...button, url };
+        } else {
+          return button;
+        }
+      });
+
+      templateComponent.buttons = buttons;
     } else {
       templateComponent.text = component.text;
     }
 
-    // console.log('templateComponent', templateComponent);
     newMessageObj.template.components.push(templateComponent);
   });
 
@@ -1411,9 +1403,12 @@ exports.sendMultiTemplateMessage = catchAsync(async (req, res, next) => {
   });
   // console.log('newMessage ===================', newMessage);
 
+  selectedChat.lastMessage = newMessage._id;
+  await selectedChat.save();
+
   //********************************************************************************* */
   //updating event in socket io
-  req.app.io.emit('updating');
+  req.app.io.emit('updating', { chatID: selectedChat._id });
 
   res.status(201).json({
     status: 'success',

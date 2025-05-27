@@ -18,7 +18,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Email is required!'],
       unique: [true, 'This email address already exist!'],
-      lowerCase: true,
       validate: [validator.isEmail, 'Invalid email!'],
     },
 
@@ -39,6 +38,35 @@ const userSchema = new mongoose.Schema(
       default: 'user',
     },
 
+    tasks: {
+      type: [
+        {
+          type: String,
+          enum: ['messages', 'tickets'],
+        },
+      ],
+      default: ['messages', 'tickets'],
+    },
+
+    ticketRequests: [
+      {
+        type: String,
+        enum: [
+          'RD0',
+          'Edit RD0',
+          'Missing Data',
+          'Design Review',
+          'RD6',
+          'RD7',
+          'Finance',
+          'Inspection',
+          'MALATH Issue',
+          'MALATH Complaint',
+          'Other',
+        ],
+      },
+    ],
+
     team: {
       type: mongoose.Schema.ObjectId,
       ref: 'Team',
@@ -53,6 +81,13 @@ const userSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: 'Chat',
+      },
+    ],
+
+    tickets: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Ticket',
       },
     ],
 
@@ -92,6 +127,27 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    creator: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+    },
+
+    phone: {
+      type: String,
+      required: [true, 'Whatsapp number is required!'],
+      match: [/\d{10,}/, 'Invalid whatsapp number!'],
+    },
+
+    otp: {
+      type: String,
+      select: false,
+    },
+
+    otpTimer: {
+      type: Date,
+      select: false,
+    },
+
     passwordChangedAt: {
       type: Date,
     },
@@ -105,6 +161,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       select: false,
+    },
+
+    superAdmin: {
+      type: Boolean,
+      default: false,
+    },
+
+    secret: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Session = require('../models/sessionModel');
 const Message = require('../models/messageModel');
+const Chat = require('../models/chatModel');
 
 const getCronExpression = (timer) => {
   const timerExpression = {
@@ -34,6 +35,7 @@ const updateTask = (
 
     if (
       session.timer &&
+      session.status !== 'finished' &&
       ((session.timer.getTime() === timer.getTime() && status === 'tooLate') ||
         (new Date(
           session.timer - delay * (1 - responseDangerTime)
@@ -45,7 +47,8 @@ const updateTask = (
       await session.save();
 
       //updating event in socket io
-      req.app.io.emit('updating');
+      const chat = await Chat.findById(session.chat);
+      req.app.io.emit('updating', { chatID: chat._id });
     }
   });
 };
@@ -53,7 +56,8 @@ const updateTask = (
 exports.scheduleDocumentUpdateTask = async (
   sessions,
   req,
-  responseDangerTime
+  responseDangerTime,
+  responseTime
 ) => {
   // console.log('sessions', sessions);
   const currentTime = new Date();
@@ -66,19 +70,25 @@ exports.scheduleDocumentUpdateTask = async (
       let session = await Session.findById(sessions[i]._id);
 
       if (session.timer) {
-        let lateTimer = session.timer;
-        let dangerTimer = new Date(
-          session.timer - delayArray[i] * (1 - responseDangerTime)
+        const lateTimer = session.timer;
+
+        const responseTimeInMelliSeconds =
+          (responseTime.hours * 60 + responseTime.minutes) * 60 * 1000;
+
+        const dangerTimer = new Date(
+          session.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
         );
 
         // console.log('session', session);
+        // console.log('lateTimer ============', lateTimer);
+        // console.log('dangerTimer ============', dangerTimer);
 
         updateTask(
           req,
           dangerTimer,
           sessions[i]._id,
           'danger',
-          delayArray[i],
+          responseTimeInMelliSeconds,
           responseDangerTime
         );
         updateTask(
@@ -86,7 +96,7 @@ exports.scheduleDocumentUpdateTask = async (
           lateTimer,
           sessions[i]._id,
           'tooLate',
-          delayArray[i],
+          responseTimeInMelliSeconds,
           responseDangerTime
         );
       }
@@ -108,7 +118,10 @@ const updatePerfromance = (status, timer, req, message) => {
       lastUserMessage = await Message.findById(session.lastUserMessage);
     }
 
-    if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
+    if (
+      session.status !== 'finished' &&
+      (!lastUserMessage || message.createdAt > lastUserMessage.createdAt)
+    ) {
       const updatedSession = await Session.findById(session._id);
       if (status === 'danger') {
         const dangerSession = await Session.findByIdAndUpdate(
@@ -144,52 +157,32 @@ const updatePerfromance = (status, timer, req, message) => {
     }
   });
 };
-// const updatePerfromance = (req, message) => {
-//   const cronExpression = getCronExpression(message.timer);
-//   // console.log('cronExpression', cronExpression);
 
-//   cron.schedule(cronExpression, async () => {
-//     // console.log('message ===========', message);
-
-//     const session = await Session.findById(message.session);
-//     let lastUserMessage;
-
-//     if (session.lastUserMessage) {
-//       lastUserMessage = await Message.findById(session.lastUserMessage);
-//     }
-
-//     if (!lastUserMessage || message.createdAt > lastUserMessage.createdAt) {
-//       const updatedSession = await Session.findById(session._id);
-//       const testSession = await Session.findByIdAndUpdate(
-//         session._id,
-//         {
-//           $set: { 'performance.onTime': updatedSession.performance.onTime - 1 },
-//         },
-//         { new: true, runValidators: true }
-//       );
-//       // console.log('testSession ===========', testSession);
-//     }
-//   });
-// };
-
-exports.schedulePerformance = async (req, message, responseDangerTime) => {
+exports.schedulePerformance = async (
+  req,
+  message,
+  responseDangerTime,
+  responseTime
+) => {
   const currentTime = new Date();
 
   const delay = message.timer - currentTime;
 
   if (delay > 0) {
-    let lateTimer = message.timer;
-    let dangerTimer = new Date(
-      message.timer - delay * (1 - responseDangerTime)
+    const lateTimer = message.timer;
+
+    const responseTimeInMelliSeconds =
+      (responseTime.hours * 60 + responseTime.minutes) * 60 * 1000;
+
+    const dangerTimer = new Date(
+      message.timer - (1 - responseDangerTime) * responseTimeInMelliSeconds
     );
 
     // console.log('session', session);
-    console.log('lateTimer ============', lateTimer);
-    console.log('dangerTimer ============', dangerTimer);
+    // console.log('lateTimer ============', lateTimer);
+    // console.log('dangerTimer ============', dangerTimer);
 
     updatePerfromance('danger', dangerTimer, req, message);
     updatePerfromance('tooLate', lateTimer, req, message);
   }
-
-  // updatePerfromance(req, message, session);
 };

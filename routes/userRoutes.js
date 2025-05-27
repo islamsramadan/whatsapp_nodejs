@@ -4,9 +4,11 @@ const authController = require('./../controllers/authController');
 
 const router = express.Router();
 
-router.post('/signup', authController.signup);
+// router.post('/signup', authController.signup);
 
 router.post('/login', authController.login);
+
+router.post('/otp', authController.verifyOTP);
 
 router.patch(
   '/updateMyPassword',
@@ -32,7 +34,11 @@ router
 
 router
   .route('/:userID')
-  .get(authController.protect, userController.getUser)
+  .get(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.getUser
+  )
   .patch(
     authController.protect,
     authController.restrictTo('admin'),
@@ -42,6 +48,22 @@ router
     authController.protect,
     authController.restrictTo('admin'),
     userController.deleteUser
+  );
+
+router
+  .route('/status/:userID')
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.updateUserStatus
+  );
+
+router
+  .route('/recovery/:userID')
+  .patch(
+    authController.protect,
+    authController.restrictTo('admin'),
+    userController.recoverUser
   );
 
 module.exports = router;
