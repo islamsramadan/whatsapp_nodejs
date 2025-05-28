@@ -93,7 +93,7 @@ exports.uploadMultiFiles = upload.array('files');
 
 exports.getAllChatMessages = catchAsync(async (req, res, next) => {
   const chat = await Chat.findById(req.params.chatID)
-    .populate('contactName', 'name')
+    .populate('contactName', 'name number')
     .populate('endUser', 'name phone nationalID')
     .populate('lastSession', 'status secret');
 

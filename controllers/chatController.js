@@ -20,7 +20,7 @@ exports.getAllChats = catchAsync(async (req, res, next) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
-    .populate('contactName', 'name')
+    .populate('contactName', 'name number')
     .populate('endUser', 'name phone nationalID')
     .lean();
 
@@ -61,7 +61,7 @@ exports.getAllUserChats = catchAsync(async (req, res, next) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
-    .populate('contactName', 'name')
+    .populate('contactName', 'name number')
     .populate('endUser', 'name phone nationalID')
     .lean();
 
@@ -113,7 +113,7 @@ exports.getAllTeamChats = catchAsync(async (req, res, next) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
-    .populate('contactName', 'name')
+    .populate('contactName', 'name number')
     .populate('endUser', 'name phone nationalID')
     .lean();
 
@@ -152,7 +152,7 @@ exports.getAllTeamUserChats = catchAsync(async (req, res, next) => {
     .sort('-updatedAt')
     .populate('lastMessage')
     .populate('lastSession', 'status secret')
-    .populate('contactName', 'name')
+    .populate('contactName', 'name number')
     .populate('endUser', 'name phone nationalID')
     .lean();
 
@@ -214,7 +214,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
-      .populate('contactName', 'name')
+      .populate('contactName', 'name number')
       .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
@@ -259,7 +259,7 @@ exports.getAllArchivedChats = catchAsync(async (req, res, next) => {
       .sort('-updatedAt')
       .populate('lastMessage')
       .populate('lastSession', 'status secret')
-      .populate('contactName', 'name')
+      .populate('contactName', 'name number')
       .populate('endUser', 'name phone nationalID')
       .limit(page * 10)
       .lean();
