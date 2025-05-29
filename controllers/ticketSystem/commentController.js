@@ -77,10 +77,9 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
     );
   }
 
-  const comments = await Comment.find({ ticket: req.params.ticketID }).populate(
-    'user',
-    'firstName lastName photo'
-  );
+  const comments = await Comment.find({ ticket: req.params.ticketID })
+    .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID');
 
   res.status(200).json({
     status: 'success',
@@ -92,10 +91,9 @@ exports.getAllTicketComments = catchAsync(async (req, res, next) => {
 });
 
 exports.getComment = catchAsync(async (req, res, next) => {
-  const comment = await Comment.findById(req.params.commentID).populate(
-    'user',
-    'firstName lastName photo'
-  );
+  const comment = await Comment.findById(req.params.commentID)
+    .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID');
 
   if (!comment) {
     return next(new AppError('No comment found with that ID', 404));

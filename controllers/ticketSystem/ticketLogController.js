@@ -5,6 +5,7 @@ exports.getAllTicketLogs = catchAsync(async (req, res, next) => {
   const logs = await TicketLog.find({ ticket: req.params.ticketID })
     .populate('ticket', 'order')
     .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('assignee', 'firstName lastName photo')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')

@@ -84,6 +84,7 @@ exports.getAllTicketsList = async (data) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('solvingUser', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .select('-questions -client -users -type')
@@ -171,6 +172,7 @@ exports.getAllUserTicketsList = async (data, user) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('solvingUser', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .select('-questions -client -users -type')
@@ -350,6 +352,7 @@ exports.getAllTeamTickets = async (teamsIDs, status, ticketPage) => {
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .limit(page * 10);
@@ -418,6 +421,7 @@ exports.getAllUserTickets = async (user, status, ticketPage) => {
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .limit(page * 10);
@@ -459,6 +463,7 @@ exports.getAllTeamUserTickets = async (teamUserID, ticketPage) => {
     .select('-updatedAt -questions -users -solvingTime -form')
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .populate('status', 'name category')
@@ -481,6 +486,7 @@ exports.getTicket = async (ticketID) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('solvingUser', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category')
     .populate('form', 'name')
@@ -490,14 +496,14 @@ exports.getTicket = async (ticketID) => {
       populate: { path: 'type', select: 'name value description' },
     });
 
-  const comments = await Comment.find({ ticket: ticketID }).populate(
-    'user',
-    'firstName lastName photo'
-  );
+  const comments = await Comment.find({ ticket: ticketID })
+    .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID');
 
   const ticketLogs = await TicketLog.find({ ticket: ticketID })
     .populate('ticket', 'order')
     .populate('user', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('assignee', 'firstName lastName photo')
     .populate('transfer.from.user', 'firstName lastName photo')
     .populate('transfer.to.user', 'firstName lastName photo')
@@ -514,6 +520,7 @@ exports.getTicket = async (ticketID) => {
     .populate('creator', 'firstName lastName photo')
     .populate('assignee', 'firstName lastName photo')
     .populate('solvingUser', 'firstName lastName photo')
+    .populate('endUser', 'name phone nationalID')
     .populate('team', 'name')
     .populate('status', 'name category');
 
